@@ -200,17 +200,21 @@ function hello() {
       const graph = parser.parse(markdown, 'nested.md');
 
       // Find key tasks
-      const phase1 = graph.getAllNodes().find(n => n.content === 'Phase 1')!;
-      const step1 = graph.getAllNodes().find(n => n.content === 'Step 1')!;
-      const subtaskA = graph.getAllNodes().find(n => n.content === 'Subtask A')!;
+      const phase1 = graph.searchNodes('Phase 1')[0];
+      const phase2 = graph.searchNodes('Phase 2')[0];
+      const step1 = graph.searchNodes('Step 1')[0];
+      const subtaskA = graph.searchNodes('Subtask A')[0];
 
-      // Phase 1 should depend on Step 1 and Step 2
+      // Phase 1 should depend on Step 1 and Step 2, but not on Sutbtask A or Phase 2
       const phase1Dependencies = graph.getRelatedNodes(phase1.id, RelationType.DependsOn);
       expect(phase1Dependencies).toContainEqual(expect.objectContaining({ id: step1.id }));
+      expect(phase1Dependencies).not.toContainEqual(expect.objectContaining({ id: subtaskA.id }));
+      expect(phase1Dependencies).not.toContainEqual(expect.objectContaining({ id: phase2.id }));
 
       // Step 1 should depend on Subtask A and Subtask B
       const step1Dependencies = graph.getRelatedNodes(step1.id, RelationType.DependsOn);
       expect(step1Dependencies).toContainEqual(expect.objectContaining({ id: subtaskA.id }));
+
 
       // Verify the dependency chain is correct (transitive dependencies not created by default)
       const project = graph.getAllNodes().find(
