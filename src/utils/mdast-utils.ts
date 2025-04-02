@@ -1,4 +1,4 @@
-import { Node, Text } from 'mdast';
+import { Node, Text, ListItem } from 'mdast';
 import { visit, EXIT } from 'unist-util-visit';
 
 
@@ -17,4 +17,14 @@ export function extractInnerText(node: Node, recursive: boolean = true): string 
     }
   });
   return content;
+}
+
+
+/**
+ * Check if a list item is a task item
+ * TODO replace with remark-custom-tasks plugin
+ */
+export function isTaskListItem(item: ListItem): boolean {
+  const textContent = extractInnerText(item, false);
+  return textContent.match(/^\s*\[[x ./\-!]\]\s*/) !== null;
 }

@@ -20,7 +20,7 @@ import {
   GenericNode
 } from '@/core/node';
 import { generateNodeId } from '@/utils/id-utils';
-import { extractInnerText } from '@/utils/mdast-utils';
+import { extractInnerText, isTaskListItem } from '@/utils/mdast-utils';
 /**
  * Parser that converts Markdown content into a Cannonball graph
  */
@@ -95,7 +95,7 @@ export class MarkdownParser {
           break;
 
         case 'listItem':
-          if (this.isTaskListItem(node as ListItem)) {
+          if (isTaskListItem(node as ListItem)) {
             graphNode = this.processTaskItem(node as ListItem, filePath, graph, containerStack, indentLevel);
           } else {
             graphNode = this.processBulletItem(node as ListItem, filePath, graph, containerStack, indentLevel);
@@ -471,21 +471,7 @@ export class MarkdownParser {
   //   return content || `[${node.type}]`;
   // }
 
-  /**
-   * Check if a list item is a task item
-   * TODO replace with remark-custom-tasks plugin
-   */
-  private isTaskListItem(item: ListItem): boolean {
-    let isTask = false;
 
-    visit(item, 'text', (textNode: Text) => {
-      if (textNode.value.match(/^\s*\[[x ./\-!]\]\s*/)) {
-        isTask = true;
-      }
-    });
-
-    return isTask;
-  }
 
   /**
    * Get the state of a task list item
