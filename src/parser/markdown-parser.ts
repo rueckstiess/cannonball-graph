@@ -3,7 +3,7 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { Root, Node, Heading, ListItem, Paragraph, Code } from 'mdast';
 import { visitParents, SKIP } from 'unist-util-visit-parents';
-import { inspect } from 'unist-util-inspect';
+// import { inspect } from 'unist-util-inspect';
 
 import { CannonballGraph } from '@/core/graph';
 import { NodeType, RelationType } from '@/core/types';
@@ -33,7 +33,7 @@ export class MarkdownParser {
   parse(markdown: string, filePath: string): CannonballGraph {
     // Parse the markdown into an AST
     const ast = unified().use(remarkParse).parse(markdown);
-    console.log(inspect(ast));
+    // console.log(inspect(ast));
 
     // Create a new graph
     const graph = new CannonballGraph();

@@ -27,11 +27,11 @@ export {
 
 // Export parser and serializer
 export { MarkdownParser } from './parser/markdown-parser';
-export {
-  MarkdownSerializer,
-  type SerializationOptions,
-  type SerializationResult
-} from './parser/markdown-serializer';
+// export {
+//   MarkdownSerializer,
+//   type SerializationOptions,
+//   type SerializationResult
+// } from './parser/markdown-serializer';
 
 // Export utilities
 export { generateNodeId, parseNodeId, isNodeInFile } from './utils/id-utils';
