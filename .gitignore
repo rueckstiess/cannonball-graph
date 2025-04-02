@@ -16,7 +16,6 @@ out/
 .pnp.*
 
 # Compiled JavaScript files
-*.js
 *.js.map
 !rollup.config.js
 !jest.config.js
