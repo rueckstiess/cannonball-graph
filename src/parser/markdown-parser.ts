@@ -572,7 +572,7 @@ export class MarkdownParser {
             relation: RelationType.DependsOn,
             metadata: {}
           });
-        } catch (error) {
+        } catch {
           // Edge might already exist, that's fine
         }
       }
@@ -611,7 +611,7 @@ export class MarkdownParser {
                 relation: RelationType.DependsOn,
                 metadata: { throughCategory: true }
               });
-            } catch (error) {
+            } catch {
               // Edge might already exist, that's fine
             }
           }
@@ -676,7 +676,7 @@ export class MarkdownParser {
                   relation: RelationType.DependsOn,
                   metadata: { transitive: true }
                 });
-              } catch (error) {
+              } catch {
                 // Edge might already exist, that's fine
               }
             }
