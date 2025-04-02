@@ -1,6 +1,6 @@
 import { Node, Text, ListItem } from 'mdast';
 import { visit, EXIT } from 'unist-util-visit';
-
+import { TaskState } from '@/core/types';
 
 /**
  * 
@@ -27,4 +27,47 @@ export function extractInnerText(node: Node, recursive: boolean = true): string 
 export function isTaskListItem(item: ListItem): boolean {
   const textContent = extractInnerText(item, false);
   return textContent.match(/^\s*\[[x ./\-!]\]\s*/) !== null;
+}
+
+
+/**
+ * Calculate the indent level of a node based on its ancestors
+ */
+export function calculateIndentLevel(node: Node, ancestors: Node[]): number {
+  if (node.type !== 'listItem') return 0;
+
+  // Count the number of nested list items
+  return ancestors.filter(ancestor => ancestor.type === 'listItem').length;
+}
+
+
+/**
+ * Get the state of a task list item
+ */
+export function getTaskState(item: ListItem): TaskState {
+  let state = TaskState.Open;
+
+  const textContent = extractInnerText(item, false);
+
+  const match = textContent.match(/^\s*\[([x ./\-!])\]\s*/);
+  if (match) {
+    switch (match[1]) {
+      case 'x':
+        state = TaskState.Complete;
+        break;
+      case '/':
+        state = TaskState.InProgress;
+        break;
+      case '-':
+        state = TaskState.Cancelled;
+        break;
+      case '!':
+        state = TaskState.Blocked;
+        break;
+      default:
+        state = TaskState.Open;
+    }
+  }
+
+  return state;
 }

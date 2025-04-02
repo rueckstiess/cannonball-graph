@@ -9,3 +9,12 @@ export function slugify(str: string): string {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "");
 }
+
+
+// Helper to normalize markdown for comparison
+export function normalizeMarkdown(markdown: string): string {
+  return markdown
+    .replace(/\s+/g, ' ')
+    .replace(/\s+$/gm, '')
+    .trim();
+}

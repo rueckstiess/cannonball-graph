@@ -1,8 +1,8 @@
-// __test__/parser/markdown-serializer.test.ts
 import { MarkdownParser } from '@/parser/markdown-parser';
 import { MarkdownSerializer, SerializationOptions } from '@/parser/markdown-serializer';
-import { CannonballGraph } from '@/core/graph';
+import { normalizeMarkdown } from '@/utils/string-utils';
 
+// skip this suite until the serializer is implemented
 describe('MarkdownSerializer', () => {
   let parser: MarkdownParser;
   let serializer: MarkdownSerializer;
@@ -184,8 +184,8 @@ def test():
       const roundTripMarkdown = result.files.get('document.md')!;
 
       // Generate normalized versions for comparison (ignore whitespace differences)
-      const normalizedOriginal = this.normalizeMarkdown(originalMarkdown);
-      const normalizedRoundTrip = this.normalizeMarkdown(roundTripMarkdown);
+      // const normalizedOriginal = normalizeMarkdown(originalMarkdown);
+      const normalizedRoundTrip = normalizeMarkdown(roundTripMarkdown);
 
       // Core structures should be preserved
       expect(normalizedRoundTrip).toContain('# Heading 1');
@@ -197,12 +197,4 @@ def test():
       expect(normalizedRoundTrip).toContain('def test():');
     });
   });
-
-  // Helper to normalize markdown for comparison
-  normalizeMarkdown(markdown: string): string {
-    return markdown
-      .replace(/\s+/g, ' ')
-      .replace(/\s+$/gm, '')
-      .trim();
-  }
 });

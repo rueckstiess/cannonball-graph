@@ -1,13 +1,12 @@
 // src/parser/markdown-parser.ts
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
-import { Root, Node, Heading, ListItem, Paragraph, Text, Code } from 'mdast';
-import { visit } from 'unist-util-visit';
-import { visitParents, SKIP, EXIT } from 'unist-util-visit-parents';
+import { Root, Node, Heading, ListItem, Paragraph, Code } from 'mdast';
+import { visitParents, SKIP } from 'unist-util-visit-parents';
 import { inspect } from 'unist-util-inspect';
 
 import { CannonballGraph } from '@/core/graph';
-import { NodeType, RelationType, TaskState } from '@/core/types';
+import { NodeType, RelationType } from '@/core/types';
 import {
   BaseNode,
   ContainerNode,
@@ -20,7 +19,7 @@ import {
   GenericNode
 } from '@/core/node';
 import { generateNodeId } from '@/utils/id-utils';
-import { extractInnerText, isTaskListItem } from '@/utils/mdast-utils';
+import { extractInnerText, isTaskListItem, calculateIndentLevel, getTaskState } from '@/utils/mdast-utils';
 /**
  * Parser that converts Markdown content into a Cannonball graph
  */
@@ -82,7 +81,7 @@ export class MarkdownParser {
       let graphNode: BaseNode | null = null;
 
       // Calculate the current indentation level based on ancestors
-      const indentLevel = this.calculateIndentLevel(node, ancestors);
+      const indentLevel = calculateIndentLevel(node, ancestors);
 
       switch (node.type) {
         case 'heading':
@@ -131,24 +130,13 @@ export class MarkdownParser {
       // Store the association between AST node and graph node
       if (graphNode) {
         nodeMap.set(node, graphNode);
-        if (graphNode.type === NodeType.Section ||
-          graphNode.type === NodeType.CodeBlock ||
-          graphNode.type === NodeType.Paragraph) {
+        if (graphNode.type in [NodeType.Section, NodeType.CodeBlock, NodeType.Paragraph]) {
           return SKIP;
         }
       }
     });
   }
 
-  /**
-   * Calculate the indent level of a node based on its ancestors
-   */
-  private calculateIndentLevel(node: Node, ancestors: Node[]): number {
-    if (node.type !== 'listItem') return 0;
-
-    // Count the number of nested list items
-    return ancestors.filter(ancestor => ancestor.type === 'listItem').length;
-  }
 
   /**
    * Process a heading node and create a section
@@ -226,7 +214,7 @@ export class MarkdownParser {
     indentLevel: number
   ): BaseNode {
     // Extract content and task state
-    const taskState = this.getTaskState(item);
+    const taskState = getTaskState(item);
 
     // Extract task content
     let content = extractInnerText(item, false);
@@ -433,7 +421,7 @@ export class MarkdownParser {
       generateNodeId(filePath, {
         identifier: `${node.type}-${(node.position?.start.line ?? 0)}`
       }),
-      extractInnerText(node, true),
+      extractInnerText(node, true) || `[${node.type}]`,
       {
         nodeType: node.type,
         position: node.position,
@@ -455,55 +443,7 @@ export class MarkdownParser {
     return genericNode;
   }
 
-  /**
-   * Extract content from an arbitrary AST node
-   */
-  // private extractNodeContent(node: Node): string {
-  //   if ('value' in node && typeof node.value === 'string') {
-  //     return node.value;
-  //   }
 
-  //   let content = '';
-  //   visit(node, 'text', (textNode: Text) => {
-  //     content += textNode.value;
-  //   });
-  //   console.log("NodeContent", content)
-  //   return content || `[${node.type}]`;
-  // }
-
-
-
-  /**
-   * Get the state of a task list item
-   */
-  private getTaskState(item: ListItem): TaskState {
-    let state = TaskState.Open;
-
-    visit(item, 'text', (textNode: Text) => {
-      const match = textNode.value.match(/^\s*\[([x ./\-!])\]\s*/);
-      if (match) {
-        switch (match[1]) {
-          case 'x':
-            state = TaskState.Complete;
-            break;
-          case '/':
-            state = TaskState.InProgress;
-            break;
-          case '-':
-            state = TaskState.Cancelled;
-            break;
-          case '!':
-            state = TaskState.Blocked;
-            break;
-          default:
-            state = TaskState.Open;
-        }
-      }
-      return EXIT;
-    });
-
-    return state;
-  }
 
   /**
    * Process semantic relationships in the graph
