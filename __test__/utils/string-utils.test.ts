@@ -1,4 +1,4 @@
-import { capitalize, slugify } from '../../src/utils/string-utils';
+import { capitalize, slugify } from '@/utils/string-utils';
 
 describe('String utilities', () => {
   describe('capitalize', () => {
