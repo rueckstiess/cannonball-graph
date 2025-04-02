@@ -4,8 +4,10 @@ import remarkParse from 'remark-parse';
 import { Root, Node, Heading, ListItem, Paragraph, Text, Code } from 'mdast';
 import { visit } from 'unist-util-visit';
 import { visitParents, SKIP, EXIT } from 'unist-util-visit-parents';
-import { CannonballGraph } from '../core/graph';
-import { NodeType, RelationType, TaskState } from '../core/types';
+import { inspect } from 'unist-util-inspect';
+
+import { CannonballGraph } from '@/core/graph';
+import { NodeType, RelationType, TaskState } from '@/core/types';
 import {
   BaseNode,
   ContainerNode,
@@ -16,9 +18,9 @@ import {
   ParagraphNode,
   CodeBlockNode,
   GenericNode
-} from '../core/node';
-import { generateNodeId } from '../utils/id-utils';
-
+} from '@/core/node';
+import { generateNodeId } from '@/utils/id-utils';
+import { extractInnerText } from '@/utils/mdast-utils';
 /**
  * Parser that converts Markdown content into a Cannonball graph
  */
@@ -32,6 +34,7 @@ export class MarkdownParser {
   parse(markdown: string, filePath: string): CannonballGraph {
     // Parse the markdown into an AST
     const ast = unified().use(remarkParse).parse(markdown);
+    console.log(inspect(ast));
 
     // Create a new graph
     const graph = new CannonballGraph();
@@ -144,13 +147,7 @@ export class MarkdownParser {
     if (node.type !== 'listItem') return 0;
 
     // Count the number of nested list items
-    let level = 0;
-    for (const ancestor of ancestors) {
-      if (ancestor.type === 'listItem') {
-        level++;
-      }
-    }
-    return level;
+    return ancestors.filter(ancestor => ancestor.type === 'listItem').length;
   }
 
   /**
@@ -162,13 +159,9 @@ export class MarkdownParser {
     graph: CannonballGraph,
     containerStack: ContainerNode[]
   ): BaseNode {
-    // Extract heading text
-    let headingText = '';
-    visit(heading, 'text', (textNode: Text) => {
-      headingText += textNode.value;
-    });
 
     // Create the section node
+    const headingText = extractInnerText(heading, false);
     const sectionNode = new SectionNode(
       generateNodeId(filePath, { heading: headingText }),
       headingText,
@@ -236,11 +229,7 @@ export class MarkdownParser {
     const taskState = this.getTaskState(item);
 
     // Extract task content
-    let content = '';
-    visit(item, 'text', (textNode: Text) => {
-      content += textNode.value;
-      return EXIT;
-    });
+    let content = extractInnerText(item, false);
 
     // Strip task marker from content
     content = content.replace(/^\s*\[[x ./\-!]\]\s*/, '');
@@ -293,11 +282,6 @@ export class MarkdownParser {
     containerStack: ContainerNode[],
     indentLevel: number
   ): BaseNode {
-    // Extract bullet content
-    let content = '';
-    visit(item, 'text', (textNode: Text) => {
-      content += textNode.value;
-    });
 
     // Generate a position-based ID for the bullet
     const listPosition = item.position ?
@@ -307,7 +291,7 @@ export class MarkdownParser {
     // Create the bullet node
     const bulletNode = new BulletNode(
       generateNodeId(filePath, { listPosition }),
-      content,
+      extractInnerText(item, false),
       indentLevel,
       {
         position: item.position,
@@ -367,18 +351,13 @@ export class MarkdownParser {
     graph: CannonballGraph,
     containerStack: ContainerNode[]
   ): BaseNode {
-    // Extract text
-    let content = '';
-    visit(paragraph, 'text', (textNode: Text) => {
-      content += textNode.value;
-    });
 
     // Create node
     const paragraphNode = new ParagraphNode(
       generateNodeId(filePath, {
         identifier: `p-${(paragraph.position?.start.line ?? 0)}`
       }),
-      content,
+      extractInnerText(paragraph, false),
       {
         position: paragraph.position,
         filePath
@@ -454,7 +433,7 @@ export class MarkdownParser {
       generateNodeId(filePath, {
         identifier: `${node.type}-${(node.position?.start.line ?? 0)}`
       }),
-      this.extractNodeContent(node),
+      extractInnerText(node, true),
       {
         nodeType: node.type,
         position: node.position,
@@ -479,21 +458,22 @@ export class MarkdownParser {
   /**
    * Extract content from an arbitrary AST node
    */
-  private extractNodeContent(node: Node): string {
-    if ('value' in node && typeof node.value === 'string') {
-      return node.value;
-    }
+  // private extractNodeContent(node: Node): string {
+  //   if ('value' in node && typeof node.value === 'string') {
+  //     return node.value;
+  //   }
 
-    let content = '';
-    visit(node, 'text', (textNode: Text) => {
-      content += textNode.value;
-    });
-
-    return content || `[${node.type}]`;
-  }
+  //   let content = '';
+  //   visit(node, 'text', (textNode: Text) => {
+  //     content += textNode.value;
+  //   });
+  //   console.log("NodeContent", content)
+  //   return content || `[${node.type}]`;
+  // }
 
   /**
    * Check if a list item is a task item
+   * TODO replace with remark-custom-tasks plugin
    */
   private isTaskListItem(item: ListItem): boolean {
     let isTask = false;
