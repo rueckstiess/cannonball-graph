@@ -485,7 +485,7 @@ export class MarkdownParser {
     }
 
     // Process deep dependencies (transitive relationships)
-    this.processDeepTaskDependencies(graph);
+    // this.processDeepTaskDependencies(graph);
   }
 
   /**
@@ -546,49 +546,5 @@ export class MarkdownParser {
     }
 
     return tasks;
-  }
-
-  /**
-   * Process task dependencies that span multiple levels
-   * This ensures that a task depends on all subtasks at any level of nesting
-   */
-  private processDeepTaskDependencies(graph: CannonballGraph): void {
-    // Get all task nodes
-    const taskNodes = graph.findNodesByType(NodeType.Task);
-
-    // For each task, find all descendant tasks and create dependencies
-    for (const task of taskNodes) {
-      // See if this task already has dependencies
-      const directDependencies = graph.getRelatedNodes(task.id, RelationType.DependsOn);
-
-      // If it has no dependencies, no need to process further
-      if (directDependencies.length === 0) {
-        continue;
-      }
-
-      // Process each direct dependency to find deeper dependencies
-      for (const dependency of directDependencies) {
-        if (dependency.type === NodeType.Task) {
-          // Find all tasks that this dependency depends on
-          const deeperDependencies = graph.getRelatedNodes(dependency.id, RelationType.DependsOn);
-
-          // Create direct dependencies to these deeper tasks
-          for (const deepDependency of deeperDependencies) {
-            if (deepDependency.id !== task.id) {
-              try {
-                graph.addEdge({
-                  source: task.id,
-                  target: deepDependency.id,
-                  relation: RelationType.DependsOn,
-                  metadata: { transitive: true }
-                });
-              } catch {
-                // Edge might already exist, that's fine
-              }
-            }
-          }
-        }
-      }
-    }
   }
 }
