@@ -14,8 +14,8 @@
     "lint": "eslint 'src/**/*.{js,ts}'",
     "format": "prettier --write 'src/**/*.{js,ts}'",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
     "prepublishOnly": "npm run build"
   },
   "keywords": [],
@@ -39,6 +39,14 @@
     "rollup-plugin-typescript2": "^0.36.0",
     "ts-jest": "^29.3.1",
     "typescript": "^5.8.2",
-    "typescript-eslint": "^8.29.0"
+    "typescript-eslint": "^8.29.0",
+    "unist-util-inspect": "^8.1.0"
+  },
+  "dependencies": {
+    "mdast": "^2.3.2",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "unist-util-visit-parents": "^6.0.1"
   }
 }
