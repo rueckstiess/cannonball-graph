@@ -4,12 +4,14 @@
  */
 export enum NodeType {
   Generic = 'generic',
+  Paragraph = 'paragraph',
   Container = 'container',
   Task = 'task',
   Bullet = 'bullet',
   Note = 'note',
   Section = 'section',
   DailyNote = 'daily_note',
+  CodeBlock = 'code_block',
 }
 
 /**

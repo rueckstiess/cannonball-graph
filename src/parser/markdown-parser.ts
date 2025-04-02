@@ -3,11 +3,12 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { Root, Node, Heading, ListItem, Paragraph, Text, Code } from 'mdast';
 import { visit } from 'unist-util-visit';
-import { visitParents, SKIP } from 'unist-util-visit-parents';
+import { visitParents, SKIP, EXIT } from 'unist-util-visit-parents';
 import { CannonballGraph } from '../core/graph';
 import { NodeType, RelationType, Node as GraphNode, TaskState } from '../core/types';
 import { generateNodeId } from '../utils/id-utils';
 import { inspect } from 'unist-util-inspect';
+
 /**
  * Parser that converts Markdown content into a Cannonball graph
  */
@@ -56,6 +57,10 @@ export class MarkdownParser {
 
     graph.addNode(rootNode);
 
+    // Section stack to track the current section context
+    // The stack always starts with the root note node
+    const sectionStack: GraphNode[] = [rootNode];
+
     // Create a map to store associations between AST nodes and graph nodes
     const nodeMap = new Map<Node, GraphNode>();
 
@@ -68,7 +73,7 @@ export class MarkdownParser {
 
       switch (node.type) {
         case 'heading':
-          graphNode = this.processHeading(node as Heading, filePath, graph, rootNode.id);
+          graphNode = this.processHeading(node as Heading, filePath, graph, sectionStack);
           break;
 
         case 'list':
@@ -78,25 +83,24 @@ export class MarkdownParser {
 
         case 'listItem':
           if (this.isTaskListItem(node as ListItem)) {
-            graphNode = this.processTaskItem(node as ListItem, filePath, graph);
+            graphNode = this.processTaskItem(node as ListItem, filePath, graph, sectionStack);
           } else {
-            graphNode = this.processBulletItem(node as ListItem, filePath, graph);
+            graphNode = this.processBulletItem(node as ListItem, filePath, graph, sectionStack);
           }
           break;
 
         case 'paragraph':
-          // Only create paragraph nodes for top-level paragraphs
-          // (not inside listItems, where they're just the content)
+          // Only create paragraph nodes for paragraphs not inside listItems
           {
             const parentAst = ancestors[ancestors.length - 1] as Node;
             if (parentAst && parentAst.type !== 'listItem') {
-              graphNode = this.processParagraph(node as Paragraph, filePath, graph);
+              graphNode = this.processParagraph(node as Paragraph, filePath, graph, sectionStack);
             }
           }
           break;
 
         case 'code':
-          graphNode = this.processCode(node as Code, filePath, graph);
+          graphNode = this.processCodeBlock(node as Code, filePath, graph, sectionStack);
           break;
 
         case 'root':
@@ -106,7 +110,7 @@ export class MarkdownParser {
         default:
           // Other node types if they're not already handled as part of another node
           if (!['text', 'emphasis', 'strong', 'link', 'inlineCode'].includes(node.type)) {
-            graphNode = this.processGenericNode(node, filePath, graph);
+            graphNode = this.processGenericNode(node, filePath, graph, sectionStack);
           }
           break;
       }
@@ -114,11 +118,14 @@ export class MarkdownParser {
       // Store the association between AST node and graph node
       if (graphNode) {
         nodeMap.set(node, graphNode);
-        return SKIP;
+        if (graphNode.type in [NodeType.Section, NodeType.CodeBlock, NodeType.Paragraph]) {
+          return SKIP;
+        }
       }
     });
 
-    // Second pass: Create relationships
+    // Second pass: Create parent-child relationships for nested structures
+    // This handles relationships beyond the section containment that's already been set up
     visitParents(ast, (node: Node, ancestors) => {
       // Skip nodes that don't have graph representations
       if (!nodeMap.has(node)) {
@@ -127,41 +134,36 @@ export class MarkdownParser {
 
       const graphNode = nodeMap.get(node)!;
 
-      // Find the parent node in the graph
-      let parentNode: GraphNode | undefined;
+      // For list items, find their parent list item (if any)
+      if ((node.type === 'listItem') && ancestors.length >= 2) {
+        // Look for the nearest list item ancestor
+        for (let i = ancestors.length - 1; i >= 0; i--) {
+          const ancestor = ancestors[i] as Node;
+          if (ancestor.type === 'listItem' && nodeMap.has(ancestor)) {
+            const parentListItem = nodeMap.get(ancestor)!;
 
-      // Look through ancestors in reverse order to find the nearest ancestor with a graph node
-      for (let i = ancestors.length - 1; i >= 0; i--) {
-        const ancestor = ancestors[i];
-        if (nodeMap.has(ancestor)) {
-          parentNode = nodeMap.get(ancestor);
-          break;
+            // Create the containment relationship
+            graph.addEdge({
+              source: parentListItem.id,
+              target: graphNode.id,
+              relation: RelationType.ContainsChild,
+              metadata: {}
+            });
+
+            // Special relationship for tasks within tasks
+            if (parentListItem.type === NodeType.Task && graphNode.type === NodeType.Task) {
+              // Task hierarchy: parent depends on children
+              graph.addEdge({
+                source: parentListItem.id,
+                target: graphNode.id,
+                relation: RelationType.DependsOn,
+                metadata: {}
+              });
+            }
+
+            break;
+          }
         }
-      }
-
-      // If we found a parent, create the relationship
-      if (parentNode && parentNode.id !== graphNode.id) {
-        // Determine the relationship type based on node types
-        const relationType = RelationType.ContainsChild;
-
-        // Special relationship for tasks within tasks
-        if (parentNode.type === NodeType.Task && graphNode.type === NodeType.Task) {
-          // Task hierarchy: parent depends on children
-          graph.addEdge({
-            source: parentNode.id,
-            target: graphNode.id,
-            relation: RelationType.DependsOn,
-            metadata: {}
-          });
-        }
-
-        // Add the containment relationship
-        graph.addEdge({
-          source: parentNode.id,
-          target: graphNode.id,
-          relation: relationType,
-          metadata: {}
-        });
       }
     });
   }
@@ -173,8 +175,7 @@ export class MarkdownParser {
     heading: Heading,
     filePath: string,
     graph: CannonballGraph,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    parentId: string
+    sectionStack: GraphNode[]
   ): GraphNode {
     // Extract heading text
     let headingText = '';
@@ -198,6 +199,30 @@ export class MarkdownParser {
 
     graph.addNode(node);
 
+    // Handle section hierarchy with the stack
+    // Pop the stack until we find a section with lower or equal level
+    while (
+      sectionStack.length > 1 &&
+      sectionStack[sectionStack.length - 1].type === NodeType.Section &&
+      (sectionStack[sectionStack.length - 1].metadata.level as number) >= heading.depth
+    ) {
+      sectionStack.pop();
+    }
+
+    // The top of the stack is now the parent section
+    const parentSection = sectionStack[sectionStack.length - 1];
+
+    // Add containment edge from parent to this section
+    graph.addEdge({
+      source: parentSection.id,
+      target: node.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
+
+    // Push this section onto the stack
+    sectionStack.push(node);
+
     return node;
   }
 
@@ -207,7 +232,8 @@ export class MarkdownParser {
   private processTaskItem(
     item: ListItem,
     filePath: string,
-    graph: CannonballGraph
+    graph: CannonballGraph,
+    sectionStack: GraphNode[]
   ): GraphNode {
     // Extract content and task state
     const taskState = this.getTaskState(item);
@@ -216,6 +242,7 @@ export class MarkdownParser {
     let content = '';
     visit(item, 'text', (textNode: Text) => {
       content += textNode.value;
+      return EXIT;
     });
 
     // Strip task marker from content
@@ -243,6 +270,15 @@ export class MarkdownParser {
 
     graph.addNode(node);
 
+    // Connect to current section
+    const currentSection = sectionStack[sectionStack.length - 1];
+    graph.addEdge({
+      source: currentSection.id,
+      target: node.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
+
     return node;
   }
 
@@ -252,7 +288,8 @@ export class MarkdownParser {
   private processBulletItem(
     item: ListItem,
     filePath: string,
-    graph: CannonballGraph
+    graph: CannonballGraph,
+    sectionStack: GraphNode[]
   ): GraphNode {
     // Extract bullet content
     let content = '';
@@ -281,6 +318,15 @@ export class MarkdownParser {
 
     graph.addNode(node);
 
+    // Connect to current section
+    const currentSection = sectionStack[sectionStack.length - 1];
+    graph.addEdge({
+      source: currentSection.id,
+      target: node.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
+
     return node;
   }
 
@@ -290,7 +336,8 @@ export class MarkdownParser {
   private processParagraph(
     paragraph: Paragraph,
     filePath: string,
-    graph: CannonballGraph
+    graph: CannonballGraph,
+    sectionStack: GraphNode[]
   ): GraphNode {
     // Extract text
     let content = '';
@@ -303,7 +350,7 @@ export class MarkdownParser {
       id: generateNodeId(filePath, {
         identifier: `p-${(paragraph.position?.start.line ?? 0)}`
       }),
-      type: NodeType.Generic,
+      type: NodeType.Paragraph,
       content,
       metadata: {
         position: paragraph.position,
@@ -315,23 +362,33 @@ export class MarkdownParser {
 
     graph.addNode(node);
 
+    // Connect to current section
+    const currentSection = sectionStack[sectionStack.length - 1];
+    graph.addEdge({
+      source: currentSection.id,
+      target: node.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
+
     return node;
   }
 
   /**
    * Process a code block
    */
-  private processCode(
+  private processCodeBlock(
     code: Code,
     filePath: string,
-    graph: CannonballGraph
+    graph: CannonballGraph,
+    sectionStack: GraphNode[]
   ): GraphNode {
     // Create node
     const node: GraphNode = {
       id: generateNodeId(filePath, {
         identifier: `code-${(code.position?.start.line ?? 0)}`
       }),
-      type: NodeType.Generic,
+      type: NodeType.CodeBlock,
       content: code.value,
       metadata: {
         language: code.lang,
@@ -344,6 +401,15 @@ export class MarkdownParser {
 
     graph.addNode(node);
 
+    // Connect to current section
+    const currentSection = sectionStack[sectionStack.length - 1];
+    graph.addEdge({
+      source: currentSection.id,
+      target: node.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
+
     return node;
   }
 
@@ -353,7 +419,8 @@ export class MarkdownParser {
   private processGenericNode(
     node: Node,
     filePath: string,
-    graph: CannonballGraph
+    graph: CannonballGraph,
+    sectionStack: GraphNode[]
   ): GraphNode | null {
     // Skip certain node types that are handled separately
     if (['heading', 'list', 'listItem', 'paragraph', 'text'].includes(node.type)) {
@@ -377,6 +444,15 @@ export class MarkdownParser {
     };
 
     graph.addNode(genericNode);
+
+    // Connect to current section
+    const currentSection = sectionStack[sectionStack.length - 1];
+    graph.addEdge({
+      source: currentSection.id,
+      target: genericNode.id,
+      relation: RelationType.ContainsChild,
+      metadata: {}
+    });
 
     return genericNode;
   }
