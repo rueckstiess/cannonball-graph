@@ -1,4 +1,6 @@
-import { Node, Edge, RelationType, NodeType, GraphDiff } from './types';
+// src/core/graph.ts
+import { RelationType, NodeType, GraphDiff } from './types';
+import { BaseNode, NodeFactory } from './node';
 
 /**
  * Main class representing the Cannonball graph data structure
@@ -6,14 +8,14 @@ import { Node, Edge, RelationType, NodeType, GraphDiff } from './types';
  */
 export class CannonballGraph {
   /** Map of node ID to node object */
-  private nodes: Map<string, Node>;
+  private nodes: Map<string, BaseNode>;
   /** Adjacency list: map of node ID to list of outgoing edges */
   private outgoingEdges: Map<string, Edge[]>;
   /** Adjacency list: map of node ID to list of incoming edges */
   private incomingEdges: Map<string, Edge[]>;
 
   constructor() {
-    this.nodes = new Map<string, Node>();
+    this.nodes = new Map<string, BaseNode>();
     this.outgoingEdges = new Map<string, Edge[]>();
     this.incomingEdges = new Map<string, Edge[]>();
   }
@@ -22,7 +24,7 @@ export class CannonballGraph {
    * Get all nodes in the graph
    * @returns Array of all nodes
    */
-  getAllNodes(): Node[] {
+  getAllNodes(): BaseNode[] {
     return Array.from(this.nodes.values());
   }
 
@@ -39,7 +41,7 @@ export class CannonballGraph {
    * @param id - The node ID to look up
    * @returns The node, or undefined if not found
    */
-  getNode(id: string): Node | undefined {
+  getNode(id: string): BaseNode | undefined {
     return this.nodes.get(id);
   }
 
@@ -48,7 +50,7 @@ export class CannonballGraph {
    * @param node - The node to add
    * @throws Error if a node with the same ID already exists
    */
-  addNode(node: Node): void {
+  addNode(node: BaseNode): void {
     if (this.nodes.has(node.id)) {
       throw new Error(`Node with ID ${node.id} already exists`);
     }
@@ -62,14 +64,12 @@ export class CannonballGraph {
    * @param node - The node with updated properties
    * @throws Error if the node doesn't exist
    */
-  updateNode(node: Node): void {
+  updateNode(node: BaseNode): void {
     if (!this.nodes.has(node.id)) {
       throw new Error(`Node with ID ${node.id} doesn't exist`);
     }
-    this.nodes.set(node.id, {
-      ...node,
-      modifiedDate: new Date(),
-    });
+    node.modifiedDate = new Date();
+    this.nodes.set(node.id, node);
   }
 
   /**
@@ -263,7 +263,7 @@ export class CannonballGraph {
    * @param relation - Optional relation type filter
    * @returns Array of related nodes
    */
-  getRelatedNodes(id: string, relation?: RelationType): Node[] {
+  getRelatedNodes(id: string, relation?: RelationType): BaseNode[] {
     if (!this.nodes.has(id)) {
       return [];
     }
@@ -275,7 +275,7 @@ export class CannonballGraph {
 
     return filteredEdges
       .map(edge => this.nodes.get(edge.target))
-      .filter((node): node is Node => node !== undefined);
+      .filter((node): node is BaseNode => node !== undefined);
   }
 
   /**
@@ -284,7 +284,7 @@ export class CannonballGraph {
    * @param relation - Optional relation type filter
    * @returns Array of nodes that relate to the given node
    */
-  getRelatingNodes(id: string, relation?: RelationType): Node[] {
+  getRelatingNodes(id: string, relation?: RelationType): BaseNode[] {
     if (!this.nodes.has(id)) {
       return [];
     }
@@ -296,7 +296,7 @@ export class CannonballGraph {
 
     return filteredEdges
       .map(edge => this.nodes.get(edge.source))
-      .filter((node): node is Node => node !== undefined);
+      .filter((node): node is BaseNode => node !== undefined);
   }
 
   /**
@@ -316,7 +316,8 @@ export class CannonballGraph {
    */
   applyDiff(diff: GraphDiff): void {
     // Add new nodes
-    diff.addedNodes.forEach(node => {
+    diff.addedNodes.forEach(nodeData => {
+      const node = NodeFactory.fromObject(nodeData);
       if (this.nodes.has(node.id)) {
         this.updateNode(node);
       } else {
@@ -350,7 +351,7 @@ export class CannonballGraph {
    * @param type - The node type to find
    * @returns Array of nodes of the specified type
    */
-  findNodesByType(type: NodeType): Node[] {
+  findNodesByType(type: NodeType): BaseNode[] {
     return Array.from(this.nodes.values()).filter(node => node.type === type);
   }
 
@@ -359,7 +360,7 @@ export class CannonballGraph {
    * @param query - The search query
    * @returns Array of nodes that match the query
    */
-  searchNodes(query: string): Node[] {
+  searchNodes(query: string): BaseNode[] {
     const lowerQuery = query.toLowerCase();
     return Array.from(this.nodes.values()).filter(node =>
       node.content.toLowerCase().includes(lowerQuery)
@@ -370,9 +371,9 @@ export class CannonballGraph {
    * Get a simple serializable representation of the graph
    * Useful for debugging or storage
    */
-  toJSON(): { nodes: Node[]; edges: Edge[] } {
+  toJSON(): { nodes: Record<string, unknown>[]; edges: Edge[] } {
     return {
-      nodes: this.getAllNodes(),
+      nodes: this.getAllNodes().map(node => node.toObject()),
       edges: this.getAllEdges(),
     };
   }
@@ -382,11 +383,12 @@ export class CannonballGraph {
    * @param data - The serialized graph data
    * @returns A new CannonballGraph instance
    */
-  static fromJSON(data: { nodes: Node[]; edges: Edge[] }): CannonballGraph {
+  static fromJSON(data: { nodes: Record<string, unknown>[]; edges: Edge[] }): CannonballGraph {
     const graph = new CannonballGraph();
 
     // Add all nodes first
-    data.nodes.forEach(node => {
+    data.nodes.forEach(nodeData => {
+      const node = NodeFactory.fromObject(nodeData);
       graph.addNode(node);
     });
 
@@ -401,4 +403,18 @@ export class CannonballGraph {
 
     return graph;
   }
+}
+
+/**
+ * Interface for an edge in the Cannonball graph
+ */
+export interface Edge {
+  /** ID of the source node */
+  source: string;
+  /** ID of the target node */
+  target: string;
+  /** Type of relationship between the nodes */
+  relation: RelationType;
+  /** Additional metadata for the edge */
+  metadata: Record<string, unknown>;
 }

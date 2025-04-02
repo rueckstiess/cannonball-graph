@@ -5,18 +5,19 @@ import { Root, Node, Heading, ListItem, Paragraph, Text, Code } from 'mdast';
 import { visit } from 'unist-util-visit';
 import { visitParents, SKIP, EXIT } from 'unist-util-visit-parents';
 import { CannonballGraph } from '../core/graph';
-import { NodeType, RelationType, Node as GraphNode, TaskState } from '../core/types';
+import { NodeType, RelationType, TaskState } from '../core/types';
+import {
+  BaseNode,
+  ContainerNode,
+  NoteNode,
+  SectionNode,
+  TaskNode,
+  BulletNode,
+  ParagraphNode,
+  CodeBlockNode,
+  GenericNode
+} from '../core/node';
 import { generateNodeId } from '../utils/id-utils';
-import { inspect } from 'unist-util-inspect';
-
-/**
- * Container context for tracking the current parent nodes during parsing
- */
-interface ContainerContext {
-  node: GraphNode;
-  type: 'section' | 'task' | 'bullet' | 'note';
-  level?: number; // For sections (heading level) or indentation level for lists
-}
 
 /**
  * Parser that converts Markdown content into a Cannonball graph
@@ -31,7 +32,6 @@ export class MarkdownParser {
   parse(markdown: string, filePath: string): CannonballGraph {
     // Parse the markdown into an AST
     const ast = unified().use(remarkParse).parse(markdown);
-    console.log(inspect(ast));
 
     // Create a new graph
     const graph = new CannonballGraph();
@@ -39,7 +39,7 @@ export class MarkdownParser {
     // Process the AST
     this.processAst(ast, graph, filePath);
 
-    // Generate relationships between nodes
+    // Process relationships between nodes
     this.processRelationships(graph);
 
     return graph;
@@ -53,36 +53,30 @@ export class MarkdownParser {
    */
   private processAst(ast: Root, graph: CannonballGraph, filePath: string): void {
     // Create a root node for the file
-    const rootNode: GraphNode = {
-      id: generateNodeId(filePath),
-      type: NodeType.Note,
-      content: filePath.split('/').pop() || '',
-      metadata: {
+    const rootNode = new NoteNode(
+      generateNodeId(filePath),
+      filePath.split('/').pop() || '',
+      {
         filePath,
         position: { start: { line: 1, column: 1 }, end: { line: 1, column: 1 } }
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+      }
+    );
 
     graph.addNode(rootNode);
 
     // Container stack to track the current context
     // The stack always starts with the root note node
-    const containerStack: ContainerContext[] = [{
-      node: rootNode,
-      type: 'note'
-    }];
+    const containerStack: ContainerNode[] = [rootNode];
 
     // Create a map to store associations between AST nodes and graph nodes
-    const nodeMap = new Map<Node, GraphNode>();
+    const nodeMap = new Map<Node, BaseNode>();
 
     // Store the root node association
     nodeMap.set(ast, rootNode);
 
-    // Process nodes in document order with container tracking
+    // Process nodes in document order
     visitParents(ast, (node: Node, ancestors) => {
-      let graphNode: GraphNode | null = null;
+      let graphNode: BaseNode | null = null;
 
       // Calculate the current indentation level based on ancestors
       const indentLevel = this.calculateIndentLevel(node, ancestors);
@@ -141,9 +135,6 @@ export class MarkdownParser {
         }
       }
     });
-
-    // Add dependency relationships between tasks and their subtasks
-    this.processTaskDependencies(graph, nodeMap);
   }
 
   /**
@@ -169,8 +160,8 @@ export class MarkdownParser {
     heading: Heading,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[]
-  ): GraphNode {
+    containerStack: ContainerNode[]
+  ): BaseNode {
     // Extract heading text
     let headingText = '';
     visit(heading, 'text', (textNode: Text) => {
@@ -178,50 +169,57 @@ export class MarkdownParser {
     });
 
     // Create the section node
-    const node: GraphNode = {
-      id: generateNodeId(filePath, { heading: headingText }),
-      type: NodeType.Section,
-      content: headingText,
-      metadata: {
-        level: heading.depth,
+    const sectionNode = new SectionNode(
+      generateNodeId(filePath, { heading: headingText }),
+      headingText,
+      heading.depth,
+      {
         position: heading.position,
         filePath
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+      }
+    );
 
-    graph.addNode(node);
+    graph.addNode(sectionNode);
 
-    // Handle section hierarchy with the stack
-    // Pop the stack until we find a section with lower level, or the root
-    while (
-      containerStack.length > 1 &&
-      containerStack[containerStack.length - 1].type === 'section' &&
-      (containerStack[containerStack.length - 1].level as number) >= heading.depth
-    ) {
-      containerStack.pop();
-    }
+    // Adjust the container stack - pop containers until finding the right parent
+    this.adjustContainerStackForHeading(containerStack, sectionNode);
 
     // The top of the stack is now the parent container
-    const parent = containerStack[containerStack.length - 1];
+    const parentContainer = containerStack[containerStack.length - 1];
 
     // Add containment edge from parent to this section
     graph.addEdge({
-      source: parent.node.id,
-      target: node.id,
+      source: parentContainer.id,
+      target: sectionNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
     });
 
     // Push this section onto the stack
-    containerStack.push({
-      node,
-      type: 'section',
-      level: heading.depth
-    });
+    containerStack.push(sectionNode);
 
-    return node;
+    return sectionNode;
+  }
+
+  /**
+   * Adjust container stack for heading sections
+   */
+  private adjustContainerStackForHeading(
+    containerStack: ContainerNode[],
+    newSection: SectionNode
+  ): void {
+    // Pop containers until we find an appropriate parent for this section
+    while (containerStack.length > 1) {
+      const topContainer = containerStack[containerStack.length - 1];
+
+      // If it's a section with a lower or equal level, pop it
+      if (!(topContainer instanceof SectionNode) || topContainer.level >= newSection.level) {
+        containerStack.pop();
+      } else {
+        // Found the right parent
+        break;
+      }
+    }
   }
 
   /**
@@ -231,9 +229,9 @@ export class MarkdownParser {
     item: ListItem,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[],
+    containerStack: ContainerNode[],
     indentLevel: number
-  ): GraphNode {
+  ): BaseNode {
     // Extract content and task state
     const taskState = this.getTaskState(item);
 
@@ -253,43 +251,36 @@ export class MarkdownParser {
       `task-${Date.now()}`;
 
     // Create the task node
-    const node: GraphNode = {
-      id: generateNodeId(filePath, { listPosition }),
-      type: NodeType.Task,
+    const taskNode = new TaskNode(
+      generateNodeId(filePath, { listPosition }),
       content,
-      metadata: {
+      taskState,
+      indentLevel,
+      {
         position: item.position,
         listPosition,
-        filePath,
-        taskState,
-        indentLevel
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+        filePath
+      }
+    );
 
-    graph.addNode(node);
+    graph.addNode(taskNode);
 
-    // Adjust containerStack for task nesting
-    this.adjustContainerStackForList(containerStack, 'task', indentLevel);
+    // Adjust the container stack for list nesting
+    this.adjustContainerStackForList(containerStack, taskNode);
 
     // Connect to current container
     const currentContainer = containerStack[containerStack.length - 1];
     graph.addEdge({
-      source: currentContainer.node.id,
-      target: node.id,
+      source: currentContainer.id,
+      target: taskNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
     });
 
     // Push this task onto the container stack
-    containerStack.push({
-      node,
-      type: 'task',
-      level: indentLevel
-    });
+    containerStack.push(taskNode);
 
-    return node;
+    return taskNode;
   }
 
   /**
@@ -299,9 +290,9 @@ export class MarkdownParser {
     item: ListItem,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[],
+    containerStack: ContainerNode[],
     indentLevel: number
-  ): GraphNode {
+  ): BaseNode {
     // Extract bullet content
     let content = '';
     visit(item, 'text', (textNode: Text) => {
@@ -314,60 +305,56 @@ export class MarkdownParser {
       `bullet-${Date.now()}`;
 
     // Create the bullet node
-    const node: GraphNode = {
-      id: generateNodeId(filePath, { listPosition }),
-      type: NodeType.Bullet,
+    const bulletNode = new BulletNode(
+      generateNodeId(filePath, { listPosition }),
       content,
-      metadata: {
+      indentLevel,
+      {
         position: item.position,
         listPosition,
-        filePath,
-        indentLevel
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+        filePath
+      }
+    );
 
-    graph.addNode(node);
+    graph.addNode(bulletNode);
 
-    // Adjust containerStack for bullet nesting
-    this.adjustContainerStackForList(containerStack, 'bullet', indentLevel);
+    // Adjust the container stack for list nesting
+    this.adjustContainerStackForList(containerStack, bulletNode);
 
     // Connect to current container
     const currentContainer = containerStack[containerStack.length - 1];
     graph.addEdge({
-      source: currentContainer.node.id,
-      target: node.id,
+      source: currentContainer.id,
+      target: bulletNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
     });
 
     // Push this bullet onto the container stack
-    containerStack.push({
-      node,
-      type: 'bullet',
-      level: indentLevel
-    });
+    containerStack.push(bulletNode);
 
-    return node;
+    return bulletNode;
   }
 
   /**
-   * Adjust the container stack based on list indentation level
+   * Adjust container stack for list items (both bullets and tasks)
    */
   private adjustContainerStackForList(
-    containerStack: ContainerContext[],
-    type: 'task' | 'bullet',
-    indentLevel: number
+    containerStack: ContainerNode[],
+    newListItem: TaskNode | BulletNode
   ): void {
-    // Pop task/bullet containers until we find one with lower or equal level
-    while (
-      containerStack.length > 1 &&
-      (containerStack[containerStack.length - 1].type === 'task' ||
-        containerStack[containerStack.length - 1].type === 'bullet') &&
-      (containerStack[containerStack.length - 1].level as number) >= indentLevel
-    ) {
-      containerStack.pop();
+    // Pop task/bullet containers until we find an appropriate parent
+    while (containerStack.length > 1) {
+      const topContainer = containerStack[containerStack.length - 1];
+
+      // If it's a task or bullet with greater or equal indent level, pop it
+      if ((topContainer instanceof TaskNode || topContainer instanceof BulletNode) &&
+        topContainer.indentLevel >= newListItem.indentLevel) {
+        containerStack.pop();
+      } else {
+        // Found the right parent
+        break;
+      }
     }
   }
 
@@ -378,8 +365,8 @@ export class MarkdownParser {
     paragraph: Paragraph,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[]
-  ): GraphNode {
+    containerStack: ContainerNode[]
+  ): BaseNode {
     // Extract text
     let content = '';
     visit(paragraph, 'text', (textNode: Text) => {
@@ -387,32 +374,29 @@ export class MarkdownParser {
     });
 
     // Create node
-    const node: GraphNode = {
-      id: generateNodeId(filePath, {
+    const paragraphNode = new ParagraphNode(
+      generateNodeId(filePath, {
         identifier: `p-${(paragraph.position?.start.line ?? 0)}`
       }),
-      type: NodeType.Paragraph,
       content,
-      metadata: {
+      {
         position: paragraph.position,
         filePath
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+      }
+    );
 
-    graph.addNode(node);
+    graph.addNode(paragraphNode);
 
     // Connect to current container
     const currentContainer = containerStack[containerStack.length - 1];
     graph.addEdge({
-      source: currentContainer.node.id,
-      target: node.id,
+      source: currentContainer.id,
+      target: paragraphNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
     });
 
-    return node;
+    return paragraphNode;
   }
 
   /**
@@ -422,36 +406,33 @@ export class MarkdownParser {
     code: Code,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[]
-  ): GraphNode {
+    containerStack: ContainerNode[]
+  ): BaseNode {
     // Create node
-    const node: GraphNode = {
-      id: generateNodeId(filePath, {
+    const codeNode = new CodeBlockNode(
+      generateNodeId(filePath, {
         identifier: `code-${(code.position?.start.line ?? 0)}`
       }),
-      type: NodeType.CodeBlock,
-      content: code.value,
-      metadata: {
-        language: code.lang,
+      code.value,
+      code.lang as null | string,
+      {
         position: code.position,
         filePath
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+      }
+    );
 
-    graph.addNode(node);
+    graph.addNode(codeNode);
 
     // Connect to current container
     const currentContainer = containerStack[containerStack.length - 1];
     graph.addEdge({
-      source: currentContainer.node.id,
-      target: node.id,
+      source: currentContainer.id,
+      target: codeNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
     });
 
-    return node;
+    return codeNode;
   }
 
   /**
@@ -461,35 +442,32 @@ export class MarkdownParser {
     node: Node,
     filePath: string,
     graph: CannonballGraph,
-    containerStack: ContainerContext[]
-  ): GraphNode | null {
+    containerStack: ContainerNode[]
+  ): BaseNode | null {
     // Skip certain node types that are handled separately
     if (['heading', 'list', 'listItem', 'paragraph', 'text'].includes(node.type)) {
       return null;
     }
 
     // Create a generic node
-    const genericNode: GraphNode = {
-      id: generateNodeId(filePath, {
+    const genericNode = new GenericNode(
+      generateNodeId(filePath, {
         identifier: `${node.type}-${(node.position?.start.line ?? 0)}`
       }),
-      type: NodeType.Generic,
-      content: this.extractNodeContent(node),
-      metadata: {
+      this.extractNodeContent(node),
+      {
         nodeType: node.type,
         position: node.position,
         filePath
-      },
-      createdDate: new Date(),
-      modifiedDate: new Date(),
-    };
+      }
+    );
 
     graph.addNode(genericNode);
 
     // Connect to current container
     const currentContainer = containerStack[containerStack.length - 1];
     graph.addEdge({
-      source: currentContainer.node.id,
+      source: currentContainer.id,
       target: genericNode.id,
       relation: RelationType.ContainsChild,
       metadata: {}
@@ -536,7 +514,7 @@ export class MarkdownParser {
     let state = TaskState.Open;
 
     visit(item, 'text', (textNode: Text) => {
-      const match = textNode.value.match(/^\s*\[([x /\-!])\]\s*/);
+      const match = textNode.value.match(/^\s*\[([x ./\-!])\]\s*/);
       if (match) {
         switch (match[1]) {
           case 'x':
@@ -555,35 +533,47 @@ export class MarkdownParser {
             state = TaskState.Open;
         }
       }
+      return EXIT;
     });
 
     return state;
   }
 
   /**
-   * Add dependency relationships between tasks based on hierarchy
+   * Process semantic relationships in the graph
+   * This adds relationships beyond the basic containment structure
    */
-  private processTaskDependencies(graph: CannonballGraph, nodeMap: Map<Node, GraphNode>): void {
-    // Find all task nodes
+  private processRelationships(graph: CannonballGraph): void {
+    // Process task dependencies based on containment
+    this.processTaskDependencies(graph);
+
+    // Process category-based dependencies (tasks in bullets)
+    this.processCategoryDependencies(graph);
+  }
+
+  /**
+   * Process task dependencies based on containment structure
+   */
+  private processTaskDependencies(graph: CannonballGraph): void {
+    // Get all task nodes
     const taskNodes = graph.findNodesByType(NodeType.Task);
 
-    // For each task, create dependencies to its immediate child tasks
-    for (const task of taskNodes) {
-      const childTasks = graph.getRelatedNodes(task.id, RelationType.ContainsChild)
+    // For each task, create dependencies to its child tasks
+    for (const taskNode of taskNodes) {
+      const childTasks = graph.getRelatedNodes(taskNode.id, RelationType.ContainsChild)
         .filter(node => node.type === NodeType.Task);
 
       // Create dependency relationships
       for (const childTask of childTasks) {
         try {
           graph.addEdge({
-            source: task.id,
+            source: taskNode.id,
             target: childTask.id,
             relation: RelationType.DependsOn,
             metadata: {}
           });
         } catch (error) {
           // Edge might already exist, that's fine
-          console.warn(`Failed to add dependency edge: ${(error as Error).message}`);
         }
       }
     }
@@ -593,11 +583,10 @@ export class MarkdownParser {
   }
 
   /**
-   * Process semantic relationships in the graph
-   * This adds relationships beyond the basic structure
+   * Process dependencies through bullets/categories
    */
-  private processRelationships(graph: CannonballGraph): void {
-    // Find all bullet nodes that contain tasks
+  private processCategoryDependencies(graph: CannonballGraph): void {
+    // Find all bullet nodes
     const bulletNodes = graph.findNodesByType(NodeType.Bullet);
 
     // Process each bullet to ensure proper task dependencies through categories
@@ -634,8 +623,8 @@ export class MarkdownParser {
   /**
    * Find all tasks nested under a node at any level
    */
-  private findNestedTasks(graph: CannonballGraph, node: GraphNode): GraphNode[] {
-    const tasks: GraphNode[] = [];
+  private findNestedTasks(graph: CannonballGraph, node: BaseNode): BaseNode[] {
+    const tasks: BaseNode[] = [];
 
     // Get direct children
     const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);

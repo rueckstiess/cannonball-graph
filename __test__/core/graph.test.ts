@@ -1,37 +1,30 @@
 // __test__/core/graph.test.ts
 import { CannonballGraph } from '@/core/graph';
-import { Node, Edge, NodeType, RelationType } from '@/core/types';
+import { NodeType, RelationType } from '@/core/types';
+import {
+  TaskNode,
+  NoteNode,
+} from '@/core/node';
 
 describe('CannonballGraph', () => {
   let graph: CannonballGraph;
 
   // Sample node and edge data for testing
-  const node1: Node = {
-    id: 'file1.md#task1',
-    type: NodeType.Task,
-    content: 'Test task 1',
-    metadata: {},
-    createdDate: new Date(),
-    modifiedDate: new Date(),
-  };
+  const node1 = new TaskNode(
+    'file1.md#task1',
+    'Test task 1'
+  );
 
-  const node2: Node = {
-    id: 'file1.md#task2',
-    type: NodeType.Task,
-    content: 'Test task 2',
-    metadata: {},
-    createdDate: new Date(),
-    modifiedDate: new Date(),
-  };
+  const node2 = new TaskNode(
+    'file1.md#task2',
+    'Test task 2'
+  );
 
-  const node3: Node = {
-    id: 'file2.md#project1',
-    type: NodeType.Container,
-    content: 'Test project',
-    metadata: {},
-    createdDate: new Date(),
-    modifiedDate: new Date(),
-  };
+  const node3 = new NoteNode(
+    'file2.md#project1',
+    'Test project',
+    { noteType: 'project' }
+  );
 
   beforeEach(() => {
     graph = new CannonballGraph();
@@ -55,10 +48,10 @@ describe('CannonballGraph', () => {
     it('should update nodes correctly', () => {
       graph.addNode(node1);
 
-      const updatedNode: Node = {
-        ...node1,
-        content: 'Updated content',
-      };
+      const updatedNode = new TaskNode(
+        node1.id,
+        'Updated content'
+      );
 
       graph.updateNode(updatedNode);
       const retrievedNode = graph.getNode(node1.id);
@@ -91,7 +84,7 @@ describe('CannonballGraph', () => {
     });
 
     it('should add edges correctly', () => {
-      const edge: Edge = {
+      const edge = {
         source: node1.id,
         target: node2.id,
         relation: RelationType.DependsOn,
@@ -106,7 +99,7 @@ describe('CannonballGraph', () => {
     });
 
     it('should throw when adding an edge with non-existent nodes', () => {
-      const edge: Edge = {
+      const edge = {
         source: 'nonexistent',
         target: node2.id,
         relation: RelationType.DependsOn,
@@ -117,7 +110,7 @@ describe('CannonballGraph', () => {
     });
 
     it('should handle bidirectional relations automatically', () => {
-      const edge: Edge = {
+      const edge = {
         source: node1.id,
         target: node2.id,
         relation: RelationType.LinksTo,
@@ -138,7 +131,7 @@ describe('CannonballGraph', () => {
     });
 
     it('should remove edges correctly', () => {
-      const edge: Edge = {
+      const edge = {
         source: node1.id,
         target: node2.id,
         relation: RelationType.DependsOn,
@@ -154,7 +147,7 @@ describe('CannonballGraph', () => {
     });
 
     it('should remove bidirectional edges correctly', () => {
-      const edge: Edge = {
+      const edge = {
         source: node1.id,
         target: node2.id,
         relation: RelationType.LinksTo,
@@ -215,9 +208,9 @@ describe('CannonballGraph', () => {
       const tasks = graph.findNodesByType(NodeType.Task);
       expect(tasks.length).toBe(2);
 
-      const containers = graph.findNodesByType(NodeType.Container);
-      expect(containers.length).toBe(1);
-      expect(containers[0].id).toBe(node3.id);
+      const notes = graph.findNodesByType(NodeType.Note);
+      expect(notes.length).toBe(1);
+      expect(notes[0].id).toBe(node3.id);
     });
 
     it('should search nodes by content', () => {
