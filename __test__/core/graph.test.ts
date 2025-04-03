@@ -5,6 +5,8 @@ import {
   TaskNode,
   NoteNode
 } from '@/core/nodes';
+import { initializeNodeRegistry } from '@/core/registry-init';
+
 
 describe('CannonballGraph', () => {
   let graph: CannonballGraph;
@@ -238,6 +240,9 @@ describe('CannonballGraph', () => {
 
   describe('Serialization', () => {
     it('should serialize and deserialize correctly', () => {
+
+      initializeNodeRegistry();
+
       // Set up a graph
       graph.addNode(node1);
       graph.addNode(node2);

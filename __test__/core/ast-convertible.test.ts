@@ -72,9 +72,9 @@ describe('AST Convertible Utilities', () => {
       // Should contain the type and a unique string
       expect(id).toContain('root-');
 
-      // Generate another ID to ensure they're different
+      // Generate another ID to ensure they're the same
       const id2 = getAstNodeId(rootAst);
-      expect(id).not.toBe(id2);
+      expect(id).toBe(id2);
     });
   });
 });

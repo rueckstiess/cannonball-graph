@@ -4,7 +4,7 @@ import { NodeType } from '@/core/types';
 import { SectionNode, BulletNode, TaskNode } from '@/core/nodes';
 import { createParserContext } from '@/parser/parser-context';
 import { CannonballGraph } from '@/core/graph';
-import { Root } from 'mdast';
+import { Root, Heading } from 'mdast';
 
 describe('NoteNode', () => {
   let graph: CannonballGraph;
@@ -60,6 +60,9 @@ describe('NoteNode', () => {
         children: []
       };
 
+      // create an empty graph for this test
+      graph = new CannonballGraph();
+
       const context = createParserContext('test.md', graph, noteNode);
 
       const result = NoteNode.fromAst(rootAst, context, []);
@@ -91,8 +94,8 @@ describe('NoteNode', () => {
       expect(ast.type).toBe('root');
       expect(ast.children.length).toBe(1);
       expect(ast.children[0].type).toBe('heading');
-      expect(ast.children[0].depth).toBe(1);
-      expect((ast.children[0].children[0] as any).value).toBe('My Document');
+      expect((ast.children[0] as Heading).depth).toBe(1);
+      expect(((ast.children[0] as Heading).children[0] as any).value).toBe('My Document');
 
       // For a note with .md in the title (filename)
       const fileNote = new NoteNode('file.md', 'file.md');

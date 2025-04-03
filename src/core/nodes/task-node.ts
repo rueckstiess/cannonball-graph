@@ -104,10 +104,10 @@ export class TaskNode extends ContainerNode {
     // Calculate indent level based on ancestors
     const indentLevel = calculateIndentLevel(astNode, ancestors);
 
-    // Generate a position-based ID for the task
+    // Generate a position-based ID for the task, or use a hash of the content
     const listPosition = astNode.position ?
       `${astNode.position.start.line}-${astNode.position.start.column}` :
-      `task-${Date.now()}`;
+      getAstNodeId(astNode);
 
     // Create the task node
     const taskNode = new TaskNode(

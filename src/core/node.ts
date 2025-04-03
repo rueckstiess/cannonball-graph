@@ -2,6 +2,8 @@
 import { Node as MdastNode, Paragraph, Text } from 'mdast';
 import { NodeType } from './types';
 import { ParserContext } from '@/parser/parser-context';
+import { NodeRegistry } from './node-registry';
+
 
 /**
  * Base node class for all nodes in the Cannonball graph
@@ -133,9 +135,6 @@ export class NodeFactory {
    * @returns The created node
    */
   static fromObject(obj: Record<string, unknown>): BaseNode {
-    // Import here to avoid circular dependency
-    const { NodeRegistry } = require('./node-registry');
-
     const nodeType = obj.type as NodeType;
     const NodeClass = NodeRegistry.getNodeClass(nodeType);
 
@@ -175,9 +174,6 @@ export class NodeFactory {
     context: ParserContext,
     ancestors: MdastNode[]
   ): BaseNode | null {
-    // Import here to avoid circular dependency
-    const { NodeRegistry } = require('./node-registry');
-
     // Find a node class that can parse this AST node
     const NodeClass = NodeRegistry.findParserForAst(astNode);
 

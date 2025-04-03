@@ -1,6 +1,6 @@
 // src/core/node-registry.ts
 import { Node as MdastNode } from 'mdast';
-import { NodeType } from './types';
+import type { NodeType } from './types';
 import { BaseNode } from './node';
 import { ParserContext } from '@/parser/parser-context';
 

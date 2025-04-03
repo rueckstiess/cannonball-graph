@@ -1,6 +1,7 @@
 import { Node, Text, ListItem } from 'mdast';
 import { visit, EXIT } from 'unist-util-visit';
 import { TaskState } from '@/core/types';
+import { Md5 } from 'ts-md5';
 
 /**
  * 
@@ -79,7 +80,8 @@ export function getTaskState(item: ListItem): TaskState {
  */
 export function getAstNodeId(astNode: Node): string {
   if (!astNode.position) {
-    return `${astNode.type}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    const hash = Md5.hashStr(JSON.stringify(astNode)).substring(0, 8);
+    return `${astNode.type}-${hash}`;
   }
 
   return `${astNode.type}-${astNode.position.start.line}-${astNode.position.start.column}`;

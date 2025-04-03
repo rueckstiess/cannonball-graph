@@ -116,7 +116,7 @@ describe('CodeBlockNode', () => {
 
       expect(ast.type).toBe('code');
       expect(ast.value).toBe('plain text code');
-      expect(ast.lang).toBeUndefined();
+      expect(ast.lang).toBeNull();
     });
   });
 
