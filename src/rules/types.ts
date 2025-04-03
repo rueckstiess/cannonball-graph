@@ -66,6 +66,7 @@ export enum TokenType {
   STARTS = 'STARTS',
   ENDS = 'ENDS',
   WITH = 'WITH',
+  IS = 'IS',
   
   // Literals
   IDENTIFIER = 'IDENTIFIER', // Variable names, property names
@@ -188,4 +189,252 @@ export interface LexerOptions {
    * @default true
    */
   ignoreCase?: boolean;
+}
+
+/**
+ * Represents a node pattern in a Cypher query
+ * e.g., (variable:Label {property: value})
+ */
+export interface NodePattern {
+  /** Variable name to reference the node (optional) */
+  variable?: string;
+  /** Node labels (optional) */
+  labels: string[];
+  /** Property constraints (optional) */
+  properties: Record<string, string | number | boolean | null>;
+}
+
+/**
+ * Represents a relationship pattern in a Cypher query
+ * e.g., -[variable:TYPE {property: value}]->
+ */
+export interface RelationshipPattern {
+  /** Variable name to reference the relationship (optional) */
+  variable?: string;
+  /** Relationship type (optional) */
+  type?: string;
+  /** Property constraints (optional) */
+  properties: Record<string, string | number | boolean | null>;
+  /** Direction of the relationship: 'outgoing' (->), 'incoming' (<-), or 'both' (-) */
+  direction: 'outgoing' | 'incoming' | 'both';
+  /** Min path length for variable-length relationships (optional) */
+  minHops?: number;
+  /** Max path length for variable-length relationships (optional) */
+  maxHops?: number;
+}
+
+/**
+ * Represents a path pattern in a Cypher query
+ * e.g., (a)-[:CONTAINS]->(b)
+ */
+export interface PathPattern {
+  /** Starting node pattern */
+  start: NodePattern;
+  /** Array of relationships and nodes that form the path */
+  segments: Array<{
+    relationship: RelationshipPattern;
+    node: NodePattern;
+  }>;
+}
+
+/**
+ * Types of comparison operators in WHERE conditions
+ */
+export enum ComparisonOperator {
+  EQUALS = '=',
+  NOT_EQUALS = '<>',
+  LESS_THAN = '<',
+  LESS_THAN_OR_EQUALS = '<=',
+  GREATER_THAN = '>',
+  GREATER_THAN_OR_EQUALS = '>=',
+  IN = 'IN',
+  CONTAINS = 'CONTAINS',
+  STARTS_WITH = 'STARTS WITH',
+  ENDS_WITH = 'ENDS WITH',
+  IS_NULL = 'IS NULL',
+  IS_NOT_NULL = 'IS NOT NULL'
+}
+
+/**
+ * Types of logical operators in WHERE conditions
+ */
+export enum LogicalOperator {
+  AND = 'AND',
+  OR = 'OR',
+  NOT = 'NOT',
+  XOR = 'XOR'
+}
+
+/**
+ * Base type for all expressions in the AST
+ */
+export type Expression = 
+  | LiteralExpression
+  | VariableExpression
+  | PropertyExpression
+  | ComparisonExpression
+  | LogicalExpression
+  | ExistsExpression;
+
+/**
+ * Represents a literal value (string, number, boolean, null)
+ */
+export interface LiteralExpression {
+  type: 'literal';
+  /** The literal value */
+  value: string | number | boolean | null;
+  /** The data type of the value */
+  dataType: 'string' | 'number' | 'boolean' | 'null';
+}
+
+/**
+ * Represents a variable reference (node or relationship)
+ */
+export interface VariableExpression {
+  type: 'variable';
+  /** The variable name */
+  name: string;
+}
+
+/**
+ * Represents a property access (e.g., node.property)
+ */
+export interface PropertyExpression {
+  type: 'property';
+  /** The object that contains the property */
+  object: VariableExpression;
+  /** The property name */
+  property: string;
+}
+
+/**
+ * Represents a comparison expression (e.g., a.prop = 'value')
+ */
+export interface ComparisonExpression {
+  type: 'comparison';
+  /** Left side of the comparison */
+  left: Expression;
+  /** Comparison operator */
+  operator: ComparisonOperator;
+  /** Right side of the comparison */
+  right: Expression;
+}
+
+/**
+ * Represents a logical expression (AND, OR, NOT, XOR)
+ */
+export interface LogicalExpression {
+  type: 'logical';
+  /** Logical operator */
+  operator: LogicalOperator;
+  /** Operands (expressions) */
+  operands: Expression[];
+}
+
+/**
+ * Represents an EXISTS check 
+ * e.g., EXISTS((a)-[:DEPENDS_ON]->(b))
+ */
+export interface ExistsExpression {
+  type: 'exists';
+  /** Whether this is a positive or negative check (EXISTS vs NOT EXISTS) */
+  positive: boolean;
+  /** The pattern to check for existence */
+  pattern: PathPattern;
+}
+
+/**
+ * Represents the MATCH clause in a Cypher query
+ */
+export interface MatchClause {
+  /** Array of path patterns to match */
+  patterns: PathPattern[];
+}
+
+/**
+ * Represents the WHERE clause in a Cypher query
+ */
+export interface WhereClause {
+  /** The condition expression */
+  condition: Expression;
+}
+
+/**
+ * Represents a property setting in a SET clause
+ * e.g., n.property = value
+ */
+export interface PropertySetting {
+  /** The target object (variable) */
+  target: VariableExpression;
+  /** The property to set */
+  property: string;
+  /** The value expression */
+  value: Expression;
+}
+
+/**
+ * Represents the SET clause in a Cypher query
+ */
+export interface SetClause {
+  /** Array of property settings */
+  settings: PropertySetting[];
+}
+
+/**
+ * Represents a node to be created in a CREATE clause
+ */
+export interface CreateNode {
+  /** The node pattern to create */
+  node: NodePattern;
+}
+
+/**
+ * Represents a relationship to be created in a CREATE clause
+ */
+export interface CreateRelationship {
+  /** The starting node (must be a variable that was matched earlier) */
+  fromNode: VariableExpression;
+  /** The relationship pattern to create */
+  relationship: RelationshipPattern;
+  /** The ending node (must be a variable that was matched earlier) */
+  toNode: VariableExpression;
+}
+
+/**
+ * Represents the CREATE clause in a Cypher query
+ */
+export interface CreateClause {
+  /** Array of nodes and relationships to create */
+  patterns: Array<CreateNode | CreateRelationship>;
+}
+
+/**
+ * Represents a complete Cypher query statement
+ */
+export interface CypherStatement {
+  /** The MATCH clause (optional) */
+  match?: MatchClause;
+  /** The WHERE clause (optional) */
+  where?: WhereClause;
+  /** The CREATE clause (optional) */
+  create?: CreateClause;
+  /** The SET clause (optional) */
+  set?: SetClause;
+}
+
+/**
+ * Interface for the Parser that parses Cypher queries
+ */
+export interface Parser {
+  /**
+   * Parses the token stream to produce a Cypher statement
+   * @returns The parsed Cypher statement
+   */
+  parse(): CypherStatement;
+  
+  /**
+   * Returns the list of errors encountered during parsing
+   * @returns Array of error messages
+   */
+  getErrors(): string[];
 }
