@@ -1,20 +1,21 @@
 // src/core/nodes/bullet-node.ts
 import { ListItem, Paragraph, Text } from 'mdast';
-import { ContainerNode, TaskNode } from '@/core/node';
+import { ContainerNode } from '@/core/node';
+import { TaskNode } from '@/core/nodes/task-node';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
 import {
   extractInnerText,
   isTaskListItem,
-  calculateIndentLevel
+  calculateIndentLevel,
+  getAstNodeId
 } from '@/utils/mdast-utils';
 
 /**
  * Node representing a bullet list item
  */
-export class BulletNode extends ContainerNode implements AstConvertible {
+export class BulletNode extends ContainerNode {
   constructor(
     id: string,
     content: string,

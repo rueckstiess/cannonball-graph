@@ -2,14 +2,14 @@
 import { Root, RootContent, Heading, Text } from 'mdast';
 import { ContainerNode } from '@/core/node';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
+import { getAstNodeId } from '@/utils/mdast-utils';
 
 /**
  * Node representing a complete document/note
  */
-export class NoteNode extends ContainerNode implements AstConvertible {
+export class NoteNode extends ContainerNode {
   constructor(id: string, title: string, metadata: Record<string, unknown> = {}) {
     super(id, NodeType.Note, title, metadata);
   }

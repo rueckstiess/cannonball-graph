@@ -1,16 +1,16 @@
 // src/core/nodes/paragraph-node.ts
-import { Paragraph, Text } from 'mdast';
+import { Paragraph, Text, Node } from 'mdast';
 import { ContentNode } from '@/core/node';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
-import { extractInnerText } from '@/utils/mdast-utils';
+import { extractInnerText, getAstNodeId } from '@/utils/mdast-utils';
+
 
 /**
  * Node representing a paragraph of text
  */
-export class ParagraphNode extends ContentNode implements AstConvertible {
+export class ParagraphNode extends ContentNode {
   constructor(id: string, content: string, metadata: Record<string, unknown> = {}) {
     super(id, NodeType.Paragraph, content, metadata);
   }
@@ -21,7 +21,7 @@ export class ParagraphNode extends ContentNode implements AstConvertible {
   static fromAst(
     astNode: Paragraph,
     context: ParserContext,
-    ancestors: Paragraph[]
+    ancestors: Node[]
   ): ParagraphNode | null {
     if (astNode.type !== 'paragraph') return null;
 

@@ -2,15 +2,14 @@
 import { Node as MdastNode, Paragraph, Text } from 'mdast';
 import { ContentNode } from '@/core/node';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
-import { extractInnerText } from '@/utils/mdast-utils';
+import { extractInnerText, getAstNodeId } from '@/utils/mdast-utils';
 
 /**
  * Node for generic content that doesn't fit other categories
  */
-export class GenericNode extends ContentNode implements AstConvertible {
+export class GenericNode extends ContentNode {
   constructor(id: string, content: string, metadata: Record<string, unknown> = {}) {
     super(id, NodeType.Generic, content, metadata);
   }

@@ -2,18 +2,17 @@
 import { Code } from 'mdast';
 import { ContentNode } from '@/core/node';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
 
 /**
  * Node representing a code block
  */
-export class CodeBlockNode extends ContentNode implements AstConvertible {
+export class CodeBlockNode extends ContentNode {
   constructor(
     id: string,
     content: string,
-    language: string | null,
+    language: string | null | undefined,
     metadata: Record<string, unknown> = {}
   ) {
     super(id, NodeType.CodeBlock, content, {

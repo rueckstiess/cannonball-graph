@@ -71,3 +71,16 @@ export function getTaskState(item: ListItem): TaskState {
 
   return state;
 }
+
+
+/**
+ * Helper function to generate a unique ID for an AST node
+ * Used for tracking AST to graph node mappings
+ */
+export function getAstNodeId(astNode: Node): string {
+  if (!astNode.position) {
+    return `${astNode.type}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  }
+
+  return `${astNode.type}-${astNode.position.start.line}-${astNode.position.start.column}`;
+}

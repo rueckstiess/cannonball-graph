@@ -11,12 +11,8 @@ import {
   GenericNode
 } from './nodes';
 
-/**
- * Initialize the node registry with all node types
- * This should be called before using the parser or serializer
- */
 export function initializeNodeRegistry(): void {
-  // Register node classes for AST parsing
+  // Simply register each node class - no type casting needed
   NodeRegistry.register(NodeType.Note, NoteNode);
   NodeRegistry.register(NodeType.Section, SectionNode);
   NodeRegistry.register(NodeType.Task, TaskNode);
@@ -25,6 +21,3 @@ export function initializeNodeRegistry(): void {
   NodeRegistry.register(NodeType.CodeBlock, CodeBlockNode);
   NodeRegistry.register(NodeType.Generic, GenericNode);
 }
-
-// Auto-initialize on import (can be disabled for testing)
-initializeNodeRegistry();

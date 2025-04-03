@@ -3,8 +3,8 @@ import { CannonballGraph } from '@/core/graph';
 import { NodeType, RelationType } from '@/core/types';
 import {
   TaskNode,
-  NoteNode,
-} from '@/core/node';
+  NoteNode
+} from '@/core/nodes';
 
 describe('CannonballGraph', () => {
   let graph: CannonballGraph;

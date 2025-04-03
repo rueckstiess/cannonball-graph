@@ -1,28 +1,30 @@
 // src/core/nodes/section-node.ts
 import { Heading, Text } from 'mdast';
 import { ContainerNode } from '@/core/node';
+import { TaskNode, BulletNode } from '@/core/nodes';
 import { NodeType } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
-import { extractInnerText } from '@/utils/mdast-utils';
+import { extractInnerText, getAstNodeId } from '@/utils/mdast-utils';
+
+type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 /**
  * Node representing a section created by a heading
  */
-export class SectionNode extends ContainerNode implements AstConvertible {
-  constructor(id: string, title: string, level: number, metadata: Record<string, unknown> = {}) {
+export class SectionNode extends ContainerNode {
+  constructor(id: string, title: string, level: HeadingLevel, metadata: Record<string, unknown> = {}) {
     super(id, NodeType.Section, title, {
       ...metadata,
       level
     });
   }
 
-  get level(): number {
-    return this.metadata.level as number;
+  get level(): HeadingLevel {
+    return this.metadata.level as HeadingLevel;
   }
 
-  getContainmentLevel(): number {
+  getContainmentLevel(): HeadingLevel {
     return this.level;
   }
 
@@ -38,6 +40,10 @@ export class SectionNode extends ContainerNode implements AstConvertible {
       return this.level >= newContainer.level;
     }
 
+    if (newContainer instanceof TaskNode || newContainer instanceof BulletNode) {
+      return true;
+    }
+
     // Otherwise use default behavior
     return super.shouldPopFromContainerStack(newContainer);
   }
@@ -51,7 +57,7 @@ export class SectionNode extends ContainerNode implements AstConvertible {
       const topContainer = context.containerStack[context.containerStack.length - 1];
 
       // If it's a section with a lower or equal level, pop it
-      if (topContainer instanceof SectionNode && topContainer.level >= this.level) {
+      if (!(topContainer instanceof SectionNode) || topContainer.level >= this.level) {
         context.containerStack.pop();
       } else {
         // Found the right parent

@@ -30,8 +30,6 @@ export {
 } from './nodes';
 
 // Export registry
-export { NodeRegistry, type NodeClassConstructor } from './node-registry';
+export { NodeRegistry } from './node-registry';
 export { initializeNodeRegistry } from './registry-init';
 
-// Export AST conversion interface
-export { type AstConvertible, getAstNodeId } from './ast-convertible';

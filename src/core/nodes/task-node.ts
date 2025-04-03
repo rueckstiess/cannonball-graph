@@ -1,21 +1,21 @@
 // src/core/nodes/task-node.ts
 import { ListItem, Paragraph, Text } from 'mdast';
-import { ContainerNode, BulletNode } from '@/core/node';
+import { ContainerNode, BulletNode, SectionNode } from '@/core';
 import { NodeType, TaskState } from '@/core/types';
-import { AstConvertible, getAstNodeId } from '@/core/ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
 import {
   extractInnerText,
   isTaskListItem,
   calculateIndentLevel,
-  getTaskState
+  getTaskState,
+  getAstNodeId
 } from '@/utils/mdast-utils';
 
 /**
  * Node representing a task item with a state
  */
-export class TaskNode extends ContainerNode implements AstConvertible {
+export class TaskNode extends ContainerNode {
   constructor(
     id: string,
     content: string,
@@ -51,6 +51,10 @@ export class TaskNode extends ContainerNode implements AstConvertible {
     // If dealing with nested list items (tasks or bullets)
     if (newContainer instanceof TaskNode || newContainer instanceof BulletNode) {
       return this.indentLevel >= newContainer.indentLevel;
+    }
+
+    if (newContainer instanceof SectionNode) {
+      return true;
     }
 
     // For other containers, use default behavior

@@ -3,7 +3,7 @@ import { CannonballGraph } from '@/core/graph';
 import { BaseNode, ContainerNode } from '@/core/node';
 import { RelationType } from '@/core/types';
 import { Node as MdastNode } from 'mdast';
-import { getAstNodeId } from '@/core/ast-convertible';
+import { getAstNodeId } from '@/utils/mdast-utils';
 
 /**
  * Context passed during parsing to maintain state

@@ -1,5 +1,5 @@
 // __test__/core/node-registry.test.ts
-import { NodeRegistry, NodeClassConstructor } from '@/core/node-registry';
+import { NodeRegistry } from '@/core/node-registry';
 import { NodeType } from '@/core/types';
 import {
   NoteNode, SectionNode, TaskNode, BulletNode,
@@ -15,8 +15,8 @@ describe('NodeRegistry', () => {
 
   describe('Registration and lookup', () => {
     it('should register and retrieve node classes by type', () => {
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Section, SectionNode as unknown as NodeClassConstructor);
+      NodeRegistry.register(NodeType.Note, NoteNode);
+      NodeRegistry.register(NodeType.Section, SectionNode);
 
       const retrievedNoteClass = NodeRegistry.getNodeClass(NodeType.Note);
       const retrievedSectionClass = NodeRegistry.getNodeClass(NodeType.Section);
@@ -33,8 +33,8 @@ describe('NodeRegistry', () => {
 
   describe('AST parser registration', () => {
     it('should register and retrieve AST parser classes', () => {
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Section, SectionNode as unknown as NodeClassConstructor);
+      NodeRegistry.register(NodeType.Note, NoteNode);
+      NodeRegistry.register(NodeType.Section, SectionNode);
 
       const parserClasses = NodeRegistry.getAstParserClasses();
 
@@ -44,8 +44,8 @@ describe('NodeRegistry', () => {
     });
 
     it('should not register duplicate classes', () => {
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
+      NodeRegistry.register(NodeType.Note, NoteNode);
+      NodeRegistry.register(NodeType.Note, NoteNode);
 
       const parserClasses = NodeRegistry.getAstParserClasses();
 
@@ -57,13 +57,13 @@ describe('NodeRegistry', () => {
   describe('Finding parser for AST node', () => {
     beforeEach(() => {
       // Register all node types
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Section, SectionNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Task, TaskNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Bullet, BulletNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Paragraph, ParagraphNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.CodeBlock, CodeBlockNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Generic, GenericNode as unknown as NodeClassConstructor);
+      NodeRegistry.register(NodeType.Note, NoteNode);
+      NodeRegistry.register(NodeType.Section, SectionNode);
+      NodeRegistry.register(NodeType.Task, TaskNode);
+      NodeRegistry.register(NodeType.Bullet, BulletNode);
+      NodeRegistry.register(NodeType.Paragraph, ParagraphNode);
+      NodeRegistry.register(NodeType.CodeBlock, CodeBlockNode);
+      NodeRegistry.register(NodeType.Generic, GenericNode);
     });
 
     it('should find the correct parser for root nodes', () => {
@@ -165,8 +165,8 @@ describe('NodeRegistry', () => {
 
   describe('Clear registry', () => {
     it('should clear all registrations', () => {
-      NodeRegistry.register(NodeType.Note, NoteNode as unknown as NodeClassConstructor);
-      NodeRegistry.register(NodeType.Section, SectionNode as unknown as NodeClassConstructor);
+      NodeRegistry.register(NodeType.Note, NoteNode);
+      NodeRegistry.register(NodeType.Section, SectionNode);
 
       expect(NodeRegistry.getNodeClass(NodeType.Note)).toBeDefined();
       expect(NodeRegistry.getAstParserClasses().length).toBe(2);

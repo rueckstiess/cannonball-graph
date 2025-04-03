@@ -10,7 +10,6 @@ import { BaseNode, NodeFactory } from '@/core/node';
 import { NoteNode } from '@/core/nodes';
 import { createParserContext, ParserContext } from './parser-context';
 import { NodeRegistry } from '@/core/node-registry';
-import { getAstNodeId } from '@/core/ast-convertible';
 
 /**
  * Parser that converts Markdown content into a Cannonball graph
@@ -115,7 +114,7 @@ export class MarkdownParser {
     // - Heading content is already processed in the heading node
     // - Code blocks should be treated as single units
     // - List items process their own children
-    return ['heading', 'code', 'listItem'].includes(node.type);
+    return ['heading', 'code'].includes(node.type);
   }
 
   /**

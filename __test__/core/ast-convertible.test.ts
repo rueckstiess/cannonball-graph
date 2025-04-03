@@ -1,5 +1,5 @@
 // __test__/core/ast-convertible.test.ts
-import { getAstNodeId } from '@/core/ast-convertible';
+import { getAstNodeId } from '@/utils/mdast-utils';
 import { Heading, Paragraph, Root } from 'mdast';
 
 describe('AST Convertible Utilities', () => {
