@@ -2,7 +2,7 @@
 import { getAstNodeId } from '@/utils/mdast-utils';
 import { Heading, Paragraph, Root } from 'mdast';
 
-describe('AST Convertible Utilities', () => {
+describe('mdast Utilities', () => {
   describe('getAstNodeId', () => {
     it('should generate IDs based on node type and position', () => {
       const headingAst: Heading = {
