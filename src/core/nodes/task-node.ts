@@ -1,6 +1,6 @@
 // src/core/nodes/task-node.ts
 import { ListItem, Paragraph, Text } from 'mdast';
-import { ContainerNode, BulletNode, SectionNode } from '@/core';
+import { ContainerNode, BulletNode, SectionNode, CodeBlockNode } from '@/core';
 import { NodeType, TaskState } from '@/core/types';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
@@ -53,7 +53,7 @@ export class TaskNode extends ContainerNode {
       return this.indentLevel >= newContainer.indentLevel;
     }
 
-    if (newContainer instanceof SectionNode) {
+    if (newContainer instanceof SectionNode || newContainer instanceof CodeBlockNode) {
       return true;
     }
 
@@ -118,7 +118,8 @@ export class TaskNode extends ContainerNode {
       {
         position: astNode.position,
         listPosition,
-        filePath: context.filePath
+        filePath: context.filePath,
+        spread: astNode.spread
       }
     );
 
@@ -164,7 +165,7 @@ export class TaskNode extends ContainerNode {
     // Create the list item
     return {
       type: 'listItem',
-      spread: false,
+      spread: this.metadata.spread !== undefined ? Boolean(this.metadata.spread) : false,
       children: [paragraph],
       checked: this.state === TaskState.Complete
     };

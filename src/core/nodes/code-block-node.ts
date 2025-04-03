@@ -44,7 +44,8 @@ export class CodeBlockNode extends ContentNode {
       astNode.lang,
       {
         position: astNode.position,
-        filePath: context.filePath
+        filePath: context.filePath,
+        meta: astNode.meta
       }
     );
 
@@ -71,7 +72,8 @@ export class CodeBlockNode extends ContentNode {
     return {
       type: 'code',
       value: this.content,
-      lang: this.language
+      lang: this.language,
+      meta: this.metadata.meta as string
     };
   }
 }

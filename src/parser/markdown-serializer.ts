@@ -56,7 +56,11 @@ export class MarkdownSerializer {
       listItemIndent: 'one',
       emphasis: '_',
       strong: '*',
-      fence: '`'
+      fence: '`',
+      resourceLink: false,
+      rule: '-',
+      // Control whitespace and formatting
+      ruleSpaces: false,
     }
   }): SerializationResult {
     this.visitedNodes.clear();
@@ -219,14 +223,13 @@ export class MarkdownSerializer {
       // Create a sublist for nested list items
       const subList: List = {
         type: 'list',
+        // Set the spread property based on what's in the listChildren
         spread: false,
         children: []
       };
 
-      // If the first child is a task, make it an ordered list
-      if (listChildren[0].type === NodeType.Task) {
-        subList.ordered = false;
-      }
+      // We want to control if this is an ordered list
+      subList.ordered = false;
 
       // Add the sublist to the list item
       listItemAst.children.push(subList);
@@ -293,14 +296,13 @@ export class MarkdownSerializer {
       // Create a sublist for nested list items
       const subList: List = {
         type: 'list',
+        // Set the spread property based on what's in the listChildren
         spread: false,
         children: []
       };
 
-      // If the first child is a task, make it an ordered list
-      if (listChildren[0].type === NodeType.Task) {
-        subList.ordered = false;
-      }
+      // We want to control if this is an ordered list
+      subList.ordered = false;
 
       // Add the sublist to the list item
       listItemAst.children.push(subList);

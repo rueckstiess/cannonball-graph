@@ -1,7 +1,7 @@
 // src/core/nodes/bullet-node.ts
 import { ListItem, Paragraph, Text } from 'mdast';
 import { ContainerNode } from '@/core/node';
-import { TaskNode } from '@/core/nodes/task-node';
+import { TaskNode } from '@/core/nodes';
 import { NodeType } from '@/core/types';
 import { ParserContext } from '@/parser/parser-context';
 import { generateNodeId } from '@/utils/id-utils';
@@ -102,7 +102,8 @@ export class BulletNode extends ContainerNode {
       {
         position: astNode.position,
         listPosition,
-        filePath: context.filePath
+        filePath: context.filePath,
+        spread: astNode.spread
       }
     );
 
@@ -147,7 +148,7 @@ export class BulletNode extends ContainerNode {
     // Create the list item
     return {
       type: 'listItem',
-      spread: false,
+      spread: this.metadata.spread !== undefined ? Boolean(this.metadata.spread) : false,
       children: [paragraph]
     };
   }

@@ -200,6 +200,8 @@ export class MarkdownSerializer {
       const subList: List = {
         type: 'list',
         spread: false,
+        ordered: false,
+        start: null,
         children: []
       };
 
@@ -271,6 +273,8 @@ export class MarkdownSerializer {
       // Create a sublist for nested list items
       const subList: List = {
         type: 'list',
+        ordered: false,
+        start: null,
         spread: false,
         children: []
       };
@@ -349,6 +353,8 @@ export class MarkdownSerializer {
     const list: List = {
       type: 'list',
       spread: false,
+      ordered: false,
+      start: null,
       children: []
     };
 

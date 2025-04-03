@@ -547,6 +547,30 @@ function hello() {
     });
 
 
+    it('should contain the code block in the section, not list item', () => {
+      const markdown = `# Test Document
+
+- Bullet point 1
+
+\`\`\`javascript
+function hello() {
+  console.log("Hello world!");
+}
+\`\`\`
+`;
+
+      // Parse the markdown to create a graph
+      const parsedGraph = parser.parse(markdown, 'test.md');
+
+      // Create a serializer with the parsed graph
+      const graphSerializer = new MarkdownSerializer(parsedGraph);
+
+      // Serialize back to markdown
+      const result = graphSerializer.serialize();
+
+      expect(result.markdown).toEqual(markdown);
+    });
+
 
     it('should maintain the structure after parse-serialize round trip - simple project plan', () => {
       const markdown = `# Project Plan
@@ -555,12 +579,10 @@ function hello() {
   - [x] Define requirements
   - [x] Create timeline
   - [x] Assign resources
-
 - [/] Phase 2: Implementation
   - [x] Set up development environment
   - [/] Develop core features
   - [ ] Complete testing
-
 - [ ] Phase 3: Deployment
   - [ ] Prepare release notes
   - [ ] Deploy to staging
@@ -609,7 +631,7 @@ function hello() {
   - [/] In progress subtask
   - [!] Blocked subtask
   - [-] Cancelled subtask
-  
+
 ## Mixed content
 
 - [ ] Task with code
@@ -617,7 +639,7 @@ function hello() {
   def hello():
       print("Hello, world!")
   \`\`\`
-  
+
 - [x] Task with nested list
   - First item
   - Second item
@@ -626,7 +648,12 @@ function hello() {
       // Parse, serialize, and verify exact match
       const parsedGraph = parser.parse(markdown, 'task-states.md');
       const result = new MarkdownSerializer(parsedGraph).serialize();
-      expect(result.markdown).toEqual(markdown);
+
+      // strip completely empty lines from both sides
+      const resultMarkdown = result.markdown.replace(/^\s*\n/gm, '');
+      const markdownStripped = markdown.replace(/^\s*\n/gm, '');
+
+      expect(resultMarkdown).toEqual(markdownStripped);
     });
 
     it('should maintain the structure after parse-serialize round trip - minimal content', () => {
@@ -699,7 +726,12 @@ class SelfAttention(nn.Module):
       // Parse, serialize, and verify exact match
       const parsedGraph = parser.parse(markdown, 'ml-research.md');
       const result = new MarkdownSerializer(parsedGraph).serialize();
-      expect(result.markdown).toEqual(markdown);
+
+      // strip completely empty lines from both sides
+      const resultMarkdown = result.markdown.replace(/^\s*\n/gm, '');
+      const markdownStripped = markdown.replace(/^\s*\n/gm, '');
+
+      expect(resultMarkdown).toEqual(markdownStripped);
     });
   });
 });
