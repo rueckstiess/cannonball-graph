@@ -1,0 +1,30 @@
+# Cannonball - An AI-powered productivity system integrated into Obsidian
+
+## High-level concepts
+
+- **Tree to Graph**: I want to be able to write Markdown quickly in Obsidian. The Markdown represents a directed labeled graph which we induce from the Markdown AST. 
+- **Markdown**: Any state of the graph can be represented as an Obsidian Note (even more specifically, a bullet point list) in Markdown format, with some custom additions to define different node types and cross-referencing nodes.
+- **AI assistance**: We integrate LLMs into the system, which can navigate the graph, search, filter, answer questions, and even make changes to the graph (via Markdown edits) These changes can be reviewed by a human before being applied (diff view). 
+- **Obsidian Integration**: The system is written as a plugin in Obsidian and updates the markdown in the editor. We can view the graph with Obsidian's graph view. It also plays nice with popular plugins, like dataview, kanban, mininal. 
+- The implementation is in TypeScript, with clean structured interfaces for graph nodes and edges. It uses remark/mdast utilities to parse and stringify the markdown. 
+
+## Development Process Guidelines
+
+When helping with the Cannonball project, please follow this structured development process:
+
+1. **Specification First**: Begin by writing or discussing specifications for each component before coding. Include clear requirements, interfaces, and expected behaviors.
+
+2. **Test-Driven Development**: After agreeing on a specification, write tests first. These tests should verify all the required functionality and edge cases.
+
+3. **Incremental Implementation**: Implement one component at a time, focusing on making tests pass. Don't move to the next component until the current one is verified.
+
+4. **Documentation-Rich**: Add comprehensive JSDoc comments to interfaces and key methods.
+
+5. **Code Communication Preferences**:
+   - Documentation and specifications: Write to Obsidian through basic-memory tool
+   - Code implementation: Create as artifacts in the Claude web UI
+   - Avoid lengthy code dumps across multiple files in one response
+
+6. **Verification Steps**: Allow time for verification and feedback after each component before proceeding.
+
+This step-by-step approach helps keep the development process manageable, verifiable, and aligned with my requirements.
