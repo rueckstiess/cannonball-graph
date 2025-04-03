@@ -148,27 +148,23 @@ export class TaskNode extends ContainerNode {
    * Convert to an AST node
    */
   toAst(): ListItem {
-    // Create the checkbox text
-    const checkboxText: Text = {
-      type: 'text',
-      value: `[${this.getTaskStateMarker()}] `
-    };
 
     // Create the content text
     const contentText: Text = {
       type: 'text',
-      value: this.content
+      value: `[${this.getTaskStateMarker()}] ${this.content}`
     };
 
     // Create a paragraph with the checkbox and content
     const paragraph: Paragraph = {
       type: 'paragraph',
-      children: [checkboxText, contentText]
+      children: [contentText]
     };
 
     // Create the list item
     return {
       type: 'listItem',
+      spread: false,
       children: [paragraph],
       checked: this.state === TaskState.Complete
     };

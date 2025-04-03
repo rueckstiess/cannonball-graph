@@ -81,6 +81,16 @@ More text
       expect(task1Dependencies.length).toBe(2);
     });
 
+    it('should parse heading with 2 tasks', () => {
+      const markdown = `# Test Note
+- [ ] Task 1
+- [x] Task 2
+`;
+      const graph = parser.parse(markdown, 'tasks.md');
+      const tasks = graph.getAllNodes().filter(n => n.type === NodeType.Task);
+      expect(tasks.length).toBe(2);
+    });
+
     it('should parse code blocks', () => {
       const markdown = `# Code Example
 

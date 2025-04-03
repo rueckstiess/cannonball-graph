@@ -11,6 +11,8 @@ import { NoteNode } from '@/core/nodes';
 import { createParserContext, ParserContext } from './parser-context';
 import { NodeRegistry } from '@/core/node-registry';
 
+import { inspect } from 'unist-util-inspect'
+
 /**
  * Parser that converts Markdown content into a Cannonball graph
  * using a node-driven approach where each node type knows how to parse itself
@@ -25,6 +27,7 @@ export class MarkdownParser {
   parse(markdown: string, filePath: string): CannonballGraph {
     // Parse the markdown into an AST
     const ast = unified().use(remarkParse).parse(markdown);
+    console.log(inspect(ast));
 
     // Create a new graph
     const graph = new CannonballGraph();

@@ -1,11 +1,13 @@
 // src/parser/markdown-serializer.ts
 import { toMarkdown } from 'mdast-util-to-markdown';
-import { Root, List, Node as mdastNode, Code } from 'mdast';
+import { Root, List, ListItem, Paragraph, Node as mdastNode, BlockContent, Parent } from 'mdast';
 
 import { CannonballGraph } from '@/core/graph';
 import { BaseNode } from '@/core/node';
 import { NodeType, RelationType } from '@/core/types';
 import { BulletNode, TaskNode, SectionNode, NoteNode, CodeBlockNode, GenericNode, ParagraphNode } from '@/core/nodes';
+import { inspect } from 'unist-util-inspect';
+
 
 /**
  * Options for markdown serialization
@@ -48,7 +50,15 @@ export class MarkdownSerializer {
    * @param options - Serialization options
    * @returns The serialization result
    */
-  serialize(options: SerializationOptions = {}): SerializationResult {
+  serialize(options: SerializationOptions = {
+    markdownOptions: {
+      bullet: '-',
+      listItemIndent: 'one',
+      emphasis: '_',
+      strong: '*',
+      fence: '`'
+    }
+  }): SerializationResult {
     this.visitedNodes.clear();
     this.serializedNodes = [];
 
@@ -62,7 +72,7 @@ export class MarkdownSerializer {
     let startNodes: BaseNode[];
     if (options.rootId) {
       // If a specific root ID is provided, start from that node
-      const rootNode = this.graph.getNode(options.rootId) as BaseNode;
+      const rootNode = this.graph.getNode(options.rootId);
       if (!rootNode) {
         throw new Error(`Root node with ID ${options.rootId} not found`);
       }
@@ -78,7 +88,17 @@ export class MarkdownSerializer {
     }
 
     // Convert the AST to Markdown
-    const markdown = toMarkdown(rootAst, options.markdownOptions);
+    console.log(inspect(rootAst));
+    let markdown = toMarkdown(rootAst, options.markdownOptions);
+
+    // Replace escape characters that mdast inserts
+    const taskMarkerRegex = /([-*]) \\+(\[[^\]]*\])/g;
+    markdown = markdown.replace(taskMarkerRegex, '- $2');
+
+    // remove trailing newline
+    if (markdown.endsWith('\n')) {
+      markdown = markdown.slice(0, -1);
+    }
 
     return {
       markdown,
@@ -94,7 +114,7 @@ export class MarkdownSerializer {
   private findRootNodes(): BaseNode[] {
     const allNodes = this.graph.getAllNodes();
     return allNodes.filter(node => {
-      const containingNodes = this.graph.getRelatingNodes(node.id, RelationType.ContainsChild) as BaseNode[];
+      const containingNodes = this.graph.getRelatingNodes(node.id, RelationType.ContainsChild);
       return containingNodes.length === 0;
     });
   }
@@ -238,8 +258,10 @@ export class MarkdownSerializer {
       // Convert to AST
       const childAst = child.toAst();
 
-      // Add to list item children
-      listItemAst.children.push(childAst);
+      // Add to list item children if it's a valid block content
+      if (this.isValidListItemContent(childAst)) {
+        listItemAst.children.push(childAst as BlockContent);
+      }
 
       // Process its children
       this.processChildren(child, listItemAst.children as mdastNode[]);
@@ -251,7 +273,7 @@ export class MarkdownSerializer {
    * @param node - The list item node
    * @param listItemAst - The list item AST node
    */
-  private processListItemChildren(node: TaskNode | BulletNode, listItemAst: any): void {
+  private processListItemChildren(node: TaskNode | BulletNode, listItemAst: ListItem): void {
     const children = this.graph.getRelatedNodes(node.id, RelationType.ContainsChild);
 
     // Group children by type
@@ -311,7 +333,7 @@ export class MarkdownSerializer {
       const childAst = child.toAst();
 
       // Add to list item children
-      listItemAst.children.push(childAst);
+      listItemAst.children.push(childAst as BlockContent);
     }
   }
 
@@ -356,5 +378,20 @@ export class MarkdownSerializer {
     astChildren.push(list);
 
     return list;
+  }
+
+  /**
+   * Check if a node is valid content for a list item
+   * ListItem children must be BlockContent (paragraph, heading, etc.)
+   * @param node - The node to check
+   * @returns Whether the node is valid list item content
+   */
+  private isValidListItemContent(node: mdastNode): boolean {
+    const validTypes = [
+      'paragraph', 'heading', 'thematicBreak', 'blockquote',
+      'list', 'table', 'html', 'code'
+    ];
+
+    return validTypes.includes(node.type);
   }
 }

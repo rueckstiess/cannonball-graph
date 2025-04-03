@@ -147,6 +147,7 @@ export class BulletNode extends ContainerNode {
     // Create the list item
     return {
       type: 'listItem',
+      spread: false,
       children: [paragraph]
     };
   }
