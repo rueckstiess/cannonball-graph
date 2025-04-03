@@ -244,8 +244,9 @@ describe('Graph', () => {
 
     it('should get outgoing neighbors', () => {
       const neighbors = graph.getNeighbors('b', 'outgoing');
-      expect(neighbors.length).toBe(1);
+      expect(neighbors.length).toBe(2);
       expect(neighbors[0].id).toBe('c');
+      expect(neighbors[1].id).toBe('a');
     });
 
     it('should get incoming neighbors', () => {
@@ -263,9 +264,11 @@ describe('Graph', () => {
 
     it('should get outgoing edges for a node', () => {
       const edges = graph.getEdgesForNode('b', 'outgoing');
-      expect(edges.length).toBe(1);
+      expect(edges.length).toBe(2);
       expect(edges[0].target).toBe('c');
       expect(edges[0].label).toBe('KNOWS');
+      expect(edges[1].target).toBe('a');
+      expect(edges[1].label).toBe('TRUSTS');
     });
 
     it('should get incoming edges for a node', () => {
@@ -277,14 +280,17 @@ describe('Graph', () => {
 
     it('should get all edges for a node (both directions)', () => {
       const edges = graph.getEdgesForNode('b', 'both');
-      expect(edges.length).toBe(2);
+      // two knows, one trusts
+      expect(edges.length).toBe(3);
 
       // Check that both edges are present
       const incomingKnows = edges.find(e => e.source === 'a' && e.target === 'b');
       const outgoingKnows = edges.find(e => e.source === 'b' && e.target === 'c');
+      const outgoingTrusts = edges.find(e => e.source === 'b' && e.target === 'a');
 
       expect(incomingKnows).toBeDefined();
       expect(outgoingKnows).toBeDefined();
+      expect(outgoingTrusts).toBeDefined();
     });
 
     it('should find paths between nodes', () => {
