@@ -33,6 +33,8 @@ export abstract class BaseNode {
    */
   abstract canContain(node: BaseNode): boolean;
 
+  abstract toAst(): MdastNode;
+
   /**
    * Convert the node to a plain object representation
    * Useful for serialization and debugging
