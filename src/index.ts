@@ -1,38 +1,43 @@
 // src/index.ts
-// Export core types
+// Export core types and classes
 export {
   NodeType,
   RelationType,
   TaskState,
   type GraphDiff,
-} from './core/types';
-
-// Export core classes
-export { CannonballGraph, type Edge } from './core/graph';
-
-// Export node classes
-export {
+  CannonballGraph,
+  type Edge,
   BaseNode,
   ContainerNode,
+  ContentNode,
+  NodeFactory,
   NoteNode,
   SectionNode,
   TaskNode,
   BulletNode,
-  ContentNode,
   ParagraphNode,
   CodeBlockNode,
   GenericNode,
-  NodeFactory
-} from './core/node';
+  NodeRegistry,
+  type NodeClassConstructor,
+  initializeNodeRegistry,
+  type AstConvertible
+} from './core';
 
 // Export parser and serializer
-export { MarkdownParser } from './parser/markdown-parser';
-// export {
-//   MarkdownSerializer,
-//   type SerializationOptions,
-//   type SerializationResult
-// } from './parser/markdown-serializer';
+export {
+  MarkdownParser,
+  MarkdownSerializer,
+  type SerializationOptions,
+  type SerializationResult
+} from './parser';
 
 // Export utilities
 export { generateNodeId, parseNodeId, isNodeInFile } from './utils/id-utils';
-export { capitalize, slugify } from './utils/string-utils';
+export { capitalize, slugify, normalizeMarkdown } from './utils/string-utils';
+export {
+  extractInnerText,
+  isTaskListItem,
+  calculateIndentLevel,
+  getTaskState
+} from './utils/mdast-utils';

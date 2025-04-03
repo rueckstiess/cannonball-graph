@@ -1,5 +1,8 @@
 // src/core/node.ts
-import { NodeType, TaskState } from './types';
+import { Node as MdastNode, Paragraph, Text } from 'mdast';
+import { NodeType } from './types';
+// import { AstConvertible } from './ast-convertible';
+import { ParserContext } from '@/parser/parser-context';
 
 /**
  * Base node class for all nodes in the Cannonball graph
@@ -43,6 +46,22 @@ export abstract class BaseNode {
       modifiedDate: this.modifiedDate,
     };
   }
+
+  /**
+   * Create a basic paragraph AST node with the node's content
+   * Used as a default implementation for toAst in content nodes
+   */
+  protected createParagraphAst(): Paragraph {
+    const textNode: Text = {
+      type: 'text',
+      value: this.content
+    };
+
+    return {
+      type: 'paragraph',
+      children: [textNode]
+    };
+  }
 }
 
 /**
@@ -69,148 +88,24 @@ export abstract class ContainerNode extends BaseNode {
    * Default implementation allows containers to contain any node
    * Subclasses can override for specific containment rules
    */
-  canContain(node: BaseNode): boolean {
-    return true;
-  }
-}
-
-/**
- * Node representing a complete document/note
- */
-export class NoteNode extends ContainerNode {
-  constructor(id: string, title: string, metadata: Record<string, unknown> = {}) {
-    super(id, NodeType.Note, title, metadata);
-  }
-
-  getContainmentLevel(): number {
-    return 0; // Root level
-  }
-
-  canContain(node: BaseNode): boolean {
-    // Notes can contain any node type except other notes
-    return node.type !== NodeType.Note;
-  }
-}
-
-/**
- * Node representing a section created by a heading
- */
-export class SectionNode extends ContainerNode {
-  constructor(id: string, title: string, level: number, metadata: Record<string, unknown> = {}) {
-    super(id, NodeType.Section, title, {
-      ...metadata,
-      level
-    });
-  }
-
-  get level(): number {
-    return this.metadata.level as number;
-  }
-
-  getContainmentLevel(): number {
-    return this.level;
-  }
-
-  canContain(node: BaseNode): boolean {
-    // Sections can contain any node type
-    // Containment is determined by heading levels in the parser
+  canContain(_node: BaseNode): boolean {
     return true;
   }
 
-  shouldPopFromContainerStack(newContainer: ContainerNode): boolean {
-    // If the new container is a section, compare heading levels
-    if (newContainer instanceof SectionNode) {
-      return this.level >= newContainer.level;
+  /**
+   * Adjusts the container stack when this node is added
+   * @param context - The parser context with the container stack
+   */
+  adjustContainerStack(context: ParserContext): void {
+    // Default implementation - pop containers until finding appropriate parent
+    while (context.containerStack.length > 1) {
+      const topContainer = context.containerStack[context.containerStack.length - 1];
+      if (topContainer.shouldPopFromContainerStack(this)) {
+        context.containerStack.pop();
+      } else {
+        break;
+      }
     }
-
-    // Otherwise use default behavior
-    return super.shouldPopFromContainerStack(newContainer);
-  }
-}
-
-/**
- * Node representing a task item with a state
- */
-export class TaskNode extends ContainerNode {
-  constructor(
-    id: string,
-    content: string,
-    state: TaskState = TaskState.Open,
-    indentLevel: number = 0,
-    metadata: Record<string, unknown> = {}
-  ) {
-    super(id, NodeType.Task, content, {
-      ...metadata,
-      taskState: state,
-      indentLevel
-    });
-  }
-
-  get state(): TaskState {
-    return this.metadata.taskState as TaskState;
-  }
-
-  get indentLevel(): number {
-    return this.metadata.indentLevel as number || 0;
-  }
-
-  getContainmentLevel(): number {
-    return this.indentLevel;
-  }
-
-  canContain(node: BaseNode): boolean {
-    // Tasks can contain other tasks, bullets, or content nodes
-    return true;
-  }
-
-  shouldPopFromContainerStack(newContainer: ContainerNode): boolean {
-    // If dealing with nested list items (tasks or bullets)
-    if (newContainer instanceof TaskNode || newContainer instanceof BulletNode) {
-      return this.indentLevel >= newContainer.indentLevel;
-    }
-
-    // For other containers, use default behavior
-    return super.shouldPopFromContainerStack(newContainer);
-  }
-}
-
-/**
- * Node representing a bullet list item
- */
-export class BulletNode extends ContainerNode {
-  constructor(
-    id: string,
-    content: string,
-    indentLevel: number = 0,
-    metadata: Record<string, unknown> = {}
-  ) {
-    super(id, NodeType.Bullet, content, {
-      ...metadata,
-      indentLevel
-    });
-  }
-
-  get indentLevel(): number {
-    return this.metadata.indentLevel as number || 0;
-  }
-
-  getContainmentLevel(): number {
-    return this.indentLevel;
-  }
-
-  canContain(node: BaseNode): boolean {
-    // Bullets can contain tasks, other bullets, and content nodes
-    return true;
-  }
-
-  shouldPopFromContainerStack(newContainer: ContainerNode): boolean {
-    // If dealing with nested list items (tasks or bullets)
-    if (newContainer instanceof TaskNode || newContainer instanceof BulletNode) {
-      return this.indentLevel >= newContainer.indentLevel;
-    }
-
-    // For other containers, use default behavior
-    return super.shouldPopFromContainerStack(newContainer);
   }
 }
 
@@ -230,114 +125,34 @@ export abstract class ContentNode extends BaseNode {
 }
 
 /**
- * Node representing a paragraph of text
- */
-export class ParagraphNode extends ContentNode {
-  constructor(id: string, content: string, metadata: Record<string, unknown> = {}) {
-    super(id, NodeType.Paragraph, content, metadata);
-  }
-}
-
-/**
- * Node representing a code block
- */
-export class CodeBlockNode extends ContentNode {
-  constructor(id: string, content: string, language: string | null, metadata: Record<string, unknown> = {}) {
-    super(id, NodeType.CodeBlock, content, {
-      ...metadata,
-      language
-    });
-  }
-
-  get language(): string | null {
-    return this.metadata.language as string || null;
-  }
-}
-
-/**
- * Node for generic content that doesn't fit other categories
- */
-export class GenericNode extends ContentNode {
-  constructor(id: string, content: string, metadata: Record<string, unknown> = {}) {
-    super(id, NodeType.Generic, content, metadata);
-  }
-}
-
-/**
  * Factory for creating appropriate node instances based on type
  */
 export class NodeFactory {
-  /**
-   * Create a node of the appropriate type
-   * @param options - Node creation options
-   * @returns The created node
-   */
-  static createNode(options: {
-    id: string;
-    type: NodeType;
-    content: string;
-    metadata?: Record<string, unknown>;
-  }): BaseNode {
-    const { id, type, content, metadata = {} } = options;
-
-    switch (type) {
-      case NodeType.Note:
-        return new NoteNode(id, content, metadata);
-
-      case NodeType.Section:
-        return new SectionNode(
-          id,
-          content,
-          metadata.level as number || 1,
-          metadata
-        );
-
-      case NodeType.Task:
-        return new TaskNode(
-          id,
-          content,
-          metadata.taskState as TaskState || TaskState.Open,
-          metadata.indentLevel as number || 0,
-          metadata
-        );
-
-      case NodeType.Bullet:
-        return new BulletNode(
-          id,
-          content,
-          metadata.indentLevel as number || 0,
-          metadata
-        );
-
-      case NodeType.Paragraph:
-        return new ParagraphNode(id, content, metadata);
-
-      case NodeType.CodeBlock:
-        return new CodeBlockNode(
-          id,
-          content,
-          metadata.language as string || null,
-          metadata
-        );
-
-      default:
-        return new GenericNode(id, content, metadata);
-    }
-  }
-
   /**
    * Create a node from a plain object representation
    * @param obj - The object representation
    * @returns The created node
    */
   static fromObject(obj: Record<string, unknown>): BaseNode {
-    const node = NodeFactory.createNode({
-      id: obj.id as string,
-      type: obj.type as NodeType,
-      content: obj.content as string,
-      metadata: obj.metadata as Record<string, unknown>
-    });
+    // Import here to avoid circular dependency
+    const { NodeRegistry } = require('./node-registry');
 
+    const nodeType = obj.type as NodeType;
+    const NodeClass = NodeRegistry.getNodeClass(nodeType);
+
+    if (!NodeClass) {
+      throw new Error(`No node class registered for type ${nodeType}`);
+    }
+
+    // Create the node with the appropriate constructor
+    // We need to provide at least the required arguments
+    const node = new NodeClass(
+      obj.id as string,
+      obj.content as string,
+      obj.metadata as Record<string, unknown>
+    );
+
+    // Set dates if available
     if (obj.createdDate) {
       node.createdDate = new Date(obj.createdDate as string);
     }
@@ -347,5 +162,31 @@ export class NodeFactory {
     }
 
     return node;
+  }
+
+  /**
+   * Create a node from an AST node
+   * @param astNode - The AST node
+   * @param context - The parser context
+   * @param ancestors - The ancestors of the AST node
+   * @returns The created graph node, or null if no suitable parser found
+   */
+  static fromAst(
+    astNode: MdastNode,
+    context: ParserContext,
+    ancestors: MdastNode[]
+  ): BaseNode | null {
+    // Import here to avoid circular dependency
+    const { NodeRegistry } = require('./node-registry');
+
+    // Find a node class that can parse this AST node
+    const NodeClass = NodeRegistry.findParserForAst(astNode);
+
+    if (!NodeClass) {
+      return null;
+    }
+
+    // Use the node class's fromAst method
+    return NodeClass.fromAst(astNode, context, ancestors);
   }
 }

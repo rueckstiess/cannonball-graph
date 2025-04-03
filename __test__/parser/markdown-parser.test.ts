@@ -1,11 +1,17 @@
 // __test__/parser/markdown-parser.test.ts
 import { MarkdownParser } from '@/parser/markdown-parser';
 import { NodeType, RelationType, TaskState } from '@/core/types';
+import { NodeRegistry } from '@/core/node-registry';
+import { initializeNodeRegistry } from '@/core/registry-init';
 
 describe('MarkdownParser', () => {
   let parser: MarkdownParser;
 
   beforeEach(() => {
+    // Reset the registry and re-initialize before each test
+    NodeRegistry.clear();
+    initializeNodeRegistry();
+
     parser = new MarkdownParser();
   });
 
@@ -214,7 +220,6 @@ function hello() {
       // Step 1 should depend on Subtask A and Subtask B
       const step1Dependencies = graph.getRelatedNodes(step1.id, RelationType.DependsOn);
       expect(step1Dependencies).toContainEqual(expect.objectContaining({ id: subtaskA.id }));
-
 
       // Verify the dependency chain is correct (transitive dependencies not created by default)
       const project = graph.getAllNodes().find(

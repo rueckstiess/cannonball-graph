@@ -1,5 +1,11 @@
-import { CannonballGraph } from '../core/graph';
-import { NodeType, RelationType, Node, TaskState } from '../core/types';
+// src/parser/markdown-serializer.ts
+import { toMarkdown } from 'mdast-util-to-markdown';
+import { Node as MdastNode, Root, RootContent, List, ListItem } from 'mdast';
+import { CannonballGraph } from '@/core/graph';
+import { NodeType, RelationType } from '@/core/types';
+import { BaseNode } from '@/core/node';
+import { AstConvertible } from '@/core/ast-convertible';
+import { NoteNode, SectionNode, TaskNode, BulletNode } from '@/core/nodes';
 
 /**
  * Options for serializing the graph to markdown
@@ -14,12 +20,17 @@ export interface SerializationOptions {
    * Function to determine the file path for a node
    * If not provided, nodes will be grouped by their original file path
    */
-  getFilePath?: (node: Node) => string;
+  getFilePath?: (node: BaseNode) => string;
 
   /**
    * Whether to include metadata inline in the generated markdown
    */
   includeMetadata?: boolean;
+
+  /**
+   * Options for the mdast-util-to-markdown library
+   */
+  markdownOptions?: Record<string, unknown>;
 }
 
 /**
@@ -34,6 +45,7 @@ export interface SerializationResult {
 
 /**
  * Serializer that converts a Cannonball graph into markdown
+ * using mdast-util-to-markdown for the final conversion
  */
 export class MarkdownSerializer {
   /**
@@ -52,7 +64,16 @@ export class MarkdownSerializer {
 
     // Process each file
     for (const [filePath, nodes] of nodesByFile) {
-      const markdown = this.serializeFile(graph, nodes, options);
+      // Convert the graph to an AST
+      const ast = this.graphToAst(graph, nodes);
+
+      // Convert the AST to markdown
+      const markdown = toMarkdown(ast, {
+        bullet: '-',
+        listItemIndent: 'one',
+        ...options.markdownOptions
+      });
+
       result.files.set(filePath, markdown);
     }
 
@@ -65,8 +86,8 @@ export class MarkdownSerializer {
   private groupNodesByFile(
     graph: CannonballGraph,
     options: SerializationOptions
-  ): Map<string, Node[]> {
-    const nodesByFile = new Map<string, Node[]>();
+  ): Map<string, BaseNode[]> {
+    const nodesByFile = new Map<string, BaseNode[]>();
     const allNodes = graph.getAllNodes();
 
     for (const node of allNodes) {
@@ -92,15 +113,215 @@ export class MarkdownSerializer {
   }
 
   /**
-   * Serialize all nodes for a single file
+   * Convert a set of nodes to an AST
    */
-  private serializeFile(
-    graph: CannonballGraph,
-    nodes: Node[],
-    options: SerializationOptions
-  ): string {
+  private graphToAst(graph: CannonballGraph, nodes: BaseNode[]): Root {
+    // Create root AST node
+    const root: Root = { type: 'root', children: [] };
+
     // Find top-level nodes (notes and headings without parents)
-    const topLevelNodes = nodes.filter(node => {
+    const topLevelNodes = this.findTopLevelNodes(graph, nodes);
+
+    // Sort nodes by position in the document
+    topLevelNodes.sort((a, b) => {
+      const posA = a.metadata.position?.start?.line || 0;
+      const posB = b.metadata.position?.start?.line || 0;
+      return posA - posB;
+    });
+
+    // Process each top-level node
+    for (const node of topLevelNodes) {
+      if (node instanceof NoteNode) {
+        // For notes, add title and process children
+        this.processNoteNode(node, graph, root.children);
+      } else if (node instanceof SectionNode) {
+        // Process headings
+        this.processSectionNode(node, graph, root.children);
+      }
+    }
+
+    return root;
+  }
+
+  /**
+   * Process a note node
+   */
+  private processNoteNode(
+    node: NoteNode,
+    graph: CannonballGraph,
+    siblings: RootContent[]
+  ): void {
+    // Add title as heading if needed
+    if (node.content && !node.content.includes('.md')) {
+      const astNode = node.toAst() as Root;
+      siblings.push(...astNode.children);
+    }
+
+    // Process children
+    const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
+    this.processChildNodes(children, graph, siblings);
+  }
+
+  /**
+   * Process a section (heading) node
+   */
+  private processSectionNode(
+    node: SectionNode,
+    graph: CannonballGraph,
+    siblings: RootContent[]
+  ): void {
+    // Add the heading
+    const astNode = node.toAst() as RootContent;
+    siblings.push(astNode);
+
+    // Process children
+    const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
+    this.processChildNodes(children, graph, siblings);
+  }
+
+  /**
+   * Process a set of child nodes
+   */
+  private processChildNodes(
+    nodes: BaseNode[],
+    graph: CannonballGraph,
+    siblings: RootContent[]
+  ): void {
+    // Group nodes by type for appropriate processing
+    const sections: SectionNode[] = [];
+    const lists: (TaskNode | BulletNode)[] = [];
+    const content: BaseNode[] = [];
+
+    // Sort and categorize nodes
+    nodes.sort((a, b) => {
+      const posA = a.metadata.position?.start?.line || 0;
+      const posB = b.metadata.position?.start?.line || 0;
+      return posA - posB;
+    });
+
+    for (const node of nodes) {
+      if (node instanceof SectionNode) {
+        sections.push(node);
+      } else if (node instanceof TaskNode || node instanceof BulletNode) {
+        lists.push(node);
+      } else {
+        content.push(node);
+      }
+    }
+
+    // Process content nodes
+    for (const node of content) {
+      if ('toAst' in node && typeof (node as AstConvertible).toAst === 'function') {
+        const astNode = (node as AstConvertible).toAst() as RootContent;
+        siblings.push(astNode);
+      }
+    }
+
+    // Process list items
+    if (lists.length > 0) {
+      const listItems = this.processListItems(lists, graph);
+      if (listItems.length > 0) {
+        const list: List = {
+          type: 'list',
+          ordered: false,
+          spread: false,
+          children: listItems
+        };
+        siblings.push(list);
+      }
+    }
+
+    // Process section nodes
+    for (const node of sections) {
+      this.processSectionNode(node, graph, siblings);
+    }
+  }
+
+  /**
+   * Process a set of list items (tasks and bullets)
+   */
+  private processListItems(
+    nodes: (TaskNode | BulletNode)[],
+    graph: CannonballGraph
+  ): ListItem[] {
+    const listItems: ListItem[] = [];
+
+    // Sort by indent level and position
+    nodes.sort((a, b) => {
+      // First by indent level
+      if (a.indentLevel !== b.indentLevel) {
+        return a.indentLevel - b.indentLevel;
+      }
+
+      // Then by position
+      const posA = a.metadata.position?.start?.line || 0;
+      const posB = b.metadata.position?.start?.line || 0;
+      return posA - posB;
+    });
+
+    // Group items by indent level for nested lists
+    const itemsByLevel = new Map<number, (TaskNode | BulletNode)[]>();
+
+    for (const node of nodes) {
+      if (!itemsByLevel.has(node.indentLevel)) {
+        itemsByLevel.set(node.indentLevel, []);
+      }
+      itemsByLevel.get(node.indentLevel)!.push(node);
+    }
+
+    // Start with top-level items
+    const topLevelItems = itemsByLevel.get(0) || [];
+
+    for (const node of topLevelItems) {
+      const item = node.toAst() as ListItem;
+
+      // Process children of this list item
+      const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
+      const childLists = children.filter(
+        child => child instanceof TaskNode || child instanceof BulletNode
+      ) as (TaskNode | BulletNode)[];
+
+      // Process other content children
+      const contentChildren = children.filter(
+        child => !(child instanceof TaskNode || child instanceof BulletNode)
+      );
+
+      // Add content children to the list item
+      for (const contentNode of contentChildren) {
+        if ('toAst' in contentNode && typeof (contentNode as AstConvertible).toAst === 'function') {
+          const contentAst = (contentNode as AstConvertible).toAst() as RootContent;
+          item.children.push(contentAst);
+        }
+      }
+
+      // If there are nested list items, add them as a sublist
+      if (childLists.length > 0) {
+        const nestedItems = this.processListItems(childLists, graph);
+
+        if (nestedItems.length > 0) {
+          const nestedList: List = {
+            type: 'list',
+            ordered: false,
+            spread: false,
+            children: nestedItems
+          };
+
+          item.children.push(nestedList);
+        }
+      }
+
+      listItems.push(item);
+    }
+
+    return listItems;
+  }
+
+  /**
+   * Find top-level nodes in a document
+   * These are notes and headings without parents (or only a note parent)
+   */
+  private findTopLevelNodes(graph: CannonballGraph, nodes: BaseNode[]): BaseNode[] {
+    return nodes.filter(node => {
       if (node.type !== NodeType.Note && node.type !== NodeType.Section) {
         return false;
       }
@@ -109,152 +330,5 @@ export class MarkdownSerializer {
       return parentNodes.length === 0 ||
         (parentNodes.length === 1 && parentNodes[0].type === NodeType.Note);
     });
-
-    // Sort nodes by position in the document
-    topLevelNodes.sort((a, b) => {
-      const posA = a.metadata.position?.start.line || 0;
-      const posB = b.metadata.position?.start.line || 0;
-      return posA - posB;
-    });
-
-    // Build markdown content
-    let markdown = '';
-
-    for (const node of topLevelNodes) {
-      if (node.type === NodeType.Note) {
-        // For notes, just add title if it's not the filename
-        if (node.content && !node.content.includes('.md')) {
-          markdown += `# ${node.content}\n\n`;
-        }
-
-        // Process direct children of the note
-        const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
-        markdown += this.serializeNodes(graph, children, 0, options);
-      } else if (node.type === NodeType.Section) {
-        // Add heading with appropriate level
-        const level = node.metadata.level as number || 1;
-        markdown += `${'#'.repeat(level)} ${node.content}\n\n`;
-
-        // Process children of the heading
-        const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
-        markdown += this.serializeNodes(graph, children, 0, options);
-      }
-    }
-
-    return markdown;
-  }
-
-  /**
-   * Recursively serialize a set of nodes
-   */
-  private serializeNodes(
-    graph: CannonballGraph,
-    nodes: Node[],
-    indentLevel: number,
-    options: SerializationOptions
-  ): string {
-    let markdown = '';
-
-    // Sort nodes by position
-    nodes.sort((a, b) => {
-      const posA = a.metadata.position?.start.line || 0;
-      const posB = b.metadata.position?.start.line || 0;
-      return posA - posB;
-    });
-
-    for (const node of nodes) {
-      // Handle different node types
-      if (node.type === NodeType.Section) {
-        const level = node.metadata.level as number || 1;
-        markdown += `${'#'.repeat(level)} ${node.content}\n\n`;
-
-        // Process children
-        const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
-        markdown += this.serializeNodes(graph, children, indentLevel, options);
-      } else if (node.type === NodeType.Task) {
-        // Get task state marker
-        const stateMarker = this.getTaskStateMarker(node.metadata.taskState as TaskState);
-
-        // Add task with appropriate indentation
-        markdown += `${' '.repeat(indentLevel * 2)}- [${stateMarker}] ${node.content}\n`;
-
-        // Add metadata if configured
-        if (options.includeMetadata) {
-          const relations = this.getNodeRelations(graph, node);
-          if (relations.length > 0) {
-            for (const relation of relations) {
-              markdown += `${' '.repeat((indentLevel + 1) * 2)}- ${relation.type}:: ${relation.target}\n`;
-            }
-          }
-        }
-
-        // Process children
-        const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
-        markdown += this.serializeNodes(graph, children, indentLevel + 1, options);
-      } else if (node.type === NodeType.Bullet) {
-        // Add bullet with appropriate indentation
-        markdown += `${' '.repeat(indentLevel * 2)}- ${node.content}\n`;
-
-        // Process children
-        const children = graph.getRelatedNodes(node.id, RelationType.ContainsChild);
-        markdown += this.serializeNodes(graph, children, indentLevel + 1, options);
-      } else if (node.metadata.language) {
-        // This is a code block
-        const language = node.metadata.language as string;
-        markdown += '```' + language + '\n';
-        markdown += node.content + '\n';
-        markdown += '```\n\n';
-      } else {
-        // Generic node - output as paragraph
-        markdown += `${node.content}\n\n`;
-      }
-    }
-
-    return markdown;
-  }
-
-  /**
-   * Get the marker character for a task state
-   */
-  private getTaskStateMarker(state: TaskState): string {
-    switch (state) {
-      case TaskState.Complete:
-        return 'x';
-      case TaskState.InProgress:
-        return '/';
-      case TaskState.Blocked:
-        return '!';
-      case TaskState.Cancelled:
-        return '-';
-      case TaskState.Open:
-      default:
-        return ' ';
-    }
-  }
-
-  /**
-   * Get all outgoing relations for a node except ContainsChild
-   */
-  private getNodeRelations(
-    graph: CannonballGraph,
-    node: Node
-  ): Array<{ type: string, target: string }> {
-    const relations: Array<{ type: string, target: string }> = [];
-    const edges = graph.getAllEdges().filter(edge =>
-      edge.source === node.id &&
-      edge.relation !== RelationType.ContainsChild
-    );
-
-    for (const edge of edges) {
-      const targetNode = graph.getNode(edge.target);
-      if (targetNode) {
-        relations.push({
-          type: edge.relation,
-          target: `[[${targetNode.content}]]`
-        });
-      }
-    }
-
-    return relations;
   }
 }

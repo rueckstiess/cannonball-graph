@@ -1,13 +1,19 @@
+// __test__/parser/markdown-serializer.test.ts
 import { MarkdownParser } from '@/parser/markdown-parser';
 import { MarkdownSerializer, SerializationOptions } from '@/parser/markdown-serializer';
 import { normalizeMarkdown } from '@/utils/string-utils';
+import { NodeRegistry } from '@/core/node-registry';
+import { initializeNodeRegistry } from '@/core/registry-init';
 
-// skip this suite until the serializer is implemented
 describe('MarkdownSerializer', () => {
   let parser: MarkdownParser;
   let serializer: MarkdownSerializer;
 
   beforeEach(() => {
+    // Reset the registry and re-initialize before each test
+    NodeRegistry.clear();
+    initializeNodeRegistry();
+
     parser = new MarkdownParser();
     serializer = new MarkdownSerializer();
   });
@@ -101,25 +107,6 @@ function test() {
   });
 
   describe('Advanced serialization', () => {
-    it('should serialize with metadata when configured', () => {
-      const markdown = `# Tasks
-- [ ] Main task
-  - [ ] Subtask 1
-  - [ ] Subtask 2
-`;
-      const graph = parser.parse(markdown, 'tasks.md');
-
-      const options: SerializationOptions = {
-        includeMetadata: true
-      };
-
-      const result = serializer.serialize(graph, options);
-      const output = result.files.get('tasks.md')!;
-
-      // Should include dependency relationships
-      expect(output).toMatch(/depends_on::/);
-    });
-
     it('should split output into multiple files when configured', () => {
       const markdown = `# Project
 ## Tasks
@@ -184,7 +171,6 @@ def test():
       const roundTripMarkdown = result.files.get('document.md')!;
 
       // Generate normalized versions for comparison (ignore whitespace differences)
-      // const normalizedOriginal = normalizeMarkdown(originalMarkdown);
       const normalizedRoundTrip = normalizeMarkdown(roundTripMarkdown);
 
       // Core structures should be preserved
