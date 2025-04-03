@@ -13,48 +13,17 @@ Cannonball is a productivity system that turns regular Markdown documents into a
 
 ## Core Concepts
 
-- **Node Types**: Documents, headings, tasks, bullets, paragraphs, code blocks, etc.
-- **Relation Types**: Contains, depends_on, links_to, etc.
+- **Node Types**: notes, sections, tasks, bullets, paragraphs, code blocks, etc.
+- **Relation Types**: contains, depends_on, links_to, etc.
 - **Graph Operations**: Add, update, delete nodes and edges, query the graph
 
 ## Features
 
-- **Markdown Parsing**: Convert Markdown documents to a graph structure
+- **Markdown Parsing**: Convert Markdown documents to a graph structure via markdown AST
 - **Task Hierarchies**: Automatically create dependency relationships between tasks and subtasks
 - **Section Containers**: Group content by headings and maintain hierarchical relationships
-- **Serialization**: Convert the graph back to Markdown with options for restructuring
+- **Serialization**: Convert the graph back to Markdown with options for restructuring via markdown AST
 
-## Usage
-
-### Basic Example
-
-```typescript
-import { MarkdownParser, CannonballGraph, MarkdownSerializer } from 'cannonball-ts';
-
-// Parse Markdown to a graph
-const parser = new MarkdownParser();
-const graph = parser.parse(`
-# Project
-- [ ] Task 1
-  - [ ] Subtask 1.1
-  - [ ] Subtask 1.2
-- [ ] Task 2
-`, 'project.md');
-
-// Query the graph
-const tasks = graph.findNodesByType('task');
-console.log(`Found ${tasks.length} tasks`);
-
-// Find dependencies of a task
-const task1 = tasks.find(t => t.content === 'Task 1');
-const dependencies = graph.getRelatedNodes(task1.id, 'depends_on');
-console.log(`Task 1 depends on ${dependencies.length} subtasks`);
-
-// Serialize back to Markdown
-const serializer = new MarkdownSerializer();
-const result = serializer.serialize(graph);
-console.log(result.files.get('project.md'));
-```
 
 ### Obsidian Integration
 
@@ -106,11 +75,11 @@ npm test
 ### Roadmap
 
 - [x] Core graph data structure
-- [x] Markdown parsing and serialization
+- [ ] Markdown parsing and serialization
 - [ ] Obsidian plugin integration
 - [ ] AI assistance features
 - [ ] Advanced query language
 
 ## License
 
-ISC
+MIT
