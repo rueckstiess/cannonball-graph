@@ -8,6 +8,22 @@
 - **Obsidian Integration**: The system is written as a plugin in Obsidian and updates the markdown in the editor. We can view the graph with Obsidian's graph view. It also plays nice with popular plugins, like dataview, kanban, mininal. 
 - The implementation is in TypeScript, with clean structured interfaces for graph nodes and edges. It uses remark/mdast utilities to parse and stringify the markdown. 
 
+## Project Structure
+
+- **Graph Module** (`src/graph/`): Core graph data structure implementation with comprehensive interface
+  - `types.ts`: Defines Node, Edge, and Graph interfaces
+  - `graph.ts`: Implements GraphImpl with all graph operations
+  - Current branch: `rule-parser` - Working on rule system implementation
+
+- **Rules Module** (`src/rules/`): Implementation of the graph transformation rule system
+  - `types.ts`: Defines Rule interface and extraction options
+  - `rule-parser.ts`: Implements rule extraction from Markdown blocks
+  - Currently implements Step 1.1 (Rule Block Extraction) from the implementation plan
+
+- **Specifications** (`specs/`):
+  - `graph.md`: Graph component specification
+  - `rules.md`: Rule system specification with Cypher-like query language
+
 ## Development Process Guidelines
 
 When helping with the Cannonball project, please follow this structured development process:
@@ -26,5 +42,21 @@ When helping with the Cannonball project, please follow this structured developm
    - Avoid lengthy code dumps across multiple files in one response
 
 6. **Verification Steps**: Allow time for verification and feedback after each component before proceeding.
+
+## Code Quality Commands
+
+```bash
+# Build the project
+npm run build
+
+# Run tests
+npm run test
+
+# Linting
+npm run lint
+
+# Formatting
+npm run format
+```
 
 This step-by-step approach helps keep the development process manageable, verifiable, and aligned with my requirements.

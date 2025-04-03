@@ -1,12 +1,14 @@
-import { Graph, Node, Edge, NodeId, PathOptions, GraphData } from './types';
+import { Graph, Node, Edge, NodeId, PathOptions, GraphData } from "./types";
 
 /**
  * Implementation of the Graph interface.
- * 
+ *
  * This provides a generic, directed graph with labeled edges.
  * Each node and edge can have associated data.
  */
-export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData, EdgeData> {
+export class GraphImpl<NodeData = any, EdgeData = any>
+  implements Graph<NodeData, EdgeData>
+{
   // Maps node IDs to their data
   private nodes: Map<NodeId, NodeData>;
 
@@ -165,7 +167,9 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
 
     // Check if edge already exists
     if (this.hasEdge(source, target, label)) {
-      throw new Error(`Edge from "${source}" to "${target}" with label "${label}" already exists`);
+      throw new Error(
+        `Edge from "${source}" to "${target}" with label "${label}" already exists`,
+      );
     }
 
     // Add to outgoing edges
@@ -203,7 +207,11 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
    * Get an edge by source, target, and label.
    * @returns The edge or undefined if not found
    */
-  getEdge(source: NodeId, target: NodeId, label: string): Edge<EdgeData> | undefined {
+  getEdge(
+    source: NodeId,
+    target: NodeId,
+    label: string,
+  ): Edge<EdgeData> | undefined {
     const sourceOutgoing = this.outgoingEdges.get(source);
     if (!sourceOutgoing) {
       return undefined;
@@ -248,7 +256,12 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
    * Update an edge's data.
    * @returns true if the edge was updated, false if it doesn't exist
    */
-  updateEdge(source: NodeId, target: NodeId, label: string, data: EdgeData): boolean {
+  updateEdge(
+    source: NodeId,
+    target: NodeId,
+    label: string,
+    data: EdgeData,
+  ): boolean {
     // Check if edge exists in outgoing edges
     const sourceOutgoing = this.outgoingEdges.get(source);
     if (!sourceOutgoing) {
@@ -376,12 +389,15 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
    * @param direction - Which edges to follow: outgoing, incoming, or both
    * @returns Array of neighbor nodes
    */
-  getNeighbors(id: NodeId, direction: 'outgoing' | 'incoming' | 'both' = 'both'): Node<NodeData>[] {
+  getNeighbors(
+    id: NodeId,
+    direction: "outgoing" | "incoming" | "both" = "both",
+  ): Node<NodeData>[] {
     const result: Node<NodeData>[] = [];
     const visited = new Set<NodeId>();
 
     // Get outgoing neighbors
-    if (direction === 'outgoing' || direction === 'both') {
+    if (direction === "outgoing" || direction === "both") {
       const targets = this.outgoingEdges.get(id);
       if (targets) {
         for (const targetId of targets.keys()) {
@@ -397,7 +413,7 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
     }
 
     // Get incoming neighbors
-    if (direction === 'incoming' || direction === 'both') {
+    if (direction === "incoming" || direction === "both") {
       const sources = this.incomingEdges.get(id);
       if (sources) {
         for (const sourceId of sources.keys()) {
@@ -420,11 +436,14 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
    * @param direction - Which edges to include: outgoing, incoming, or both
    * @returns Array of edges
    */
-  getEdgesForNode(id: NodeId, direction: 'outgoing' | 'incoming' | 'both' = 'both'): Edge<EdgeData>[] {
+  getEdgesForNode(
+    id: NodeId,
+    direction: "outgoing" | "incoming" | "both" = "both",
+  ): Edge<EdgeData>[] {
     const result: Edge<EdgeData>[] = [];
 
     // Get outgoing edges
-    if (direction === 'outgoing' || direction === 'both') {
+    if (direction === "outgoing" || direction === "both") {
       const targets = this.outgoingEdges.get(id);
       if (targets) {
         for (const [targetId, labels] of targets.entries()) {
@@ -436,7 +455,7 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
     }
 
     // Get incoming edges
-    if (direction === 'incoming' || direction === 'both') {
+    if (direction === "incoming" || direction === "both") {
       const sources = this.incomingEdges.get(id);
       if (sources) {
         for (const [sourceId, labels] of sources.entries()) {
@@ -459,7 +478,7 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
     // Default values
     const maxDepth = options.maxDepth || Number.MAX_SAFE_INTEGER;
     const relationshipTypes = options.relationshipTypes || [];
-    const direction = options.direction || 'outgoing';
+    const direction = options.direction || "outgoing";
 
     // Validate nodes exist
     if (!this.hasNode(start) || !this.hasNode(end)) {
@@ -468,7 +487,7 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
 
     // Use breadth-first search to find paths
     const queue: { path: NodeId[]; visited: Set<NodeId> }[] = [
-      { path: [start], visited: new Set([start]) }
+      { path: [start], visited: new Set([start]) },
     ];
     const result: NodeId[][] = [];
 
@@ -490,9 +509,9 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
       // Get neighbors based on direction
       let neighbors: Map<NodeId, Map<string, EdgeData>> | undefined;
 
-      if (direction === 'outgoing') {
+      if (direction === "outgoing") {
         neighbors = this.outgoingEdges.get(currentNode);
-      } else if (direction === 'incoming') {
+      } else if (direction === "incoming") {
         neighbors = this.incomingEdges.get(currentNode);
       } else {
         // For 'both', we need to combine outgoing and incoming
@@ -580,7 +599,12 @@ export class GraphImpl<NodeData = any, EdgeData = any> implements Graph<NodeData
       nodes[id] = data;
     }
 
-    const edges: Array<{ source: NodeId, target: NodeId, label: string, data: EdgeData }> = [];
+    const edges: Array<{
+      source: NodeId;
+      target: NodeId;
+      label: string;
+      data: EdgeData;
+    }> = [];
 
     for (const [source, targets] of this.outgoingEdges.entries()) {
       for (const [target, labels] of targets.entries()) {

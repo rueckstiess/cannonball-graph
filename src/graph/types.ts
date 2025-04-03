@@ -38,7 +38,7 @@ export interface PathOptions {
   /** Filter paths to only include these relationship types */
   relationshipTypes?: string[];
   /** Direction to traverse: outgoing (source->target), incoming (target->source), or both */
-  direction?: 'outgoing' | 'incoming' | 'both';
+  direction?: "outgoing" | "incoming" | "both";
 }
 
 /**
@@ -50,7 +50,12 @@ export interface GraphData<NodeData = any, EdgeData = any> {
   /** Map of node IDs to their data */
   nodes: Record<NodeId, NodeData>;
   /** Array of edges with their data */
-  edges: Array<{ source: NodeId, target: NodeId, label: string, data: EdgeData }>;
+  edges: Array<{
+    source: NodeId;
+    target: NodeId;
+    label: string;
+    data: EdgeData;
+  }>;
 }
 
 /**
@@ -130,7 +135,11 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @param label Type of the relationship
    * @returns The edge object or undefined if not found
    */
-  getEdge(source: NodeId, target: NodeId, label: string): Edge<EdgeData> | undefined;
+  getEdge(
+    source: NodeId,
+    target: NodeId,
+    label: string,
+  ): Edge<EdgeData> | undefined;
 
   /**
    * Check if an edge exists
@@ -149,7 +158,12 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @param data The new data to associate with the edge
    * @returns True if the edge was updated, false if it doesn't exist
    */
-  updateEdge(source: NodeId, target: NodeId, label: string, data: EdgeData): boolean;
+  updateEdge(
+    source: NodeId,
+    target: NodeId,
+    label: string,
+    data: EdgeData,
+  ): boolean;
 
   /**
    * Remove an edge from the graph
@@ -181,7 +195,10 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @param direction Which edges to follow: outgoing, incoming, or both
    * @returns Array of neighbor nodes
    */
-  getNeighbors(id: NodeId, direction?: 'outgoing' | 'incoming' | 'both'): Node<NodeData>[];
+  getNeighbors(
+    id: NodeId,
+    direction?: "outgoing" | "incoming" | "both",
+  ): Node<NodeData>[];
 
   /**
    * Get all edges connected to a node
@@ -189,7 +206,10 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @param direction Which edges to include: outgoing, incoming, or both
    * @returns Array of connected edges
    */
-  getEdgesForNode(id: NodeId, direction?: 'outgoing' | 'incoming' | 'both'): Edge<EdgeData>[];
+  getEdgesForNode(
+    id: NodeId,
+    direction?: "outgoing" | "incoming" | "both",
+  ): Edge<EdgeData>[];
 
   /**
    * Find paths between two nodes
