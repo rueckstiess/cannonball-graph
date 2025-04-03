@@ -19,9 +19,7 @@ export {
   CodeBlockNode,
   GenericNode,
   NodeRegistry,
-  type NodeClassConstructor,
-  initializeNodeRegistry,
-  type AstConvertible
+  initializeNodeRegistry
 } from './core';
 
 // Export parser and serializer

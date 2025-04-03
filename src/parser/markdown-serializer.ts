@@ -4,7 +4,7 @@ import { Node as MdastNode, Root, RootContent, List, ListItem } from 'mdast';
 import { CannonballGraph } from '@/core/graph';
 import { NodeType, RelationType } from '@/core/types';
 import { BaseNode } from '@/core/node';
-import { AstConvertible } from '@/core/ast-convertible';
+import { Position } from 'unist';
 import { NoteNode, SectionNode, TaskNode, BulletNode } from '@/core/nodes';
 
 /**
@@ -124,8 +124,8 @@ export class MarkdownSerializer {
 
     // Sort nodes by position in the document
     topLevelNodes.sort((a, b) => {
-      const posA = a.metadata.position?.start?.line || 0;
-      const posB = b.metadata.position?.start?.line || 0;
+      const posA = (a.metadata.position as Position | undefined)?.start?.line || 0;
+      const posB = (b.metadata.position as Position | undefined)?.start?.line || 0;
       return posA - posB;
     });
 
@@ -194,8 +194,8 @@ export class MarkdownSerializer {
 
     // Sort and categorize nodes
     nodes.sort((a, b) => {
-      const posA = a.metadata.position?.start?.line || 0;
-      const posB = b.metadata.position?.start?.line || 0;
+      const posA = (a.metadata.position as Position | undefined)?.start?.line || 0;
+      const posB = (b.metadata.position as Position | undefined)?.start?.line || 0;
       return posA - posB;
     });
 
@@ -211,8 +211,8 @@ export class MarkdownSerializer {
 
     // Process content nodes
     for (const node of content) {
-      if ('toAst' in node && typeof (node as AstConvertible).toAst === 'function') {
-        const astNode = (node as AstConvertible).toAst() as RootContent;
+      if ('toAst' in node && typeof node.toAst === 'function') {
+        const astNode = node.toAst() as RootContent;
         siblings.push(astNode);
       }
     }
@@ -308,13 +308,12 @@ export class MarkdownSerializer {
 
           item.children.push(nestedList);
         }
+
+        listItems.push(item);
       }
 
-      listItems.push(item);
+      return listItems;
     }
-
-    return listItems;
-  }
 
   /**
    * Find top-level nodes in a document

@@ -1,7 +1,6 @@
 // src/core/node.ts
 import { Node as MdastNode, Paragraph, Text } from 'mdast';
 import { NodeType } from './types';
-// import { AstConvertible } from './ast-convertible';
 import { ParserContext } from '@/parser/parser-context';
 
 /**
