@@ -1,5 +1,5 @@
 import { GraphImpl } from '../src/graph/graph';
-import { Graph, Node, Edge } from '../src/graph/types';
+import { Graph, Node, Edge, Path } from '../src/graph/types';
 import { NodePattern, RelationshipPattern, PathPattern } from '../src/rules/types';
 import { PatternMatcher, PatternMatcherImpl } from '../src/rules/pattern-matcher';
 import { CypherLexer } from '../src/rules/lexer';
@@ -734,10 +734,10 @@ describe('Path Pattern Matching', () => {
     // Charlie knows Eve
     graph.addEdge('charlie', 'eve', 'KNOWS', { since: '2020-07-18', weight: 4 });
 
-    // Dave knows Eve (creates a cycle!)
+    // Dave knows Eve
     graph.addEdge('dave', 'eve', 'KNOWS', { since: '2021-11-03', weight: 1 });
 
-    // Eve knows Alice (creates another cycle!)
+    // Eve knows Alice
     graph.addEdge('eve', 'alice', 'KNOWS', { since: '2022-01-25', weight: 5 });
 
     // Additional relationship types for testing
@@ -1398,5 +1398,135 @@ describe('Path Pattern Matching', () => {
         expect(uniqueNodeIds.size).toBeGreaterThanOrEqual(nodeIds.length - 1);
       });
     });
+
+    // Inside describe('Path Pattern Matching', () => { ... });
+    // Or potentially a new describe block for complex cases
+
+    it('should match paths with specific hop range (*2..2)', () => {
+      // Find people exactly 2 KNOWS hops away from Alice
+      const pathPattern: PathPattern = {
+        start: { labels: ['person'], properties: { name: 'Alice' } },
+        segments: [{
+          relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing', minHops: 2, maxHops: 2 },
+          node: { labels: ['person'], properties: {} }
+        }]
+      };
+      const paths = matcher.findMatchingPaths(graph, pathPattern);
+
+      // Expected:
+      // Alice -> Bob -> Charlie (2 hops)
+      // Alice -> Bob -> Dave (2 hops)
+      // Alice -> Charlie -> Eve (2 hops)
+      // Alice -> Eve -> Alice (2 hops - cycle allowed at end)
+      expect(paths.length).toBeGreaterThanOrEqual(4); // Could be more depending on traversal order if limits hit
+
+      const twoHopNodes = paths.map(p => p.nodes[2].id);
+      expect(twoHopNodes).toEqual(expect.arrayContaining(['charlie', 'dave', 'eve', 'alice']));
+      paths.forEach(p => expect(p.nodes.length).toBe(3)); // Exactly 3 nodes for 2 hops
+    });
+
+    it('should match mixed fixed and variable paths', () => {
+      // Find paths: Alice -> KNOWS (fixed) -> Person -> KNOWS*1..2 -> Eve
+      const pathPattern: PathPattern = {
+        start: { labels: ['person'], properties: { name: 'Alice' } },
+        segments: [
+          { // Segment 1: Fixed hop
+            relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing' /* min/max default to 1 */ },
+            node: { labels: ['person'], properties: {} } // Intermediate person
+          },
+          { // Segment 2: Variable hop
+            relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing', minHops: 1, maxHops: 2 },
+            node: { labels: ['person'], properties: { name: 'Eve' } } // Target Eve
+          }
+        ]
+      };
+      const paths = matcher.findMatchingPaths(graph, pathPattern);
+
+      // Expected unique paths based on trace and stricter cycle check:
+      const expectedPathsSet = new Set([
+        'alice->charlie->eve',       // Seg2 = 1 hop, Total = 2 hops
+        'alice->bob->charlie->eve', // Seg2 = 2 hops, Total = 3 hops
+        'alice->bob->dave->eve',     // Seg2 = 2 hops, Total = 3 hops
+      ]);
+
+      // Check the length AFTER potential deduplication inside the function
+      expect(paths).toHaveLength(expectedPathsSet.size); // Expect 3 unique paths
+
+      const pathToString = (p: Path<any, any>) => p.nodes.map(n => n.id).join('->');
+      const uniquePathStrings = new Set(paths.map(pathToString));
+
+      expect(uniquePathStrings.size).toBe(expectedPathsSet.size); // Double check size
+      expectedPathsSet.forEach(expectedStr => {
+        expect(uniquePathStrings).toContain(expectedStr);
+      });
+    });
+
+    it('should handle relationship type changes mid-path', () => {
+      // Find paths: Person -> WORKS_AT -> Company <- WORKS_AT <- Person (Colleagues)
+      const pathPattern: PathPattern = {
+        start: { labels: ['person'], properties: { name: 'Alice' } },
+        segments: [
+          { // Alice works at TechCorp
+            relationship: { type: 'WORKS_AT', properties: {}, direction: 'outgoing' },
+            node: { labels: ['company'], properties: { name: 'TechCorp' } }
+          },
+          { // Someone else works at TechCorp
+            relationship: { type: 'WORKS_AT', properties: {}, direction: 'incoming' }, // Note the direction change
+            node: { labels: ['person'], properties: {} } // The colleague
+          }
+        ]
+      };
+      const paths = matcher.findMatchingPaths(graph, pathPattern);
+
+      // Expected: Alice -> TechCorp <- Bob
+      expect(paths).toHaveLength(1);
+      expect(paths[0].nodes.map(n => n.id)).toEqual(['alice', 'techCorp', 'bob']);
+      expect(paths[0].edges[0].label).toBe('WORKS_AT');
+      expect(paths[0].edges[1].label).toBe('WORKS_AT');
+      expect(paths[0].edges[1].source).toBe('bob'); // Verify direction
+      expect(paths[0].edges[1].target).toBe('techCorp');
+    });
+
+    it('should return empty array when start node pattern doesnt match', () => {
+      const pathPattern: PathPattern = {
+        start: { labels: ['person'], properties: { name: 'NoSuchPerson' } }, // No node matches this
+        segments: [{
+          relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing' },
+          node: { labels: ['person'], properties: {} }
+        }]
+      };
+      const paths = matcher.findMatchingPaths(graph, pathPattern);
+      expect(paths).toHaveLength(0);
+    });
+
+    it('should handle path where intermediate node constraint fails', () => {
+      // Alice -> KNOWS -> Person(active=FALSE) -> KNOWS -> Person
+      const pathPattern: PathPattern = {
+        start: { labels: ['person'], properties: { name: 'Alice' } },
+        segments: [
+          {
+            relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing' },
+            node: { labels: ['person'], properties: { active: false } } // Only Charlie matches this intermediate node
+          },
+          {
+            relationship: { type: 'KNOWS', properties: {}, direction: 'outgoing' },
+            node: { labels: ['person'], properties: {} } // Final node (must be reachable from Charlie)
+          }
+        ]
+      };
+      const paths = matcher.findMatchingPaths(graph, pathPattern);
+
+      // Expected: Alice -> Charlie -> Eve
+      // Note: Charlie also knows Alice, but the edge is inactive in the graph data.
+      // Let's assume the pattern doesn't filter on edge properties here.
+      // Charlie -> KNOWS (outgoing) -> Alice (edge exists, pattern matches rel) -> Alice (matches person)
+      expect(paths).toHaveLength(2); // A->C->E and A->C->A
+      expect(paths.map(p => p.nodes.map(n => n.id))).toEqual(expect.arrayContaining([
+        ['alice', 'charlie', 'eve'],
+        ['alice', 'charlie', 'alice']
+      ]));
+    });
+
+
   });
 });
