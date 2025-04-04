@@ -43,9 +43,14 @@
     "unist-util-inspect": "^8.1.0"
   },
   "dependencies": {
+    "@types/unist": "^3.0.3",
     "mdast": "^2.3.2",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.5",
+    "unist": "^0.0.1",
+    "unist-builder": "^4.0.0",
+    "unist-util-is": "^6.0.0",
+    "unist-util-remove": "^4.0.0",
     "unist-util-visit": "^5.0.0",
     "unist-util-visit-parents": "^6.0.1"
   }
