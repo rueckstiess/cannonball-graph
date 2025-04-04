@@ -461,11 +461,11 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
         const currentState = queue.shift()!;
         const { currentNode, currentPath, segmentIdx, varHopCount, visitedInPath } = currentState;
 
-        console.log(`\n[DEBUG] Dequeue: Node=${currentNode.id}, PathLen=${currentPath.edges.length}, SegIdx=${segmentIdx}, VarHop=${varHopCount}, Visited=[${Array.from(visitedInPath).join(',')}]`);
+        // console.log(`\n[DEBUG] Dequeue: Node=${currentNode.id}, PathLen=${currentPath.edges.length}, SegIdx=${segmentIdx}, VarHop=${varHopCount}, Visited=[${Array.from(visitedInPath).join(',')}]`);
 
 
         if (segmentIdx >= segments.length) {
-          console.log(`[DEBUG]  -> Skipping: segmentIdx out of bounds.`);
+          // console.log(`[DEBUG]  -> Skipping: segmentIdx out of bounds.`);
           continue;
         }
 
@@ -488,29 +488,29 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
 
         // Check global path depth first
         if (currentPath.edges.length >= this.options.maxPathDepth) {
-          console.log(`[DEBUG]  -> Skipping: Max depth reached.`);
+          // console.log(`[DEBUG]  -> Skipping: Max depth reached.`);
           continue;
         }
 
         const isFinalSegment = segmentIdx + 1 >= segments.length;
 
-        console.log(`[DEBUG]  -> Trying Segment ${segmentIdx}: Rel=${currentRelPattern.type || 'ANY'}(${minHops}..${maxHopsSpecified ?? 'inf'}), TargetNode=${targetNodePattern.labels?.[0] || 'ANY'}, isVariable=${isVariable}, isFinal=${isFinalSegment}`);
+        // console.log(`[DEBUG]  -> Trying Segment ${segmentIdx}: Rel=${currentRelPattern.type || 'ANY'}(${minHops}..${maxHopsSpecified ?? 'inf'}), TargetNode=${targetNodePattern.labels?.[0] || 'ANY'}, isVariable=${isVariable}, isFinal=${isFinalSegment}`);
 
         const candidateEdges = this.getCandidateEdges(graph, currentNode.id, currentRelPattern.direction);
-        console.log(`[DEBUG]  -> Found ${candidateEdges.length} candidate edges from ${currentNode.id}`);
+        // console.log(`[DEBUG]  -> Found ${candidateEdges.length} candidate edges from ${currentNode.id}`);
 
         for (const edge of candidateEdges) {
           const neighborNode = this.getNeighborNode(graph, currentNode.id, edge, currentRelPattern.direction);
           if (!neighborNode) continue;
 
-          console.log(`[DEBUG]  --> Edge: ${edge.source}-${edge.label}->${edge.target}, Neighbor: ${neighborNode.id}`);
+          // console.log(`[DEBUG]  --> Edge: ${edge.source}-${edge.label}->${edge.target}, Neighbor: ${neighborNode.id}`);
 
           // --- Match Relationship Pattern ---
           if (!this.matchesRelationshipPattern(edge, currentRelPattern, currentNode, neighborNode)) {
-            console.log(`[DEBUG]      -> Relationship NO MATCH`);
+            // console.log(`[DEBUG]      -> Relationship NO MATCH`);
             continue;
           }
-          console.log(`[DEBUG]      -> Relationship MATCHED`);
+          // console.log(`[DEBUG]      -> Relationship MATCHED`);
 
           const newHopCount = varHopCount + 1; // Hops within *this* variable segment attempt
 
@@ -525,35 +525,35 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
           // --- Cycle Check (for continuing exploration) ---
           // This check prevents queueing states that would revisit a node already in *this specific path's history*
           const wouldCycle = visitedInPath.has(neighborNode.id);
-          console.log(`[DEBUG]      -> Cycle Check for Continuation: wouldCycle=${wouldCycle}`);
+          // console.log(`[DEBUG]      -> Cycle Check for Continuation: wouldCycle=${wouldCycle}`);
 
           // --- Check if neighbor matches the target node pattern for *this segment* ---
           const matchedTargetNode = this.matchesNodePattern(neighborNode, targetNodePattern);
-          console.log(`[DEBUG]      -> Target Node Check (for Seg ${segmentIdx}): matchedTargetNode=${matchedTargetNode}`);
+          // console.log(`[DEBUG]      -> Target Node Check (for Seg ${segmentIdx}): matchedTargetNode=${matchedTargetNode}`);
 
 
           // --- Check 1: Does this hop COMPLETE the ENTIRE pattern? ---
           // Must be the final segment, meet min hops, and match the final target node pattern.
           if (isFinalSegment && newHopCount >= minHops && matchedTargetNode) {
-            console.log(`[DEBUG]      -> Action: Potential PATTERN COMPLETE (Hops=${newHopCount})`);
+            // console.log(`[DEBUG]      -> Action: Potential PATTERN COMPLETE (Hops=${newHopCount})`);
             if (results.length < this.options.maxPathResults) {
-              console.log(`[DEBUG]          --> ADDING PATH: ${newPath.nodes.map(n => n.id).join('->')}`);
+              // console.log(`[DEBUG]          --> ADDING PATH: ${newPath.nodes.map(n => n.id).join('->')}`);
               results.push(newPath);
             }
             if (results.length >= this.options.maxPathResults) break; // Break edge loop
             // If variable, it *might* still continue below, so don't 'continue' here.
             if (!isVariable) {
-              console.log(`[DEBUG]          --> Fixed length complete, continuing edge loop.`);
+              // console.log(`[DEBUG]          --> Fixed length complete, continuing edge loop.`);
               continue; // Fixed path definitely ends here for this edge.
             } else {
-              console.log(`[DEBUG]          --> Variable length complete, but might also continue.`);
+              // console.log(`[DEBUG]          --> Variable length complete, but might also continue.`);
             }
           }
 
           // --- Check 2: Can we CONTINUE the current variable segment? ---
           // Must be variable, under max hops *for the segment*, and not create a cycle.
           if (isVariable && newHopCount < maxHopsTraversal && !wouldCycle) {
-            console.log(`[DEBUG]      -> Action: Potential VARIABLE CONTINUE (NewHop=${newHopCount}, MaxHops=${maxHopsTraversal})`);
+            // console.log(`[DEBUG]      -> Action: Potential VARIABLE CONTINUE (NewHop=${newHopCount}, MaxHops=${maxHopsTraversal})`);
             // Ensure the queue push is inside this block
             queue.push({
               currentNode: neighborNode,
@@ -562,14 +562,14 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
               varHopCount: newHopCount,
               visitedInPath: newVisited,
             });
-            console.log(`[DEBUG]          --> QUEUED Variable Continue: Node=${neighborNode.id}, SegIdx=${segmentIdx}, VarHop=${newHopCount}`);
+            // console.log(`[DEBUG]          --> QUEUED Variable Continue: Node=${neighborNode.id}, SegIdx=${segmentIdx}, VarHop=${newHopCount}`);
           }
 
           // --- Check 3: Can we TRANSITION to the NEXT segment? ---
           // Must meet min hops *for current segment*, match the target node *for current segment*,
           // not be the final segment, and not create a cycle.
           if (newHopCount >= minHops && matchedTargetNode && !isFinalSegment && !wouldCycle) {
-            console.log(`[DEBUG]      -> Action: Potential NEXT SEGMENT TRANSITION (NewHop=${newHopCount})`);
+            // console.log(`[DEBUG]      -> Action: Potential NEXT SEGMENT TRANSITION (NewHop=${newHopCount})`);
             queue.push({
               currentNode: neighborNode,
               currentPath: newPath,
@@ -577,7 +577,7 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
               varHopCount: 0,           // Reset hop count
               visitedInPath: newVisited,
             });
-            console.log(`[DEBUG]          --> QUEUED Next Segment: Node=${neighborNode.id}, SegIdx=${segmentIdx + 1}`);
+            // console.log(`[DEBUG]          --> QUEUED Next Segment: Node=${neighborNode.id}, SegIdx=${segmentIdx + 1}`);
           }
 
           if (results.length >= this.options.maxPathResults) break; // Break edge loop
@@ -589,7 +589,7 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
       } // End BFS while loop
     } // End initialNodes loop
 
-    console.log(`[DEBUG] findMatchingPaths finished. Found ${results.length} paths.`);
+    // console.log(`[DEBUG] findMatchingPaths finished. Found ${results.length} paths.`);
 
     // --- Optional Deduplication ---
     const uniquePathsMap = new Map<string, Path<NodeData, EdgeData>>();
@@ -607,7 +607,7 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
       }
     }
     const uniqueResults = Array.from(uniquePathsMap.values());
-    console.log(`[DEBUG] Returning ${uniqueResults.length} unique paths.`);
+    // console.log(`[DEBUG] Returning ${uniqueResults.length} unique paths.`);
     return uniqueResults;
     // --- End Optional Deduplication ---
 
