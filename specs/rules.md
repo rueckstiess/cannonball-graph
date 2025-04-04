@@ -351,7 +351,7 @@ Groups allow for:
 - Define AST (Abstract Syntax Tree) structure for rules
 - Transform parsed Cypher into AST
 - Implement validation of the AST
-- Create visualization/debug tools for the AST
+- Create visualization/debug tools for the AST (ASCII only)
 
 ### 2. Pattern Matcher Foundation (Phase 1)
 
