@@ -142,6 +142,7 @@ export class CypherParser implements Parser {
     }
     
     this.currentToken = this.lexer.next();
+    this.previousToken = this.currentToken; // Initialize previousToken
   }
   
   /**
@@ -153,22 +154,52 @@ export class CypherParser implements Parser {
     
     // Collect clauses until we reach the end of input
     while (!this.isAtEnd()) {
-      if (this.match(TokenType.MATCH)) {
-        statement.match = this.parseMatchClause();
-      } else if (this.match(TokenType.WHERE)) {
-        statement.where = this.parseWhereClause();
-      } else if (this.match(TokenType.CREATE)) {
-        statement.create = this.parseCreateClause();
-      } else if (this.match(TokenType.SET)) {
-        statement.set = this.parseSetClause();
-      } else {
-        // Unrecognized token, record error and skip
-        this.errors.push(`Unexpected token: ${this.currentToken.value} at line ${this.currentToken.line}, column ${this.currentToken.column}`);
-        this.advance();
+      try {
+        if (this.match(TokenType.MATCH)) {
+          statement.match = this.parseMatchClause();
+        } else if (this.match(TokenType.WHERE)) {
+          statement.where = this.parseWhereClause();
+        } else if (this.match(TokenType.CREATE)) {
+          statement.create = this.parseCreateClause();
+        } else if (this.match(TokenType.SET)) {
+          statement.set = this.parseSetClause();
+        } else {
+          // Unrecognized token, record error and skip
+          this.errors.push(`Unexpected token: ${this.currentToken.value} at line ${this.currentToken.line}, column ${this.currentToken.column}`);
+          this.advance();
+        }
+      } catch (error: any) {
+        // Catch any errors thrown during parsing and add to error list
+        this.errors.push(error.message);
+        
+        // Skip to the next meaningful token (like a clause start) to try to recover
+        this.synchronize();
       }
     }
     
     return statement;
+  }
+  
+  /**
+   * Synchronizes the parser after an error by skipping tokens until a recognizable clause start is found
+   * This helps with error recovery
+   */
+  private synchronize(): void {
+    this.advance();
+
+    // Skip tokens until we find a clause keyword or reach the end
+    while (!this.isAtEnd()) {
+      if (
+        this.check(TokenType.MATCH) ||
+        this.check(TokenType.WHERE) ||
+        this.check(TokenType.CREATE) ||
+        this.check(TokenType.SET)
+      ) {
+        return;
+      }
+      
+      this.advance();
+    }
   }
   
   /**
@@ -848,16 +879,19 @@ export class CypherParser implements Parser {
     return this.currentToken.type === type;
   }
   
+  // Store the previously consumed token
+  private previousToken: Token | null = null;
+  
   /**
    * Advances to the next token
    * @returns The previous token
    */
   private advance(): Token {
-    const previous = this.currentToken;
+    this.previousToken = this.currentToken;
     if (!this.isAtEnd()) {
       this.currentToken = this.lexer.next();
     }
-    return previous;
+    return this.previousToken;
   }
   
   /**
@@ -865,20 +899,36 @@ export class CypherParser implements Parser {
    * @returns The previous token
    */
   private previous(): Token {
-    // We need to keep track of the token we just consumed
-    // This is a workaround since lexer.peek() doesn't give the previous token
-    return this.currentToken;
+    // Return the stored previous token
+    if (!this.previousToken) {
+      throw new Error('No previous token available');
+    }
+    return this.previousToken;
   }
 
   /**
    * Returns the next token without consuming it
    */
   private peekNext(): Token {
-    // Get the next token
-    const next = this.lexer.next(); 
-    // Reset the lexer to the original position
-    this.lexer.reset(); 
-    return next;
+    // Save the current token
+    const currentToken = this.currentToken;
+    // Save the previous token 
+    const savedPreviousToken = this.previousToken;
+    
+    // Get the next token (this advances the lexer)
+    this.advance();
+    // Save the next token
+    const nextToken = this.currentToken;
+    
+    // We need to restore the lexer state by rewinding one token
+    // First we need to make the lexer go back one position
+    (this.lexer as any).currentTokenIndex--;
+    
+    // Restore our parser's state
+    this.currentToken = currentToken;
+    this.previousToken = savedPreviousToken;
+    
+    return nextToken;
   }
   
   /**
