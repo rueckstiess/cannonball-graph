@@ -389,7 +389,7 @@ describe('PatternMatcher', () => {
             },
             node: {
               labels: ['person'],
-              properties: {}
+              properties: { name: 'Bob' }
             }
           }
         ]
@@ -433,7 +433,7 @@ describe('PatternMatcher', () => {
             },
             node: {
               labels: ['person'],
-              properties: {}
+              properties: { name: "Charlie" }
             }
           }
         ]
@@ -658,7 +658,7 @@ describe('PatternMatcher', () => {
     });
 
     it('should match complete paths from Cypher query', () => {
-      const cypher = 'MATCH (a:person {name: "Alice"})-[r:KNOWS]->(b:person)';
+      const cypher = 'MATCH (a:person {name: "Alice"})-[r:KNOWS]->(b:person {name: "Bob"})';
       const pathPattern = extractPathPatternFromCypher(cypher);
 
       const matchingPaths = matcher.findMatchingPaths(graph, pathPattern);

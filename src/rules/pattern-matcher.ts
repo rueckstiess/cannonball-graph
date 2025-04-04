@@ -1,4 +1,4 @@
-import { Graph, Node, NodeId, Edge } from "../graph/types";
+import { Graph, Node, NodeId, Edge, BFSVisitor, Path } from "../graph/types";
 import { NodePattern, RelationshipPattern, PathPattern } from "./types";
 
 /**
@@ -126,6 +126,8 @@ export interface PatternMatcher<NodeData = any, EdgeData = any> {
   clearCache(): void;
 }
 
+
+
 /**
  * Implementation of the pattern matcher
  */
@@ -142,701 +144,215 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     this.options = {
       caseSensitiveLabels: options.caseSensitiveLabels ?? false,
       enableTypeCoercion: options.enableTypeCoercion ?? false,
-      maxPathDepth: options.maxPathDepth ?? 10,
-      maxPathResults: options.maxPathResults ?? 100
+      maxPathDepth: options.maxPathDepth ?? 10, // Default max depth for safety
+      maxPathResults: options.maxPathResults ?? 1000, // Limit results
     };
   }
 
-  /**
-   * Finds nodes in the graph that match the given node pattern
-   */
+  // --- findMatchingNodes, matchesNodePattern, getNodesByLabel ---
+  // Assume these are implemented correctly as per previous discussions/code
   findMatchingNodes(
     graph: Graph<NodeData, EdgeData>,
     pattern: NodePattern
   ): Node<NodeData>[] {
-    // If pattern has a label, use it to filter nodes first
+    // Implementation from previous example...
     if (pattern.labels && pattern.labels.length > 0) {
-      // Get nodes with the first label (we can refine with other labels later)
       const labeledNodes = this.getNodesByLabel(graph, pattern.labels[0]);
-
       return labeledNodes.filter(node => this.matchesNodePattern(node, pattern));
     }
-
-    // If no label, check all nodes against the pattern
     return graph.findNodes(node => this.matchesNodePattern(node, pattern));
   }
 
-  /**
-   * Checks if a specific node matches the given node pattern
-   */
   matchesNodePattern(
     node: Node<NodeData>,
     pattern: NodePattern
   ): boolean {
-    // Check if node has all required labels
+    // Implementation from previous example...
     if (pattern.labels && pattern.labels.length > 0) {
       const nodeLabels = this.getNodeLabels(node);
-
       for (const requiredLabel of pattern.labels) {
         if (!this.labelMatches(nodeLabels, requiredLabel)) {
           return false;
         }
       }
     }
-
-    // Check if node matches property constraints
-    if (Object.keys(pattern.properties).length > 0) {
+    if (pattern.properties && Object.keys(pattern.properties).length > 0) {
       return this.nodePropertiesMatch(node, pattern.properties);
     }
-
-    // If we get here, all checks passed
     return true;
   }
 
-  /**
-   * Creates a filtered view of nodes by label
-   */
   getNodesByLabel(
     graph: Graph<NodeData, EdgeData>,
     label: string
   ): Node<NodeData>[] {
     const normalizedLabel = this.normalizeLabel(label);
-
-    // Use cached ids if available
     let nodeIds = this.labelCache.get(normalizedLabel);
-
     if (!nodeIds) {
-      // Build and cache the list of node IDs with this label
       const matchingNodes = graph.findNodes(node =>
         this.labelMatches(this.getNodeLabels(node), label)
       );
-
       nodeIds = matchingNodes.map(node => node.id);
       this.labelCache.set(normalizedLabel, nodeIds);
     }
-
-    // Return actual nodes (in case they've been updated)
     return nodeIds
       .map(id => graph.getNode(id))
       .filter((node): node is Node<NodeData> => node !== undefined);
   }
 
-  /**
-   * Finds relationships in the graph that match the given relationship pattern
-   * @param graph The graph to search
-   * @param pattern The relationship pattern to match
-   * @param sourceId Optional source node ID to filter relationships
-   * @returns Array of matching relationships
-   */
+
+  // --- findMatchingRelationships, matchesRelationshipPattern, getRelationshipsByType ---
+  // Assume these are implemented correctly as per previous discussions/code
   findMatchingRelationships(
     graph: Graph<NodeData, EdgeData>,
     pattern: RelationshipPattern,
     sourceId?: NodeId
   ): Edge<EdgeData>[] {
-    // If sourceId is specified, use it to get relevant edges directly
+    // Implementation from previous example...
     if (sourceId) {
       const sourceNode = graph.getNode(sourceId);
-      if (!sourceNode) {
-        return []; // Source node doesn't exist
-      }
+      if (!sourceNode) return [];
 
-      // Direction determines how we filter edges for the specified source node
       let edges: Edge<EdgeData>[] = [];
-
       if (pattern.direction === 'outgoing') {
-        // For outgoing, source node must be the source of the edge
         edges = graph.getEdgesForNode(sourceId, 'outgoing');
       } else if (pattern.direction === 'incoming') {
-        // For incoming, source node must be the target of the edge
         edges = graph.getEdgesForNode(sourceId, 'incoming');
       } else {
-        // For both, include all edges connected to the source node
         edges = graph.getEdgesForNode(sourceId, 'both');
       }
 
-      // Filter edges by pattern
       return edges.filter(edge => {
-        // If type is specified, check it matches
         if (pattern.type && !this.typeMatches(edge.label, pattern.type)) {
           return false;
         }
-
         const edgeSourceNode = graph.getNode(edge.source);
         const edgeTargetNode = graph.getNode(edge.target);
+        if (!edgeSourceNode || !edgeTargetNode) return false;
 
-        if (!edgeSourceNode || !edgeTargetNode) {
-          return false; // Skip edges with missing nodes
-        }
-
-        // Check if the edge matches the pattern
-        // For incoming relationships when sourceId is specified, 
-        // we need to use a special check to handle the direction correctly
+        // Adjust check for incoming when sourceId is specified
         if (pattern.direction === 'incoming' && edge.target === sourceId) {
-          // For incoming, we need to reverse the expected direction in the pattern
-          // because matchesRelationshipPattern expects sourceNode to be the source of the edge
-          const reverseDirectionPattern: RelationshipPattern = {
-            ...pattern,
-            direction: 'outgoing' // Inverse the direction for the check
-          };
-
-          return this.matchesRelationshipPattern(
-            edge,
-            reverseDirectionPattern,
-            edgeSourceNode,
-            edgeTargetNode
-          );
+          const reversePattern: RelationshipPattern = { ...pattern, direction: 'outgoing' };
+          return this.matchesRelationshipPattern(edge, reversePattern, edgeSourceNode, edgeTargetNode);
         }
 
-        // For outgoing or both, use the pattern as is
-        return this.matchesRelationshipPattern(
-          edge,
-          pattern,
-          edgeSourceNode,
-          edgeTargetNode
-        );
+        return this.matchesRelationshipPattern(edge, pattern, edgeSourceNode, edgeTargetNode);
       });
     }
 
-    // If pattern has a type but no sourceId, use getRelationshipsByType
     if (pattern.type) {
       const typedEdges = this.getRelationshipsByType(graph, pattern.type);
-
-      // Filter edges by pattern (excluding type which we already checked)
       return typedEdges.filter(edge => {
         const sourceNode = graph.getNode(edge.source);
         const targetNode = graph.getNode(edge.target);
-
-        if (!sourceNode || !targetNode) {
-          return false; // Skip edges with missing nodes
-        }
-
-        const noTypePattern = {
-          ...pattern,
-          type: undefined // Remove type since we already filtered by it
-        };
-
-        return this.matchesRelationshipPattern(
-          edge,
-          noTypePattern,
-          sourceNode,
-          targetNode
-        );
+        if (!sourceNode || !targetNode) return false;
+        const noTypePattern = { ...pattern, type: undefined };
+        return this.matchesRelationshipPattern(edge, noTypePattern, sourceNode, targetNode);
       });
     }
 
-    // If no type and no sourceId, check all edges
     return graph.findEdges(edge => {
       const sourceNode = graph.getNode(edge.source);
       const targetNode = graph.getNode(edge.target);
-
-      if (!sourceNode || !targetNode) {
-        return false; // Skip edges with missing nodes
-      }
-
-      return this.matchesRelationshipPattern(
-        edge,
-        pattern,
-        sourceNode,
-        targetNode
-      );
+      if (!sourceNode || !targetNode) return false;
+      return this.matchesRelationshipPattern(edge, pattern, sourceNode, targetNode);
     });
   }
 
-  /**
-   * Checks if a specific relationship matches the given relationship pattern
-   */
   matchesRelationshipPattern(
     edge: Edge<EdgeData>,
     pattern: RelationshipPattern,
-    sourceNode?: Node<NodeData>,
-    targetNode?: Node<NodeData>
+    sourceNode?: Node<NodeData>, // Source of the current path step
+    targetNode?: Node<NodeData>  // Target of the current path step (neighbor)
   ): boolean {
-    // Check if relationship type matches
+    // Check type
     if (pattern.type && !this.typeMatches(edge.label, pattern.type)) {
       return false;
     }
 
-    // Check direction (if source and target nodes are provided)
+    // Check direction based on the provided step's source/target
+    // Note: This check assumes sourceNode and targetNode represent the direction
+    //       of the step being evaluated in the path search.
     if (sourceNode && targetNode && pattern.direction !== 'both') {
-      const isOutgoing = edge.source === sourceNode.id && edge.target === targetNode.id;
-      const isIncoming = edge.source === targetNode.id && edge.target === sourceNode.id;
+      const isCorrectOutgoing = pattern.direction === 'outgoing' && edge.source === sourceNode.id && edge.target === targetNode.id;
+      const isCorrectIncoming = pattern.direction === 'incoming' && edge.target === sourceNode.id && edge.source === targetNode.id;
 
-      if (pattern.direction === 'outgoing' && !isOutgoing) {
-        return false;
-      }
-
-      if (pattern.direction === 'incoming' && !isIncoming) {
+      if (!isCorrectOutgoing && !isCorrectIncoming) {
         return false;
       }
     }
 
-    // Check if relationship matches property constraints
-    if (Object.keys(pattern.properties).length > 0) {
-      return this.edgePropertiesMatch(edge, pattern.properties);
+
+    // Check properties
+    if (pattern.properties && Object.keys(pattern.properties).length > 0) {
+      if (!this.edgePropertiesMatch(edge, pattern.properties)) {
+        return false;
+      }
     }
 
-    // If we get here, all checks passed
     return true;
   }
 
-  /**
-   * Creates a filtered view of relationships by type
-   */
   getRelationshipsByType(
     graph: Graph<NodeData, EdgeData>,
     type: string
   ): Edge<EdgeData>[] {
+    // Implementation from previous example...
     const normalizedType = this.normalizeLabel(type);
-
-    // Use cached edge identifiers if available
     let edgeIdentifiers = this.typeCache.get(normalizedType);
-
     if (!edgeIdentifiers) {
-      // Build and cache the list of edge identifiers with this type
       const matchingEdges = graph.findEdges(edge =>
         this.typeMatches(edge.label, type)
       );
-
       edgeIdentifiers = matchingEdges.map(edge => [
         edge.source,
         edge.target,
         edge.label
       ]);
-
       this.typeCache.set(normalizedType, edgeIdentifiers);
     }
-
-    // Return actual edges (in case they've been updated)
     return edgeIdentifiers
       .map(([source, target, label]) => graph.getEdge(source, target, label))
       .filter((edge): edge is Edge<EdgeData> => edge !== undefined);
   }
 
-  /**
-   * Finds paths in the graph that match the given path pattern
-   */
-  findMatchingPaths(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern
-  ): Array<{
-    nodes: Node<NodeData>[];
-    edges: Edge<EdgeData>[];
-  }> {
-    // Start by finding all nodes that match the start pattern
-    const startNodes = this.findMatchingNodes(graph, pattern.start);
 
-    const results: Array<{
-      nodes: Node<NodeData>[];
-      edges: Edge<EdgeData>[];
-    }> = [];
-
-    // Check if any segment has variable length path (minHops/maxHops)
-    const hasVariablePath = pattern.segments.some(
-      segment => segment.relationship.minHops !== undefined || segment.relationship.maxHops !== undefined
-    );
-
-    // Apply path matching approach based on whether variable paths are involved
-    if (hasVariablePath) {
-      // Use BFS approach for variable length paths
-      for (const startNode of startNodes) {
-        this.findVariableLengthPaths(graph, startNode, pattern, results);
-      }
-    } else {
-      // Use simpler approach for fixed-length paths
-      for (const startNode of startNodes) {
-        const matchingPaths = this.findPathsFromNode(graph, startNode, pattern);
-        results.push(...matchingPaths);
-      }
-    }
-
-    // Enforce maxPathResults limit if there are too many results
-    if (results.length > this.options.maxPathResults) {
-      return results.slice(0, this.options.maxPathResults);
-    }
-
-    return results;
-  }
-
-  /**
-   * Clears the label and type caches
-   */
+  // --- clearCache ---
   clearCache(): void {
     this.labelCache.clear();
     this.typeCache.clear();
   }
 
-  /**
-   * Finds all paths starting from a given node that match the pattern
-   * @private
-   */
-  private findPathsFromNode(
-    graph: Graph<NodeData, EdgeData>,
-    startNode: Node<NodeData>,
-    pattern: PathPattern
-  ): Array<{
-    nodes: Node<NodeData>[];
-    edges: Edge<EdgeData>[];
-  }> {
-    // Start with just the initial node
-    const initialPath = {
-      nodes: [startNode],
-      edges: [] as Edge<EdgeData>[],
-      visited: new Set<NodeId>([startNode.id]) // Track visited nodes to avoid cycles
-    };
-
-    // If there are no segments, we're done
-    if (pattern.segments.length === 0) {
-      const { visited, ...result } = initialPath; // Remove visited from result
-      return [result];
-    }
-
-    return this.extendPath(graph, initialPath, pattern, 0);
-  }
-
-  /**
-   * Recursively extends a path to match the pattern segments
-   * @private
-   */
-  private extendPath(
-    graph: Graph<NodeData, EdgeData>,
-    currentPath: {
-      nodes: Node<NodeData>[];
-      edges: Edge<EdgeData>[];
-      visited: Set<NodeId>;
-    },
-    pattern: PathPattern,
-    segmentIndex: number
-  ): Array<{
-    nodes: Node<NodeData>[];
-    edges: Edge<EdgeData>[];
-  }> {
-    // If we've matched all segments, return the current path
-    if (segmentIndex >= pattern.segments.length) {
-      const { visited, ...result } = currentPath; // Remove visited from result
-      return [result];
-    }
-
-    const results: Array<{
-      nodes: Node<NodeData>[];
-      edges: Edge<EdgeData>[];
-    }> = [];
-
-    // Get the current node (last in the path)
-    const currentNode = currentPath.nodes[currentPath.nodes.length - 1];
-
-    // Get the current segment to match
-    const segment = pattern.segments[segmentIndex];
-
-    // Find matching relationships
-    const relationshipPattern = segment.relationship;
-    let edgesForNode: Edge<EdgeData>[] = [];
-
-    // Get edges based on the direction in the relationship pattern
-    if (relationshipPattern.direction === 'outgoing') {
-      // For outgoing, look at edges where current node is the source
-      edgesForNode = graph.getEdgesForNode(currentNode.id, 'outgoing');
-    } else if (relationshipPattern.direction === 'incoming') {
-      // For incoming, look at edges where current node is the target
-      edgesForNode = graph.getEdgesForNode(currentNode.id, 'incoming');
-    } else {
-      // For 'both', look at all edges connected to the node
-      edgesForNode = graph.getEdgesForNode(currentNode.id, 'both');
-    }
-
-    for (const edge of edgesForNode) {
-      // Determine roles (current node vs. other node)
-      const isOutgoing = edge.source === currentNode.id;
-      const otherNodeId = isOutgoing ? edge.target : edge.source;
-
-      // Skip if we've already visited this node (avoid cycles)
-      if (currentPath.visited.has(otherNodeId)) {
-        continue;
-      }
-
-      const otherNode = graph.getNode(otherNodeId);
-      if (!otherNode) continue;
-
-      // Check if the relationship matches the pattern
-      const matchesDirection =
-        (relationshipPattern.direction === 'outgoing' && isOutgoing) ||
-        (relationshipPattern.direction === 'incoming' && !isOutgoing) ||
-        (relationshipPattern.direction === 'both');
-
-      if (!matchesDirection) continue;
-
-      // Use the right nodes as source/target for relationship matching
-      const sourceNode = isOutgoing ? currentNode : otherNode;
-      const targetNode = isOutgoing ? otherNode : currentNode;
-
-      // For path matching, we need to handle the direction differently than in findMatchingRelationships
-      let patternToMatch = relationshipPattern;
-      if (relationshipPattern.direction === 'incoming' && !isOutgoing) {
-        // We need to flip the direction for incoming paths when matching
-        patternToMatch = {
-          ...relationshipPattern,
-          direction: 'outgoing' // Treat as outgoing for the pattern match
-        };
-      }
-
-      if (this.matchesRelationshipPattern(
-        edge,
-        patternToMatch,
-        sourceNode,
-        targetNode
-      )) {
-        // Check if the other node matches the node pattern
-        if (this.matchesNodePattern(otherNode, segment.node)) {
-          // Create a new path with this relationship and node
-          const newPath = {
-            nodes: [...currentPath.nodes, otherNode],
-            edges: [...currentPath.edges, edge],
-            visited: new Set(currentPath.visited) // Clone the visited set
-          };
-          newPath.visited.add(otherNodeId); // Mark the new node as visited
-
-          // Continue matching the rest of the pattern
-          const extendedPaths = this.extendPath(
-            graph,
-            newPath,
-            pattern,
-            segmentIndex + 1
-          );
-
-          results.push(...extendedPaths);
-        }
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * Finds variable-length paths from a start node
-   * Uses breadth-first search to respect hop constraints
-   * @private
-   */
-  private findVariableLengthPaths(
-    graph: Graph<NodeData, EdgeData>,
-    startNode: Node<NodeData>,
-    pattern: PathPattern,
-    results: Array<{
-      nodes: Node<NodeData>[];
-      edges: Edge<EdgeData>[];
-    }>
-  ): void {
-    // We only support variable-length paths for the first segment right now
-    const segment = pattern.segments[0];
-    const relationshipPattern = segment.relationship;
-    const targetNodePattern = segment.node;
-
-    // Default min and max hops if not specified
-    const minHops = relationshipPattern.minHops !== undefined ? relationshipPattern.minHops : 1;
-    const maxHops = relationshipPattern.maxHops !== undefined ? relationshipPattern.maxHops : this.options.maxPathDepth;
-
-    // Initialize queue with start node
-    const queue: Array<{
-      path: {
-        nodes: Node<NodeData>[];
-        edges: Edge<EdgeData>[];
-      };
-      hops: number; // Number of hops taken so far
-      visited: Set<NodeId>; // Track visited nodes to avoid cycles
-    }> = [
-        {
-          path: {
-            nodes: [startNode],
-            edges: []
-          },
-          hops: 0,
-          visited: new Set<NodeId>([startNode.id])
-        }
-      ];
-
-    // Set to track found paths to avoid duplicates
-    const foundPathKeys = new Set<string>();
-
-    // BFS to find all paths
-    while (queue.length > 0 && results.length < this.options.maxPathResults) {
-      const { path, hops, visited } = queue.shift()!;
-      const currentNode = path.nodes[path.nodes.length - 1];
-
-      // If we've reached max hops, continue to next item in queue
-      if (hops >= maxHops) {
-        continue;
-      }
-
-      // Expand node - get relationships to traverse
-      let edgesForNode: Edge<EdgeData>[] = [];
-
-      if (relationshipPattern.direction === 'outgoing') {
-        edgesForNode = graph.getEdgesForNode(currentNode.id, 'outgoing');
-      } else if (relationshipPattern.direction === 'incoming') {
-        edgesForNode = graph.getEdgesForNode(currentNode.id, 'incoming');
-      } else {
-        edgesForNode = graph.getEdgesForNode(currentNode.id, 'both');
-      }
-
-      // Process each edge
-      for (const edge of edgesForNode) {
-        // Skip edges that don't match the relationship type
-        if (relationshipPattern.type && !this.typeMatches(edge.label, relationshipPattern.type)) {
-          continue;
-        }
-
-        // Check if the relationship properties match
-        if (Object.keys(relationshipPattern.properties).length > 0 &&
-          !this.edgePropertiesMatch(edge, relationshipPattern.properties)) {
-          continue;
-        }
-
-        // Determine the other node
-        const isOutgoing = edge.source === currentNode.id;
-        const otherNodeId = isOutgoing ? edge.target : edge.source;
-
-        // Check relationship direction
-        const matchesDirection =
-          (relationshipPattern.direction === 'outgoing' && isOutgoing) ||
-          (relationshipPattern.direction === 'incoming' && !isOutgoing) ||
-          (relationshipPattern.direction === 'both');
-
-        if (!matchesDirection) {
-          continue;
-        }
-
-        // Skip if already visited (avoid cycles)
-        if (visited.has(otherNodeId)) {
-          continue;
-        }
-
-        const otherNode = graph.getNode(otherNodeId);
-        if (!otherNode) continue;
-
-        // Create a new path with this edge
-        const newPath = {
-          nodes: [...path.nodes, otherNode],
-          edges: [...path.edges, edge]
-        };
-
-        // Track visited nodes
-        const newVisited = new Set(visited);
-        newVisited.add(otherNodeId);
-
-        // Check if the new node matches the target pattern
-        if (hops + 1 >= minHops && this.matchesNodePattern(otherNode, targetNodePattern)) {
-          // We've found a valid path
-
-          // Check for duplicates (using a simple string representation)
-          const pathKey = newPath.nodes.map(n => n.id).join(',');
-          if (!foundPathKeys.has(pathKey)) {
-            foundPathKeys.add(pathKey);
-
-            // Check if there are more segments in the pattern
-            if (pattern.segments.length > 1) {
-              // If there are more segments, continue from this node
-              const remainingPattern: PathPattern = {
-                start: targetNodePattern,
-                segments: pattern.segments.slice(1)
-              };
-
-              const continuedPaths = this.findPathsFromNode(graph, otherNode, remainingPattern);
-
-              for (const continuedPath of continuedPaths) {
-                // Combine the current path up to otherNode with the continued path
-                results.push({
-                  nodes: [...newPath.nodes.slice(0, -1), ...continuedPath.nodes],
-                  edges: [...newPath.edges, ...continuedPath.edges]
-                });
-
-                // Check if we've reached the limit
-                if (results.length >= this.options.maxPathResults) {
-                  return;
-                }
-              }
-            } else {
-              // If this is the only segment, add the path to results
-              results.push(newPath);
-
-              // Check if we've reached the limit
-              if (results.length >= this.options.maxPathResults) {
-                return;
-              }
-            }
-          }
-        }
-
-        // Add to queue for further expansion (unless we've reached the max depth)
-        if (hops + 1 < maxHops) {
-          queue.push({
-            path: newPath,
-            hops: hops + 1,
-            visited: newVisited
-          });
-        }
-      }
-    }
-  }
-
-  /**
-   * Extracts labels from a node's data
-   * @private
-   */
+  // --- Helper Methods (getNodeLabels, labelMatches, typeMatches, etc.) ---
+  // Assume these are implemented correctly as per previous discussions/code
   private getNodeLabels(node: Node<NodeData>): string[] {
-    // If node.data is an object with a type property, use it as a label
     if (node.data && typeof node.data === 'object' && node.data !== null) {
       const data = node.data as Record<string, any>;
-
-      if (data.type) {
-        if (Array.isArray(data.type)) {
-          return data.type;
-        }
-        return [data.type];
+      if (data.type) { // Handle single type property
+        return Array.isArray(data.type) ? data.type : [data.type];
       }
-
-      // Look for a labels array
-      if (data.labels && Array.isArray(data.labels)) {
+      if (data.labels && Array.isArray(data.labels)) { // Handle labels array
         return data.labels;
       }
     }
-
     return [];
   }
 
-  /**
-   * Checks if a node's labels include the required label
-   * @private
-   */
   private labelMatches(nodeLabels: string[], requiredLabel: string): boolean {
     const normalizedRequired = this.normalizeLabel(requiredLabel);
-
     return nodeLabels.some(label =>
       this.normalizeLabel(label) === normalizedRequired
     );
   }
 
-  /**
-   * Checks if a relationship type matches the required type
-   * @private
-   */
   private typeMatches(relationshipType: string, requiredType: string): boolean {
-    if (this.options.caseSensitiveLabels) {
-      return relationshipType === requiredType;
-    }
-
-    return relationshipType.toLowerCase() === requiredType.toLowerCase();
+    return this.normalizeLabel(relationshipType) === this.normalizeLabel(requiredType);
   }
 
-  /**
-   * Normalizes a label or type for consistent matching
-   * @private
-   */
   private normalizeLabel(label: string): string {
     return this.options.caseSensitiveLabels ? label : label.toLowerCase();
   }
 
-  /**
-   * Checks if a node's properties match the required properties
-   * @private
-   */
   private nodePropertiesMatch(
     node: Node<NodeData>,
     requiredProps: Record<string, any>
@@ -844,28 +360,15 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     if (!node.data || typeof node.data !== 'object' || node.data === null) {
       return Object.keys(requiredProps).length === 0;
     }
-
     const nodeData = node.data as Record<string, any>;
-
     for (const [key, requiredValue] of Object.entries(requiredProps)) {
-      if (!(key in nodeData)) {
-        return false;
-      }
-
-      const nodeValue = nodeData[key];
-
-      if (!this.valuesMatch(nodeValue, requiredValue)) {
+      if (!(key in nodeData) || !this.valuesMatch(nodeData[key], requiredValue)) {
         return false;
       }
     }
-
     return true;
   }
 
-  /**
-   * Checks if relationship properties match the required properties
-   * @private
-   */
   private edgePropertiesMatch(
     edge: Edge<EdgeData>,
     requiredProps: Record<string, any>
@@ -873,52 +376,273 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     if (!edge.data || typeof edge.data !== 'object' || edge.data === null) {
       return Object.keys(requiredProps).length === 0;
     }
-
     const edgeData = edge.data as Record<string, any>;
-
     for (const [key, requiredValue] of Object.entries(requiredProps)) {
-      if (!(key in edgeData)) {
-        return false;
-      }
-
-      const edgeValue = edgeData[key];
-
-      if (!this.valuesMatch(edgeValue, requiredValue)) {
+      if (!(key in edgeData) || !this.valuesMatch(edgeData[key], requiredValue)) {
         return false;
       }
     }
-
     return true;
   }
 
-  /**
-   * Checks if two values match, accounting for type coercion if enabled
-   * @private
-   */
   private valuesMatch(actual: any, expected: any): boolean {
-    if (actual === expected) {
-      return true;
-    }
+    if (actual === expected) return true;
 
     if (this.options.enableTypeCoercion) {
-      // Handle type coercion scenarios
       if (typeof expected === 'number' && typeof actual === 'string') {
         return parseFloat(actual) === expected;
       }
-
-      if (typeof expected === 'boolean') {
-        if (typeof actual === 'string') {
-          const normalized = actual.toLowerCase();
-          if (expected === true && normalized === 'true') return true;
-          if (expected === false && normalized === 'false') return true;
-        }
-        else if (typeof actual === 'number') {
-          if (expected === true && actual === 1) return true;
-          if (expected === false && actual === 0) return true;
-        }
+      if (typeof expected === 'string' && typeof actual === 'number') {
+        return actual.toString() === expected;
       }
+      if (typeof expected === 'boolean') {
+        const actualStr = String(actual).toLowerCase();
+        if (expected === true && (actual === 1 || actualStr === 'true')) return true;
+        if (expected === false && (actual === 0 || actualStr === 'false')) return true;
+      }
+      // Add other coercions if needed (e.g., string to boolean)
+    }
+    // Special case: Check if required property value exists in an array property
+    if (Array.isArray(actual) && !Array.isArray(expected)) {
+      return actual.some(item => this.valuesMatch(item, expected));
     }
 
-    return false;
+    return false; // Default to strict equality if no coercion applies
   }
-}
+
+  // ========================================================================
+  // findMatchingPaths Implementation (REVISED AGAIN + DEBUG)
+  // ========================================================================
+
+  findMatchingPaths(
+    graph: Graph<NodeData, EdgeData>,
+    pattern: PathPattern
+  ): Array<Path<NodeData, EdgeData>> {
+
+    const results: Array<Path<NodeData, EdgeData>> = [];
+    // Basic validation
+    if (!pattern || !pattern.start) {
+      console.warn("Invalid PathPattern: Missing start node pattern.");
+      return results;
+    }
+    const segments = pattern.segments || [];
+    const initialNodes = this.findMatchingNodes(graph, pattern.start);
+
+    // Handle patterns with only a start node
+    if (segments.length === 0) {
+      return initialNodes.map(node => ({ nodes: [node], edges: [] }));
+    }
+
+    // State definition for BFS queue
+    interface QueueState {
+      currentNode: Node<NodeData>;
+      currentPath: Path<NodeData, EdgeData>;
+      segmentIdx: number;
+      varHopCount: number;
+      visitedInPath: Set<NodeId>; // Nodes visited in *this specific path expansion*
+    }
+
+    for (const startNode of initialNodes) {
+      const queue: QueueState[] = [{
+        currentNode: startNode,
+        currentPath: { nodes: [startNode], edges: [] },
+        segmentIdx: 0,
+        varHopCount: 0,
+        visitedInPath: new Set([startNode.id]),
+      }];
+      let bfsIterations = 0; // Safety break
+
+      while (queue.length > 0 && results.length < this.options.maxPathResults) {
+        if (++bfsIterations > 100000) {
+          console.warn(`[DEBUG] BFS Limit reached for start ${startNode.id}`);
+          break;
+        }
+
+        const currentState = queue.shift()!;
+        const { currentNode, currentPath, segmentIdx, varHopCount, visitedInPath } = currentState;
+
+        // console.log(`\n[DEBUG] Dequeue: Node=${currentNode.id}, PathLen=${currentPath.edges.length}, SegIdx=${segmentIdx}, VarHop=${varHopCount}, Visited=[${Array.from(visitedInPath).join(',')}]`);
+
+
+        if (segmentIdx >= segments.length) {
+          // console.log(`[DEBUG]  -> Skipping: segmentIdx out of bounds.`);
+          continue;
+        }
+
+        const currentSegment = segments[segmentIdx];
+        const currentRelPattern = currentSegment.relationship;
+        const targetNodePattern = currentSegment.node; // Node pattern for *this segment's end*
+
+        // Determine Hop Constraints and Variability
+        const minHops = currentRelPattern.minHops ?? 1;
+        const maxHopsSpecified = currentRelPattern.maxHops; // Keep as undefined if not specified
+        // It's variable if the range isn't exactly 1..1 (including undefined max)
+        const isVariable = !(minHops === 1 && maxHopsSpecified === 1);
+        // Effective maxHops for traversal step limit (avoid infinite loops)
+        const maxHopsTraversal = maxHopsSpecified !== undefined
+          ? Math.min(maxHopsSpecified, this.options.maxPathDepth)
+          // For unbounded '*', cap traversal depth reasonably
+          : this.options.maxPathDepth;
+        // Max hops for checking segment completion (can be Infinity)
+        const effectiveMaxHops = maxHopsSpecified !== undefined ? maxHopsSpecified : Infinity;
+
+
+        // Check global path depth first
+        if (currentPath.edges.length >= this.options.maxPathDepth) {
+          // console.log(`[DEBUG]  -> Skipping: Max depth reached.`);
+          continue;
+        }
+
+        const isFinalSegment = segmentIdx + 1 >= segments.length;
+
+        // console.log(`[DEBUG]  -> Trying Segment ${segmentIdx}: Rel=${currentRelPattern.type || 'ANY'}(${minHops}..${maxHopsSpecified ?? 'inf'}), TargetNode=${targetNodePattern.labels?.[0] || 'ANY'}, isVariable=${isVariable}, isFinal=${isFinalSegment}`);
+
+        const candidateEdges = this.getCandidateEdges(graph, currentNode.id, currentRelPattern.direction);
+        // console.log(`[DEBUG]  -> Found ${candidateEdges.length} candidate edges from ${currentNode.id}`);
+
+        for (const edge of candidateEdges) {
+          const neighborNode = this.getNeighborNode(graph, currentNode.id, edge, currentRelPattern.direction);
+          if (!neighborNode) continue;
+
+          // console.log(`[DEBUG]  --> Edge: ${edge.source}-${edge.label}->${edge.target}, Neighbor: ${neighborNode.id}`);
+
+          // --- Match Relationship Pattern ---
+          if (!this.matchesRelationshipPattern(edge, currentRelPattern, currentNode, neighborNode)) {
+            // console.log(`[DEBUG]      -> Relationship NO MATCH`);
+            continue;
+          }
+          // console.log(`[DEBUG]      -> Relationship MATCHED`);
+
+          const newHopCount = varHopCount + 1; // Hops within *this* variable segment attempt
+
+          // --- Prepare potential next path state ---
+          const newPath: Path<NodeData, EdgeData> = {
+            nodes: [...currentPath.nodes, neighborNode],
+            edges: [...currentPath.edges, edge],
+          };
+          // Create a *new* visited set for the next state's branch
+          const newVisited = new Set(visitedInPath).add(neighborNode.id);
+
+          // --- Cycle Check (for continuing exploration) ---
+          // This check prevents queueing states that would revisit a node already in *this specific path's history*
+          const wouldCycle = visitedInPath.has(neighborNode.id);
+          // console.log(`[DEBUG]      -> Cycle Check for Continuation: wouldCycle=${wouldCycle}`);
+
+          // --- Check if neighbor matches the target node pattern for *this segment* ---
+          const matchedTargetNode = this.matchesNodePattern(neighborNode, targetNodePattern);
+          // console.log(`[DEBUG]      -> Target Node Check (for Seg ${segmentIdx}): matchedTargetNode=${matchedTargetNode}`);
+
+
+          // --- Check 1: Does this hop COMPLETE the ENTIRE pattern? ---
+          // Must be the final segment, meet min hops, and match the final target node pattern.
+          if (isFinalSegment && newHopCount >= minHops && matchedTargetNode) {
+            // console.log(`[DEBUG]      -> Action: Potential PATTERN COMPLETE (Hops=${newHopCount})`);
+            if (results.length < this.options.maxPathResults) {
+              // console.log(`[DEBUG]          --> ADDING PATH: ${newPath.nodes.map(n => n.id).join('->')}`);
+              results.push(newPath);
+            }
+            if (results.length >= this.options.maxPathResults) break; // Break edge loop
+            // If variable, it *might* still continue below, so don't 'continue' here.
+            if (!isVariable) {
+              // console.log(`[DEBUG]          --> Fixed length complete, continuing edge loop.`);
+              continue; // Fixed path definitely ends here for this edge.
+            } else {
+              // console.log(`[DEBUG]          --> Variable length complete, but might also continue.`);
+            }
+          }
+
+          // --- Check 2: Can we CONTINUE the current variable segment? ---
+          // Must be variable, under max hops *for the segment*, and not create a cycle.
+          if (isVariable && newHopCount < maxHopsTraversal && !wouldCycle) {
+            // console.log(`[DEBUG]      -> Action: Potential VARIABLE CONTINUE (NewHop=${newHopCount}, MaxHops=${maxHopsTraversal})`);
+            // Ensure the queue push is inside this block
+            queue.push({
+              currentNode: neighborNode,
+              currentPath: newPath,
+              segmentIdx: segmentIdx, // Stay on same segment
+              varHopCount: newHopCount,
+              visitedInPath: newVisited,
+            });
+            // console.log(`[DEBUG]          --> QUEUED Variable Continue: Node=${neighborNode.id}, SegIdx=${segmentIdx}, VarHop=${newHopCount}`);
+          }
+
+          // --- Check 3: Can we TRANSITION to the NEXT segment? ---
+          // Must meet min hops *for current segment*, match the target node *for current segment*,
+          // not be the final segment, and not create a cycle.
+          if (newHopCount >= minHops && matchedTargetNode && !isFinalSegment && !wouldCycle) {
+            // console.log(`[DEBUG]      -> Action: Potential NEXT SEGMENT TRANSITION (NewHop=${newHopCount})`);
+            queue.push({
+              currentNode: neighborNode,
+              currentPath: newPath,
+              segmentIdx: segmentIdx + 1, // Advance segment
+              varHopCount: 0,           // Reset hop count
+              visitedInPath: newVisited,
+            });
+            // console.log(`[DEBUG]          --> QUEUED Next Segment: Node=${neighborNode.id}, SegIdx=${segmentIdx + 1}`);
+          }
+
+          if (results.length >= this.options.maxPathResults) break; // Break edge loop
+
+        } // End edge loop
+
+        if (results.length >= this.options.maxPathResults) break; // Break BFS main loop
+
+      } // End BFS while loop
+    } // End initialNodes loop
+
+    // console.log(`[DEBUG] findMatchingPaths finished. Found ${results.length} paths.`);
+    return results;
+  }
+
+
+  // --- Helper for findMatchingPaths ---
+
+  /**
+   * Gets candidate edges based on direction from a node.
+   * @private
+   */
+  private getCandidateEdges(
+    graph: Graph<NodeData, EdgeData>,
+    nodeId: NodeId,
+    direction: RelationshipPattern['direction']
+  ): Edge<EdgeData>[] {
+    // Ensure direction has a default value if undefined (e.g., 'outgoing' or 'both')
+    const effectiveDirection = direction || 'outgoing'; // Default to outgoing if not specified? Or 'both'? Let's align with Cypher's default -> which is outgoing.
+    // Adjust based on required default behavior. 'both' might be safer if direction '-' is common. Let's use 'both' for safety if unspecified.
+    // const effectiveDirection = direction || 'both';
+
+    return graph.getEdgesForNode(nodeId, effectiveDirection);
+  }
+
+  /**
+   * Gets the neighbor node at the other end of an edge, respecting directionality *relative to the currentNodeId*.
+   * Returns undefined if the edge direction doesn't align with the required pattern direction from currentNodeId.
+   * @private
+   */
+  private getNeighborNode(
+    graph: Graph<NodeData, EdgeData>,
+    currentNodeId: NodeId,
+    edge: Edge<EdgeData>,
+    patternDirection: RelationshipPattern['direction']
+  ): Node<NodeData> | undefined {
+
+    const effectiveDirection = patternDirection || 'outgoing'; // Default if unspecified
+
+    let neighborId: NodeId | null = null;
+
+    if (edge.source === currentNodeId && (effectiveDirection === 'outgoing' || effectiveDirection === 'both')) {
+      neighborId = edge.target;
+    } else if (edge.target === currentNodeId && (effectiveDirection === 'incoming' || effectiveDirection === 'both')) {
+      neighborId = edge.source;
+    }
+
+    // If a neighbor ID was determined based on direction, get the node
+    if (neighborId !== null) {
+      return graph.getNode(neighborId);
+    }
+
+    // If the edge exists but doesn't match the required direction from currentNodeId, return undefined
+    return undefined;
+  }
+
+} // End PatternMatcherImpl Class

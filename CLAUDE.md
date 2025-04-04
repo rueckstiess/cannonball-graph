@@ -34,14 +34,16 @@ When helping with the Cannonball project, please follow this structured developm
 
 3. **Incremental Implementation**: Implement one component at a time, focusing on making tests pass. Don't move to the next component until the current one is verified.
 
-4. **Documentation-Rich**: Add comprehensive JSDoc comments to interfaces and key methods.
+4. **Generic Implementation**: Always implement solutions generically, not with special cases to pass tests. Avoid pattern matching on specific test cases or hardcoding logic for particular test scenarios. Code should handle all valid inputs according to the specification, not just the test cases.
 
-5. **Code Communication Preferences**:
+5. **Documentation-Rich**: Add comprehensive JSDoc comments to interfaces and key methods.
+
+6. **Code Communication Preferences**:
    - Documentation and specifications: Write to Obsidian through basic-memory tool
    - Code implementation: Create as artifacts in the Claude web UI
    - Avoid lengthy code dumps across multiple files in one response
 
-6. **Verification Steps**: Allow time for verification and feedback after each component before proceeding.
+7. **Verification Steps**: Allow time for verification and feedback after each component before proceeding.
 
 ## Code Quality Commands
 

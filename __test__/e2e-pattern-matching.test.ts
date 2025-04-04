@@ -281,4 +281,144 @@ describe('End-to-End Pattern Matching', () => {
       }).toThrow('No MATCH patterns found in query');
     });
   });
+  
+  describe('Variable Length Paths', () => {
+    beforeEach(() => {
+      // Create a more complex structure with loops
+      graph.addEdge('p1', 'p3', 'KNOWS', { timestamp: Date.now() });
+      graph.addEdge('p3', 'p2', 'KNOWS', { timestamp: Date.now() });
+    });
+    
+    it('should handle variable length paths with min=1, max=2', () => {
+      // Add a direct link as well to test multiple paths
+      graph.addEdge('t1', 'cat1', 'HAS_CATEGORY', { primary: true });
+      
+      // This query should find paths from tasks to categories with 1-2 hops
+      // Paths can be:
+      // 1. t1 -> cat1 (direct HAS_CATEGORY)
+      // 2. t1 -> proj1 -> cat1 (via BELONGS_TO + CATEGORIZED_AS)
+      
+      // Mock the parser response for this variable length path
+      const mockTokenizer = new CypherLexer();
+      mockTokenizer.tokenize('MATCH (t:Task)-[r*1..2]->(c:Category) RETURN c');
+      const mockParser = new CypherParser(mockTokenizer);
+      
+      // Create a path pattern with variable length
+      const statement = {
+        match: {
+          patterns: [{
+            start: { variable: 't', labels: ['Task'], properties: {} },
+            segments: [{
+              relationship: {
+                variable: 'r',
+                type: undefined, // any type
+                direction: 'outgoing' as 'outgoing' | 'incoming' | 'both',
+                properties: {},
+                minHops: 1,
+                maxHops: 2
+              },
+              node: { variable: 'c', labels: ['Category'], properties: {} }
+            }]
+          }]
+        }
+      };
+      
+      // Create matcher and execute
+      const patternMatcher = new PatternMatcherImpl<TestNodeData>();
+      const firstPattern = statement.match.patterns[0];
+      
+      // Find all tasks
+      const tasks = patternMatcher.findMatchingNodes(graph, firstPattern.start);
+      expect(tasks.length).toBeGreaterThan(0);
+      
+      // For a specific task (t1), find paths to categories
+      const t1 = tasks.find(t => t.id === 't1');
+      expect(t1).toBeDefined();
+      
+      if (t1) {
+        // Find paths from t1 to categories with 1-2 hops
+        const paths = patternMatcher.findMatchingPaths(graph, {
+          start: firstPattern.start,
+          segments: firstPattern.segments
+        });
+        
+        // Should find at least 1 path (potentially 2 if implementation follows both)
+        expect(paths.length).toBeGreaterThan(0);
+        
+        // Verify one of the paths leads to cat1
+        const targetPaths = paths.filter(p => {
+          const lastNode = p.nodes[p.nodes.length - 1];
+          return lastNode.id === 'cat1' && lastNode.data.type === 'Category';
+        });
+        
+        expect(targetPaths.length).toBeGreaterThan(0);
+      }
+    });
+    
+    it('should support unbounded variable length paths', () => {
+      // Create a longer path between nodes
+      graph.addNode('p4', { type: 'Person', name: 'Diana', age: 40, active: true });
+      graph.addEdge('p2', 'p4', 'KNOWS', { timestamp: Date.now() });
+      
+      // Mock the parser response for unbounded path (p1)-[:KNOWS*]->(p4)
+      const mockTokenizer = new CypherLexer();
+      mockTokenizer.tokenize('MATCH (p1:Person {name: "Alice"})-[:KNOWS*]->(p4:Person {name: "Diana"}) RETURN p4');
+      const mockParser = new CypherParser(mockTokenizer);
+      
+      // Create a path pattern with unbounded length
+      const statement = {
+        match: {
+          patterns: [{
+            start: { variable: 'p1', labels: ['Person'], properties: { name: 'Alice' } },
+            segments: [{
+              relationship: {
+                variable: undefined,
+                type: 'KNOWS',
+                direction: 'outgoing' as 'outgoing' | 'incoming' | 'both',
+                properties: {},
+                minHops: 1,
+                maxHops: undefined // unbounded
+              },
+              node: { variable: 'p4', labels: ['Person'], properties: { name: 'Diana' } }
+            }]
+          }]
+        }
+      };
+      
+      // Create matcher and execute
+      const patternMatcher = new PatternMatcherImpl<TestNodeData>();
+      const firstPattern = statement.match.patterns[0];
+      
+      // Find Alice
+      const aliceNodes = patternMatcher.findMatchingNodes(graph, firstPattern.start);
+      expect(aliceNodes.length).toBe(1);
+      
+      // Find paths from Alice to Diana
+      const paths = patternMatcher.findMatchingPaths(graph, {
+        start: firstPattern.start,
+        segments: firstPattern.segments
+      });
+      
+      // Should find at least 1 path (there should be a path via p1->p3->p2->p4)
+      expect(paths.length).toBeGreaterThan(0);
+      
+      // Verify the path leads to Diana
+      const dianaPath = paths.find(p => {
+        const lastNode = p.nodes[p.nodes.length - 1];
+        return lastNode.data.name === 'Diana';
+      });
+      
+      expect(dianaPath).toBeDefined();
+      if (dianaPath) {
+        // Path should contain Diana as the last node
+        // Could be different paths like p1 -> p3 -> p2 -> p4, but we don't enforce exact path
+        const lastNode = dianaPath.nodes[dianaPath.nodes.length - 1];
+        expect(lastNode.data.name).toBe('Diana');
+        expect(dianaPath.edges.length).toBe(dianaPath.nodes.length - 1);
+        
+        // All edges should be KNOWS
+        expect(dianaPath.edges.every(e => e.label === 'KNOWS')).toBe(true);
+      }
+    });
+  });
 });
