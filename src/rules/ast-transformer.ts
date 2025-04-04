@@ -3,6 +3,7 @@ import { u } from 'unist-builder';
 import { CypherStatement, ComparisonExpression, ExistsExpression, LiteralExpression, 
   LogicalExpression, PropertyExpression, VariableExpression, NodePattern, RelationshipPattern, 
   PathPattern, Expression, MatchClause, WhereClause, CreateClause, SetClause } from './types';
+import { inspect } from 'unist-util-inspect';
 
 /**
  * Interface for rule AST nodes
@@ -194,6 +195,264 @@ export interface ExistsExpressionNode extends Parent {
 }
 
 /**
+ * Create a unist Node representing a RuleRoot
+ */
+function createRuleNode(
+  name: string,
+  description: string,
+  priority: number,
+  disabled: boolean | undefined,
+  children: Array<MatchNode | WhereNode | CreateNode | SetNode>
+): RuleRoot {
+  return {
+    type: 'rule',
+    name,
+    description,
+    priority,
+    disabled,
+    children
+  };
+}
+
+/**
+ * Create a unist Node representing a MatchNode
+ */
+function createMatchNode(children: PathPatternNode[]): MatchNode {
+  return {
+    type: 'match',
+    children
+  };
+}
+
+/**
+ * Create a unist Node representing a WhereNode
+ */
+function createWhereNode(condition: ExpressionNode): WhereNode {
+  return {
+    type: 'where',
+    children: [condition]
+  };
+}
+
+/**
+ * Create a unist Node representing a CreateNode
+ */
+function createCreateNode(children: Array<CreateNodePatternNode | CreateRelPatternNode>): CreateNode {
+  return {
+    type: 'create',
+    children
+  };
+}
+
+/**
+ * Create a unist Node representing a SetNode
+ */
+function createSetNode(children: PropertySettingNode[]): SetNode {
+  return {
+    type: 'set',
+    children
+  };
+}
+
+/**
+ * Create a unist Node representing a PathPatternNode
+ */
+function createPathPatternNode(
+  startNode: NodePatternNode,
+  segments: RelationshipSegmentNode[]
+): PathPatternNode {
+  return {
+    type: 'pathPattern',
+    children: [startNode, ...segments]
+  };
+}
+
+/**
+ * Create a unist Node representing a NodePatternNode
+ */
+function createNodePatternNode(
+  variable: string | undefined,
+  labels: string[],
+  properties: Record<string, any>
+): NodePatternNode {
+  return {
+    type: 'nodePattern',
+    variable,
+    labels,
+    properties
+  };
+}
+
+/**
+ * Create a unist Node representing a RelationshipSegmentNode
+ */
+function createRelationshipSegmentNode(
+  relationship: RelationshipPatternNode,
+  node: NodePatternNode
+): RelationshipSegmentNode {
+  return {
+    type: 'relationshipSegment',
+    children: [relationship, node]
+  };
+}
+
+/**
+ * Create a unist Node representing a RelationshipPatternNode
+ */
+function createRelationshipPatternNode(
+  variable: string | undefined,
+  relType: string | undefined,
+  direction: 'outgoing' | 'incoming' | 'both',
+  properties: Record<string, any>,
+  minHops?: number,
+  maxHops?: number
+): RelationshipPatternNode {
+  return {
+    type: 'relationshipPattern',
+    variable,
+    relType,
+    direction,
+    properties,
+    minHops,
+    maxHops
+  };
+}
+
+/**
+ * Create a unist Node representing a CreateNodePatternNode
+ */
+function createCreateNodePatternNode(
+  variable: string | undefined,
+  labels: string[],
+  properties: Record<string, any>
+): CreateNodePatternNode {
+  return {
+    type: 'createNode',
+    variable,
+    labels,
+    properties
+  };
+}
+
+/**
+ * Create a unist Node representing a CreateRelPatternNode
+ */
+function createCreateRelPatternNode(
+  fromVar: string,
+  toVar: string,
+  relationship: {
+    variable?: string;
+    relType?: string;
+    direction: 'outgoing' | 'incoming' | 'both';
+    properties: Record<string, any>;
+  }
+): CreateRelPatternNode {
+  return {
+    type: 'createRelationship',
+    fromVar,
+    toVar,
+    relationship
+  };
+}
+
+/**
+ * Create a unist Node representing a PropertySettingNode
+ */
+function createPropertySettingNode(
+  target: string,
+  property: string,
+  value: ExpressionNode
+): PropertySettingNode {
+  return {
+    type: 'propertySetting',
+    target,
+    property,
+    value
+  };
+}
+
+/**
+ * Create a unist Node representing a LiteralExpressionNode
+ */
+function createLiteralExpressionNode(
+  value: string | number | boolean | null,
+  dataType: 'string' | 'number' | 'boolean' | 'null'
+): LiteralExpressionNode {
+  return {
+    type: 'literalExpression',
+    value,
+    dataType
+  };
+}
+
+/**
+ * Create a unist Node representing a VariableExpressionNode
+ */
+function createVariableExpressionNode(name: string): VariableExpressionNode {
+  return {
+    type: 'variableExpression',
+    name
+  };
+}
+
+/**
+ * Create a unist Node representing a PropertyExpressionNode
+ */
+function createPropertyExpressionNode(
+  object: string,
+  property: string
+): PropertyExpressionNode {
+  return {
+    type: 'propertyExpression',
+    object,
+    property
+  };
+}
+
+/**
+ * Create a unist Node representing a ComparisonExpressionNode
+ */
+function createComparisonExpressionNode(
+  operator: string,
+  left: ExpressionNode,
+  right: ExpressionNode
+): ComparisonExpressionNode {
+  return {
+    type: 'comparisonExpression',
+    operator,
+    children: [left, right]
+  };
+}
+
+/**
+ * Create a unist Node representing a LogicalExpressionNode
+ */
+function createLogicalExpressionNode(
+  operator: string,
+  children: ExpressionNode[]
+): LogicalExpressionNode {
+  return {
+    type: 'logicalExpression',
+    operator,
+    children
+  };
+}
+
+/**
+ * Create a unist Node representing an ExistsExpressionNode
+ */
+function createExistsExpressionNode(
+  positive: boolean,
+  pattern: PathPatternNode
+): ExistsExpressionNode {
+  return {
+    type: 'existsExpression',
+    positive,
+    children: [pattern]
+  };
+}
+
+/**
  * Transforms a Cypher statement into a Rule AST
  * @param statement The Cypher statement to transform
  * @param ruleName The name of the rule
@@ -231,13 +490,7 @@ export function transformToCypherAst(
     children.push(transformSetClause(statement.set));
   }
   
-  return u('rule', {
-    name: ruleName,
-    description,
-    priority,
-    disabled,
-    children
-  }) as unknown as RuleRoot;
+  return createRuleNode(ruleName, description, priority, disabled, children);
 }
 
 /**
@@ -247,10 +500,7 @@ export function transformToCypherAst(
  */
 function transformMatchClause(matchClause: MatchClause): MatchNode {
   const pathPatterns = matchClause.patterns.map(transformPathPattern);
-  
-  return u('match', {
-    children: pathPatterns
-  }) as MatchNode;
+  return createMatchNode(pathPatterns);
 }
 
 /**
@@ -260,10 +510,7 @@ function transformMatchClause(matchClause: MatchClause): MatchNode {
  */
 function transformWhereClause(whereClause: WhereClause): WhereNode {
   const condition = transformExpression(whereClause.condition);
-  
-  return u('where', {
-    children: [condition]
-  }) as WhereNode;
+  return createWhereNode(condition);
 }
 
 /**
@@ -280,9 +527,7 @@ function transformCreateClause(createClause: CreateClause): CreateNode {
     }
   });
   
-  return u('create', {
-    children: patterns
-  }) as CreateNode;
+  return createCreateNode(patterns);
 }
 
 /**
@@ -292,10 +537,7 @@ function transformCreateClause(createClause: CreateClause): CreateNode {
  */
 function transformSetClause(setClause: SetClause): SetNode {
   const settings = setClause.settings.map(transformPropertySetting);
-  
-  return u('set', {
-    children: settings
-  }) as SetNode;
+  return createSetNode(settings);
 }
 
 /**
@@ -306,17 +548,13 @@ function transformSetClause(setClause: SetClause): SetNode {
 function transformPathPattern(pathPattern: PathPattern): PathPatternNode {
   const startNode = transformNodePattern(pathPattern.start);
   const segments = pathPattern.segments.map(segment => {
-    return u('relationshipSegment', {
-      children: [
-        transformRelationshipPattern(segment.relationship),
-        transformNodePattern(segment.node)
-      ]
-    }) as RelationshipSegmentNode;
+    return createRelationshipSegmentNode(
+      transformRelationshipPattern(segment.relationship),
+      transformNodePattern(segment.node)
+    );
   });
   
-  return u('pathPattern', {
-    children: [startNode, ...segments]
-  }) as PathPatternNode;
+  return createPathPatternNode(startNode, segments);
 }
 
 /**
@@ -325,11 +563,11 @@ function transformPathPattern(pathPattern: PathPattern): PathPatternNode {
  * @returns The transformed NodePattern node
  */
 function transformNodePattern(nodePattern: NodePattern): NodePatternNode {
-  return u('nodePattern', {
-    variable: nodePattern.variable,
-    labels: nodePattern.labels,
-    properties: nodePattern.properties
-  }) as NodePatternNode;
+  return createNodePatternNode(
+    nodePattern.variable,
+    nodePattern.labels,
+    nodePattern.properties
+  );
 }
 
 /**
@@ -338,14 +576,14 @@ function transformNodePattern(nodePattern: NodePattern): NodePatternNode {
  * @returns The transformed RelationshipPattern node
  */
 function transformRelationshipPattern(relationshipPattern: RelationshipPattern): RelationshipPatternNode {
-  return u('relationshipPattern', {
-    variable: relationshipPattern.variable,
-    relType: relationshipPattern.type,
-    direction: relationshipPattern.direction,
-    properties: relationshipPattern.properties,
-    minHops: relationshipPattern.minHops,
-    maxHops: relationshipPattern.maxHops
-  }) as RelationshipPatternNode;
+  return createRelationshipPatternNode(
+    relationshipPattern.variable,
+    relationshipPattern.type,
+    relationshipPattern.direction,
+    relationshipPattern.properties,
+    relationshipPattern.minHops,
+    relationshipPattern.maxHops
+  );
 }
 
 /**
@@ -354,11 +592,11 @@ function transformRelationshipPattern(relationshipPattern: RelationshipPattern):
  * @returns The transformed CreateNodePattern node
  */
 function transformCreateNodePattern(nodePattern: NodePattern): CreateNodePatternNode {
-  return u('createNode', {
-    variable: nodePattern.variable,
-    labels: nodePattern.labels,
-    properties: nodePattern.properties
-  }) as CreateNodePatternNode;
+  return createCreateNodePatternNode(
+    nodePattern.variable,
+    nodePattern.labels,
+    nodePattern.properties
+  );
 }
 
 /**
@@ -367,16 +605,16 @@ function transformCreateNodePattern(nodePattern: NodePattern): CreateNodePattern
  * @returns The transformed CreateRelationshipPattern node
  */
 function transformCreateRelationshipPattern(createRelationship: any): CreateRelPatternNode {
-  return u('createRelationship', {
-    fromVar: createRelationship.fromNode.name,
-    toVar: createRelationship.toNode.name,
-    relationship: {
+  return createCreateRelPatternNode(
+    createRelationship.fromNode.name,
+    createRelationship.toNode.name,
+    {
       variable: createRelationship.relationship.variable,
       relType: createRelationship.relationship.type,
       direction: createRelationship.relationship.direction,
       properties: createRelationship.relationship.properties
     }
-  }) as CreateRelPatternNode;
+  );
 }
 
 /**
@@ -385,11 +623,11 @@ function transformCreateRelationshipPattern(createRelationship: any): CreateRelP
  * @returns The transformed PropertySetting node
  */
 function transformPropertySetting(propertySetting: any): PropertySettingNode {
-  return u('propertySetting', {
-    target: propertySetting.target.name,
-    property: propertySetting.property,
-    value: transformExpression(propertySetting.value)
-  }) as PropertySettingNode;
+  return createPropertySettingNode(
+    propertySetting.target.name,
+    propertySetting.property,
+    transformExpression(propertySetting.value)
+  );
 }
 
 /**
@@ -422,10 +660,10 @@ function transformExpression(expression: Expression): ExpressionNode {
  * @returns The transformed LiteralExpression node
  */
 function transformLiteralExpression(literalExpression: LiteralExpression): LiteralExpressionNode {
-  return u('literalExpression', {
-    value: literalExpression.value,
-    dataType: literalExpression.dataType
-  }) as LiteralExpressionNode;
+  return createLiteralExpressionNode(
+    literalExpression.value,
+    literalExpression.dataType
+  );
 }
 
 /**
@@ -434,9 +672,7 @@ function transformLiteralExpression(literalExpression: LiteralExpression): Liter
  * @returns The transformed VariableExpression node
  */
 function transformVariableExpression(variableExpression: VariableExpression): VariableExpressionNode {
-  return u('variableExpression', {
-    name: variableExpression.name
-  }) as VariableExpressionNode;
+  return createVariableExpressionNode(variableExpression.name);
 }
 
 /**
@@ -445,10 +681,10 @@ function transformVariableExpression(variableExpression: VariableExpression): Va
  * @returns The transformed PropertyExpression node
  */
 function transformPropertyExpression(propertyExpression: PropertyExpression): PropertyExpressionNode {
-  return u('propertyExpression', {
-    object: propertyExpression.object.name,
-    property: propertyExpression.property
-  }) as PropertyExpressionNode;
+  return createPropertyExpressionNode(
+    propertyExpression.object.name,
+    propertyExpression.property
+  );
 }
 
 /**
@@ -460,10 +696,11 @@ function transformComparisonExpression(comparisonExpression: ComparisonExpressio
   const left = transformExpression(comparisonExpression.left);
   const right = transformExpression(comparisonExpression.right);
   
-  return u('comparisonExpression', {
-    operator: comparisonExpression.operator,
-    children: [left, right]
-  }) as ComparisonExpressionNode;
+  return createComparisonExpressionNode(
+    comparisonExpression.operator,
+    left,
+    right
+  );
 }
 
 /**
@@ -474,10 +711,10 @@ function transformComparisonExpression(comparisonExpression: ComparisonExpressio
 function transformLogicalExpression(logicalExpression: LogicalExpression): LogicalExpressionNode {
   const operands = logicalExpression.operands.map(transformExpression);
   
-  return u('logicalExpression', {
-    operator: logicalExpression.operator,
-    children: operands
-  }) as LogicalExpressionNode;
+  return createLogicalExpressionNode(
+    logicalExpression.operator,
+    operands
+  );
 }
 
 /**
@@ -488,10 +725,19 @@ function transformLogicalExpression(logicalExpression: LogicalExpression): Logic
 function transformExistsExpression(existsExpression: ExistsExpression): ExistsExpressionNode {
   const pattern = transformPathPattern(existsExpression.pattern);
   
-  return u('existsExpression', {
-    positive: existsExpression.positive,
-    children: [pattern]
-  }) as ExistsExpressionNode;
+  return createExistsExpressionNode(
+    existsExpression.positive,
+    pattern
+  );
+}
+
+/**
+ * Provides a unist-compatible inspection of the AST
+ * @param ast The AST to inspect
+ * @returns A string representation of the AST
+ */
+export function inspectAst(ast: RuleRoot): string {
+  return inspect(ast);
 }
 
 /**
