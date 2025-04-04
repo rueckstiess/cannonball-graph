@@ -15,10 +15,10 @@ describe('CypherLexer', () => {
     });
 
     it('should tokenize keywords', () => {
-      const input = 'MATCH WHERE CREATE SET REMOVE DELETE EXISTS NOT AND OR XOR NULL IN';
+      const input = 'MATCH WHERE CREATE SET REMOVE DELETE EXISTS NOT AND OR XOR NULL IN CONTAINS STARTS ENDS WITH IS';
       const tokens = lexer.tokenize(input);
       
-      expect(tokens.length).toBe(14); // 13 keywords + EOF
+      expect(tokens.length).toBe(19); // 18 keywords + EOF
       expect(tokens[0].type).toBe(TokenType.MATCH);
       expect(tokens[1].type).toBe(TokenType.WHERE);
       expect(tokens[2].type).toBe(TokenType.CREATE);
@@ -32,7 +32,12 @@ describe('CypherLexer', () => {
       expect(tokens[10].type).toBe(TokenType.XOR);
       expect(tokens[11].type).toBe(TokenType.NULL);
       expect(tokens[12].type).toBe(TokenType.IN);
-      expect(tokens[13].type).toBe(TokenType.EOF);
+      expect(tokens[13].type).toBe(TokenType.CONTAINS);
+      expect(tokens[14].type).toBe(TokenType.STARTS);
+      expect(tokens[15].type).toBe(TokenType.ENDS);
+      expect(tokens[16].type).toBe(TokenType.WITH);
+      expect(tokens[17].type).toBe(TokenType.IS);
+      expect(tokens[18].type).toBe(TokenType.EOF);
     });
 
     it('should tokenize keywords case-insensitively by default', () => {
@@ -298,6 +303,30 @@ describe('CypherLexer', () => {
       expect(tokens[5].type).toBe(TokenType.NUMBER); // '30'
       expect(tokens[6].type).toBe(TokenType.AND);
       // ... rest of the tokens
+    });
+    
+    it('should tokenize IS NULL and IS NOT NULL expressions', () => {
+      const input = 'WHERE a.prop IS NULL AND b.prop IS NOT NULL';
+      const tokens = lexer.tokenize(input);
+      
+      // Check for IS NULL part
+      expect(tokens[0].type).toBe(TokenType.WHERE);
+      expect(tokens[1].type).toBe(TokenType.IDENTIFIER); // 'a'
+      expect(tokens[2].type).toBe(TokenType.DOT);
+      expect(tokens[3].type).toBe(TokenType.IDENTIFIER); // 'prop'
+      expect(tokens[4].type).toBe(TokenType.IS);
+      expect(tokens[5].type).toBe(TokenType.NULL);
+      
+      // Check for AND part
+      expect(tokens[6].type).toBe(TokenType.AND);
+      
+      // Check for IS NOT NULL part
+      expect(tokens[7].type).toBe(TokenType.IDENTIFIER); // 'b'
+      expect(tokens[8].type).toBe(TokenType.DOT);
+      expect(tokens[9].type).toBe(TokenType.IDENTIFIER); // 'prop'
+      expect(tokens[10].type).toBe(TokenType.IS);
+      expect(tokens[11].type).toBe(TokenType.NOT);
+      expect(tokens[12].type).toBe(TokenType.NULL);
     });
 
     it('should tokenize CREATE clauses', () => {

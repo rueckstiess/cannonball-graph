@@ -30,6 +30,7 @@ const KEYWORDS: Record<string, TokenType> = {
   STARTS: TokenType.STARTS,
   ENDS: TokenType.ENDS,
   WITH: TokenType.WITH,
+  IS: TokenType.IS,
   TRUE: TokenType.BOOLEAN,
   FALSE: TokenType.BOOLEAN,
 };
