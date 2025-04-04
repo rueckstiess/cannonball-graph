@@ -259,9 +259,22 @@ export class CypherParser implements Parser {
   
   /**
    * Parses a relationship pattern (e.g., -[variable:TYPE {property: value}]->)
+   * @param startingTokenIndex Optional index to start from. Used for testing isolated relationship patterns.
    * @returns The parsed relationship pattern
    */
-  private parseRelationshipPattern(): RelationshipPattern {
+  private parseRelationshipPattern(startingTokenIndex?: number): RelationshipPattern {
+    // If given a starting index, reset the lexer to that position
+    if (startingTokenIndex !== undefined) {
+      // Reset to beginning
+      this.lexer.reset();
+      // Advance to the starting position
+      for (let i = 0; i < startingTokenIndex; i++) {
+        this.lexer.next();
+      }
+      // Update current token
+      this.currentToken = this.lexer.next();
+    }
+    
     // Check for the start of the relationship and determine direction
     let direction: 'outgoing' | 'incoming' | 'both' = 'both';
     
@@ -283,7 +296,7 @@ export class CypherParser implements Parser {
       // Check for variable name
       if (this.check(TokenType.IDENTIFIER) && this.peekNext().type === TokenType.COLON) {
         relationship.variable = this.currentToken.value;
-        this.advance();
+        this.advance(); // Consume the variable name
         this.advance(); // Skip the colon
       } else if (this.match(TokenType.COLON)) {
         // No variable name, just a colon
@@ -598,10 +611,14 @@ export class CypherParser implements Parser {
     }
     
     // Handle variable
-    if (this.match(TokenType.IDENTIFIER)) {
+    if (this.check(TokenType.IDENTIFIER)) {
+      // Save the variable name token before advancing
+      const variableName = this.currentToken.value;
+      this.advance(); // Consume the identifier
+      
       const variable: VariableExpression = {
         type: 'variable',
-        name: this.previous().value
+        name: variableName
       };
       
       // Check for property access (dot notation)
