@@ -1,5 +1,6 @@
-import { parseRuleFromMarkdown, extractRulesFromMarkdown } from '../src/rules/rule-parser';
-import { Rule } from '../src/rules/types';
+import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../src/rules/rule-parser';
+import { CypherLexer } from '../src/rules/lexer';
+import { Rule, TokenType, ComparisonOperator, LogicalOperator } from '../src/rules/types';
 
 describe('Rule Parser', () => {
   describe('parseRuleFromMarkdown', () => {
@@ -200,6 +201,75 @@ MATCH (n)
       const rules = extractRulesFromMarkdown(markdown);
       
       expect(rules).toHaveLength(0);
+    });
+  });
+  
+  describe('CypherParser utility methods', () => {
+    let parser: CypherParser;
+    
+    beforeEach(() => {
+      parser = new CypherParser(new CypherLexer());
+    });
+    
+    describe('error handling', () => {
+      it('should capture and return errors', () => {
+        const invalidQuery = 'MATCH (a:Person) INVALID_KEYWORD';
+        parser = new CypherParser(new CypherLexer(), invalidQuery);
+        
+        parser.parse();
+        
+        const errors = parser.getErrors();
+        expect(errors.length).toBeGreaterThan(0);
+        expect(errors[0]).toContain('Unexpected token');
+      });
+      
+      it('should add errors when parsing invalid input', () => {
+        const invalidQuery = 'INVALID_KEYWORD';
+        parser = new CypherParser(new CypherLexer(), invalidQuery);
+        
+        // The parser should not throw, but add to errors
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+      });
+    });
+    
+    describe('token handling', () => {
+      it('should handle different token types in valid queries', () => {
+        // Test with a very simple query that should always work
+        const query = 'MATCH (n)';
+        parser = new CypherParser(new CypherLexer(), query);
+        const result = parser.parse();
+        
+        expect(result.match).toBeDefined();
+        expect(result.match?.patterns).toHaveLength(1);
+        expect(result.match?.patterns[0].start.variable).toBe('n');
+      });
+    });
+    
+    describe('parser helper methods', () => {
+      it('should correctly identify node patterns', () => {
+        // Test a simple node pattern
+        const query = 'MATCH (n:Person)';
+        parser = new CypherParser(new CypherLexer(), query);
+        
+        const result = parser.parse();
+        expect(result.match).toBeDefined();
+        expect(result.match?.patterns[0].start.variable).toBe('n');
+        expect(result.match?.patterns[0].start.labels).toEqual(['Person']);
+      });
+    });
+    
+    describe('error handling for complex queries', () => {
+      it('should handle multiple clauses without errors', () => {
+        const query = 'MATCH (n:Person) SET n.processed = true';
+        parser = new CypherParser(new CypherLexer(), query);
+        
+        expect(() => {
+          const result = parser.parse();
+          expect(result.match).toBeDefined();
+          expect(result.set).toBeDefined();
+        }).not.toThrow();
+      });
     });
   });
 });
