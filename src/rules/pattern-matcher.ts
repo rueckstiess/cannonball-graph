@@ -478,13 +478,12 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
         const maxHopsSpecified = currentRelPattern.maxHops; // Keep as undefined if not specified
         // It's variable if the range isn't exactly 1..1 (including undefined max)
         const isVariable = !(minHops === 1 && maxHopsSpecified === 1);
+
         // Effective maxHops for traversal step limit (avoid infinite loops)
         const maxHopsTraversal = maxHopsSpecified !== undefined
           ? Math.min(maxHopsSpecified, this.options.maxPathDepth)
           // For unbounded '*', cap traversal depth reasonably
           : this.options.maxPathDepth;
-        // Max hops for checking segment completion (can be Infinity)
-        const effectiveMaxHops = maxHopsSpecified !== undefined ? maxHopsSpecified : Infinity;
 
 
         // Check global path depth first
