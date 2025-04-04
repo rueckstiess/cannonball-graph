@@ -16,6 +16,18 @@ export interface PatternMatcherOptions {
    * @default false
    */
   enableTypeCoercion?: boolean;
+
+  /**
+   * Maximum depth for variable-length paths to avoid excessive computation
+   * @default 10
+   */
+  maxPathDepth?: number;
+
+  /**
+   * Maximum number of paths to return for variable-length path queries
+   * @default 100
+   */
+  maxPathResults?: number;
 }
 
 /**
@@ -130,6 +142,8 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     this.options = {
       caseSensitiveLabels: options.caseSensitiveLabels ?? false,
       enableTypeCoercion: options.enableTypeCoercion ?? false,
+      maxPathDepth: options.maxPathDepth ?? 10,
+      maxPathResults: options.maxPathResults ?? 100
     };
   }
 
@@ -416,10 +430,28 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
       edges: Edge<EdgeData>[];
     }> = [];
 
-    // For each starting node, try to match the complete path
-    for (const startNode of startNodes) {
-      const matchingPaths = this.findPathsFromNode(graph, startNode, pattern);
-      results.push(...matchingPaths);
+    // Check if any segment has variable length path (minHops/maxHops)
+    const hasVariablePath = pattern.segments.some(
+      segment => segment.relationship.minHops !== undefined || segment.relationship.maxHops !== undefined
+    );
+
+    // Apply path matching approach based on whether variable paths are involved
+    if (hasVariablePath) {
+      // Use BFS approach for variable length paths
+      for (const startNode of startNodes) {
+        this.findVariableLengthPaths(graph, startNode, pattern, results);
+      }
+    } else {
+      // Use simpler approach for fixed-length paths
+      for (const startNode of startNodes) {
+        const matchingPaths = this.findPathsFromNode(graph, startNode, pattern);
+        results.push(...matchingPaths);
+      }
+    }
+
+    // Enforce maxPathResults limit if there are too many results
+    if (results.length > this.options.maxPathResults) {
+      return results.slice(0, this.options.maxPathResults);
     }
 
     return results;
@@ -448,12 +480,14 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     // Start with just the initial node
     const initialPath = {
       nodes: [startNode],
-      edges: [] as Edge<EdgeData>[]
+      edges: [] as Edge<EdgeData>[],
+      visited: new Set<NodeId>([startNode.id]) // Track visited nodes to avoid cycles
     };
 
     // If there are no segments, we're done
     if (pattern.segments.length === 0) {
-      return [initialPath];
+      const { visited, ...result } = initialPath; // Remove visited from result
+      return [result];
     }
 
     return this.extendPath(graph, initialPath, pattern, 0);
@@ -468,6 +502,7 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     currentPath: {
       nodes: Node<NodeData>[];
       edges: Edge<EdgeData>[];
+      visited: Set<NodeId>;
     },
     pattern: PathPattern,
     segmentIndex: number
@@ -477,7 +512,8 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
   }> {
     // If we've matched all segments, return the current path
     if (segmentIndex >= pattern.segments.length) {
-      return [currentPath];
+      const { visited, ...result } = currentPath; // Remove visited from result
+      return [result];
     }
 
     const results: Array<{
@@ -511,8 +547,13 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
       // Determine roles (current node vs. other node)
       const isOutgoing = edge.source === currentNode.id;
       const otherNodeId = isOutgoing ? edge.target : edge.source;
-      const otherNode = graph.getNode(otherNodeId);
 
+      // Skip if we've already visited this node (avoid cycles)
+      if (currentPath.visited.has(otherNodeId)) {
+        continue;
+      }
+
+      const otherNode = graph.getNode(otherNodeId);
       if (!otherNode) continue;
 
       // Check if the relationship matches the pattern
@@ -548,8 +589,10 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
           // Create a new path with this relationship and node
           const newPath = {
             nodes: [...currentPath.nodes, otherNode],
-            edges: [...currentPath.edges, edge]
+            edges: [...currentPath.edges, edge],
+            visited: new Set(currentPath.visited) // Clone the visited set
           };
+          newPath.visited.add(otherNodeId); // Mark the new node as visited
 
           // Continue matching the rest of the pattern
           const extendedPaths = this.extendPath(
@@ -565,6 +608,172 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     }
 
     return results;
+  }
+
+  /**
+   * Finds variable-length paths from a start node
+   * Uses breadth-first search to respect hop constraints
+   * @private
+   */
+  private findVariableLengthPaths(
+    graph: Graph<NodeData, EdgeData>,
+    startNode: Node<NodeData>,
+    pattern: PathPattern,
+    results: Array<{
+      nodes: Node<NodeData>[];
+      edges: Edge<EdgeData>[];
+    }>
+  ): void {
+    // We only support variable-length paths for the first segment right now
+    const segment = pattern.segments[0];
+    const relationshipPattern = segment.relationship;
+    const targetNodePattern = segment.node;
+
+    // Default min and max hops if not specified
+    const minHops = relationshipPattern.minHops !== undefined ? relationshipPattern.minHops : 1;
+    const maxHops = relationshipPattern.maxHops !== undefined ? relationshipPattern.maxHops : this.options.maxPathDepth;
+
+    // Initialize queue with start node
+    const queue: Array<{
+      path: {
+        nodes: Node<NodeData>[];
+        edges: Edge<EdgeData>[];
+      };
+      hops: number; // Number of hops taken so far
+      visited: Set<NodeId>; // Track visited nodes to avoid cycles
+    }> = [
+        {
+          path: {
+            nodes: [startNode],
+            edges: []
+          },
+          hops: 0,
+          visited: new Set<NodeId>([startNode.id])
+        }
+      ];
+
+    // Set to track found paths to avoid duplicates
+    const foundPathKeys = new Set<string>();
+
+    // BFS to find all paths
+    while (queue.length > 0 && results.length < this.options.maxPathResults) {
+      const { path, hops, visited } = queue.shift()!;
+      const currentNode = path.nodes[path.nodes.length - 1];
+
+      // If we've reached max hops, continue to next item in queue
+      if (hops >= maxHops) {
+        continue;
+      }
+
+      // Expand node - get relationships to traverse
+      let edgesForNode: Edge<EdgeData>[] = [];
+
+      if (relationshipPattern.direction === 'outgoing') {
+        edgesForNode = graph.getEdgesForNode(currentNode.id, 'outgoing');
+      } else if (relationshipPattern.direction === 'incoming') {
+        edgesForNode = graph.getEdgesForNode(currentNode.id, 'incoming');
+      } else {
+        edgesForNode = graph.getEdgesForNode(currentNode.id, 'both');
+      }
+
+      // Process each edge
+      for (const edge of edgesForNode) {
+        // Skip edges that don't match the relationship type
+        if (relationshipPattern.type && !this.typeMatches(edge.label, relationshipPattern.type)) {
+          continue;
+        }
+
+        // Check if the relationship properties match
+        if (Object.keys(relationshipPattern.properties).length > 0 &&
+          !this.edgePropertiesMatch(edge, relationshipPattern.properties)) {
+          continue;
+        }
+
+        // Determine the other node
+        const isOutgoing = edge.source === currentNode.id;
+        const otherNodeId = isOutgoing ? edge.target : edge.source;
+
+        // Check relationship direction
+        const matchesDirection =
+          (relationshipPattern.direction === 'outgoing' && isOutgoing) ||
+          (relationshipPattern.direction === 'incoming' && !isOutgoing) ||
+          (relationshipPattern.direction === 'both');
+
+        if (!matchesDirection) {
+          continue;
+        }
+
+        // Skip if already visited (avoid cycles)
+        if (visited.has(otherNodeId)) {
+          continue;
+        }
+
+        const otherNode = graph.getNode(otherNodeId);
+        if (!otherNode) continue;
+
+        // Create a new path with this edge
+        const newPath = {
+          nodes: [...path.nodes, otherNode],
+          edges: [...path.edges, edge]
+        };
+
+        // Track visited nodes
+        const newVisited = new Set(visited);
+        newVisited.add(otherNodeId);
+
+        // Check if the new node matches the target pattern
+        if (hops + 1 >= minHops && this.matchesNodePattern(otherNode, targetNodePattern)) {
+          // We've found a valid path
+
+          // Check for duplicates (using a simple string representation)
+          const pathKey = newPath.nodes.map(n => n.id).join(',');
+          if (!foundPathKeys.has(pathKey)) {
+            foundPathKeys.add(pathKey);
+
+            // Check if there are more segments in the pattern
+            if (pattern.segments.length > 1) {
+              // If there are more segments, continue from this node
+              const remainingPattern: PathPattern = {
+                start: targetNodePattern,
+                segments: pattern.segments.slice(1)
+              };
+
+              const continuedPaths = this.findPathsFromNode(graph, otherNode, remainingPattern);
+
+              for (const continuedPath of continuedPaths) {
+                // Combine the current path up to otherNode with the continued path
+                results.push({
+                  nodes: [...newPath.nodes.slice(0, -1), ...continuedPath.nodes],
+                  edges: [...newPath.edges, ...continuedPath.edges]
+                });
+
+                // Check if we've reached the limit
+                if (results.length >= this.options.maxPathResults) {
+                  return;
+                }
+              }
+            } else {
+              // If this is the only segment, add the path to results
+              results.push(newPath);
+
+              // Check if we've reached the limit
+              if (results.length >= this.options.maxPathResults) {
+                return;
+              }
+            }
+          }
+        }
+
+        // Add to queue for further expansion (unless we've reached the max depth)
+        if (hops + 1 < maxHops) {
+          queue.push({
+            path: newPath,
+            hops: hops + 1,
+            visited: newVisited
+          });
+        }
+      }
+    }
   }
 
   /**
