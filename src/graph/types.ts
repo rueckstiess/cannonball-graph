@@ -30,6 +30,18 @@ export interface Edge<T = any> {
 }
 
 /**
+ * Represents a path in the graph
+ * @template NodeData Type of data associated with nodes
+ * @template EdgeData Type of data associated with edges
+ */
+export interface Path<NodeData = any, EdgeData = any> {
+  /** Nodes in the path in traversal order */
+  nodes: Node<NodeData>[];
+  /** Edges in the path in traversal order */
+  edges: Edge<EdgeData>[];
+}
+
+/**
  * Options for path finding between nodes
  */
 export interface PathOptions {
@@ -39,6 +51,81 @@ export interface PathOptions {
   relationshipTypes?: string[];
   /** Direction to traverse: outgoing (source->target), incoming (target->source), or both */
   direction?: "outgoing" | "incoming" | "both";
+}
+
+/**
+ * Options for BFS traversal
+ */
+export interface BFSOptions {
+  /** Maximum depth to traverse */
+  maxDepth?: number;
+  /** Direction to traverse: outgoing, incoming, or both */
+  direction?: "outgoing" | "incoming" | "both";
+  /** Whether to track complete paths (needed for path patterns) */
+  trackPaths?: boolean;
+  /** Maximum number of results to collect */
+  maxResults?: number;
+}
+
+/**
+ * Visitor pattern interface for BFS traversal
+ * @template NodeData Type of data associated with nodes
+ * @template EdgeData Type of data associated with edges
+ */
+export interface BFSVisitor<NodeData = any, EdgeData = any> {
+  /**
+   * Called when starting the traversal
+   * @param startNode The node where traversal begins
+   */
+  start?(startNode: Node<NodeData>): void;
+  
+  /**
+   * Called when a node is discovered during traversal
+   * @param node The discovered node
+   * @param depth Current depth in the traversal
+   * @param path The path taken to reach this node (if trackPaths is true)
+   * @returns Boolean indicating whether to continue traversal from this node (true) or skip (false)
+   */
+  discoverNode?(
+    node: Node<NodeData>,
+    depth: number,
+    path?: Path<NodeData, EdgeData>
+  ): boolean;
+  
+  /**
+   * Called when examining an edge during traversal
+   * @param edge The edge being examined
+   * @param sourceNode The source node of the edge
+   * @param targetNode The target node of the edge
+   * @param depth Current depth in the traversal
+   * @returns Boolean indicating whether to traverse this edge (true) or skip (false)
+   */
+  examineEdge?(
+    edge: Edge<EdgeData>,
+    sourceNode: Node<NodeData>,
+    targetNode: Node<NodeData>,
+    depth: number
+  ): boolean;
+  
+  /**
+   * Called when a path is complete
+   * @param path The complete path
+   * @param depth Depth at which the path was completed
+   */
+  pathComplete?(
+    path: Path<NodeData, EdgeData>,
+    depth: number
+  ): void;
+  
+  /**
+   * Called after all edges of a node are examined
+   * @param node The node whose examination is complete
+   * @param depth Depth of the node in the traversal
+   */
+  finishNode?(
+    node: Node<NodeData>,
+    depth: number
+  ): void;
 }
 
 /**
@@ -219,6 +306,31 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @returns Array of paths, where each path is an array of node IDs
    */
   findPaths(start: NodeId, end: NodeId, options?: PathOptions): NodeId[][];
+  
+  /**
+   * Perform a breadth-first traversal of the graph starting from a node
+   * @param startNodeId ID of the node to start traversal from
+   * @param visitor Visitor that handles traversal events
+   * @param options Configuration for the traversal
+   */
+  traverseBFS(
+    startNodeId: NodeId,
+    visitor: BFSVisitor<NodeData, EdgeData>,
+    options?: BFSOptions
+  ): void;
+  
+  /**
+   * Find all paths from a start node that match a pattern
+   * @param startNodeId ID of the node to start traversal from
+   * @param visitor Visitor that defines the pattern to match
+   * @param options Configuration for the search
+   * @returns Array of paths that match the pattern
+   */
+  findMatchingPaths(
+    startNodeId: NodeId,
+    visitor: BFSVisitor<NodeData, EdgeData>,
+    options?: BFSOptions
+  ): Path<NodeData, EdgeData>[];
 
   // Graph-wide operations
 

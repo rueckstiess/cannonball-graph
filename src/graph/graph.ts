@@ -1,4 +1,4 @@
-import { Graph, Node, Edge, NodeId, PathOptions, GraphData } from "./types";
+import { Graph, Node, Edge, NodeId, PathOptions, GraphData, BFSVisitor, BFSOptions, Path } from "./types";
 
 /**
  * Implementation of the Graph interface.
@@ -632,5 +632,192 @@ export class GraphImpl<NodeData = any, EdgeData = any>
     for (const edge of data.edges) {
       this.addEdge(edge.source, edge.target, edge.label, edge.data);
     }
+  }
+  
+  /**
+   * Perform a breadth-first traversal of the graph starting from a node.
+   * 
+   * @param startNodeId ID of the node to start traversal from
+   * @param visitor Visitor that handles traversal events
+   * @param options Configuration for the traversal
+   */
+  traverseBFS(
+    startNodeId: NodeId,
+    visitor: BFSVisitor<NodeData, EdgeData>,
+    options: BFSOptions = {}
+  ): void {
+    // Default values
+    const maxDepth = options.maxDepth || Number.MAX_SAFE_INTEGER;
+    const direction = options.direction || "outgoing";
+    const trackPaths = options.trackPaths || false;
+    const maxResults = options.maxResults || Number.MAX_SAFE_INTEGER;
+    
+    // Verify start node exists
+    const startNode = this.getNode(startNodeId);
+    if (!startNode) {
+      return; // Start node doesn't exist
+    }
+    
+    // Call start callback if provided
+    if (visitor.start) {
+      visitor.start(startNode);
+    }
+    
+    // Set up the queue for BFS
+    const queue: Array<{
+      node: Node<NodeData>;
+      depth: number;
+      path?: Path<NodeData, EdgeData>;
+    }> = [];
+    
+    // Start with the initial node
+    const initialPath: Path<NodeData, EdgeData> | undefined = trackPaths
+      ? { nodes: [startNode], edges: [] }
+      : undefined;
+      
+    queue.push({
+      node: startNode,
+      depth: 0,
+      path: initialPath
+    });
+    
+    // Track visited nodes to avoid cycles
+    const visited = new Set<NodeId>([startNodeId]);
+    
+    // For collecting matching paths if needed
+    let resultCount = 0;
+    
+    // BFS main loop
+    while (queue.length > 0 && resultCount < maxResults) {
+      const { node, depth, path } = queue.shift()!;
+      
+      // Skip if we've reached max depth
+      if (depth > maxDepth) {
+        continue;
+      }
+      
+      // Call discover callback if provided
+      let continueTraversal = true;
+      if (visitor.discoverNode) {
+        continueTraversal = visitor.discoverNode(node, depth, path);
+      }
+      
+      // Skip traversal from this node if callback returned false
+      if (continueTraversal === false) {
+        continue;
+      }
+      
+      // Get edges for this node
+      const edges = this.getEdgesForNode(node.id, direction);
+      
+      // Process each edge
+      for (const edge of edges) {
+        // Determine the other node (target or source depending on direction)
+        const isOutgoing = edge.source === node.id;
+        const otherNodeId = isOutgoing ? edge.target : edge.source;
+        
+        // Skip if already visited
+        if (visited.has(otherNodeId)) {
+          continue;
+        }
+        
+        const otherNode = this.getNode(otherNodeId);
+        if (!otherNode) {
+          continue; // Skip if other node doesn't exist
+        }
+        
+        // Call examine edge callback if provided
+        let traverseEdge = true;
+        if (visitor.examineEdge) {
+          const sourceNode = isOutgoing ? node : otherNode;
+          const targetNode = isOutgoing ? otherNode : node;
+          traverseEdge = visitor.examineEdge(edge, sourceNode, targetNode, depth);
+        }
+        
+        // Skip this edge if callback returned false
+        if (traverseEdge === false) {
+          continue;
+        }
+        
+        // Create path for the next node if tracking paths
+        let newPath: Path<NodeData, EdgeData> | undefined;
+        if (trackPaths && path) {
+          newPath = {
+            nodes: [...path.nodes, otherNode],
+            edges: [...path.edges, edge]
+          };
+          
+          // Call path complete callback if provided
+          if (visitor.pathComplete) {
+            visitor.pathComplete(newPath, depth + 1);
+            resultCount++;
+          }
+        }
+        
+        // Mark as visited and add to queue
+        visited.add(otherNodeId);
+        queue.push({
+          node: otherNode,
+          depth: depth + 1,
+          path: newPath
+        });
+      }
+      
+      // Call finish node callback if provided
+      if (visitor.finishNode) {
+        visitor.finishNode(node, depth);
+      }
+    }
+  }
+  
+  /**
+   * Find all paths from a start node that match a pattern defined by the visitor.
+   * 
+   * @param startNodeId ID of the node to start search from
+   * @param visitor Visitor that defines pattern matching criteria
+   * @param options Configuration for the search
+   * @returns Array of paths that match the pattern
+   */
+  findMatchingPaths(
+    startNodeId: NodeId,
+    visitor: BFSVisitor<NodeData, EdgeData>,
+    options: BFSOptions = {}
+  ): Path<NodeData, EdgeData>[] {
+    // Always track paths for this method
+    const searchOptions: BFSOptions = {
+      ...options,
+      trackPaths: true
+    };
+    
+    // Create a collector for matching paths
+    const matchingPaths: Path<NodeData, EdgeData>[] = [];
+    
+    // Create a wrapper visitor that collects paths from the pathComplete callback
+    const collectorVisitor: BFSVisitor<NodeData, EdgeData> = {
+      // Pass through all callbacks from the original visitor
+      start: visitor.start,
+      discoverNode: visitor.discoverNode,
+      examineEdge: visitor.examineEdge,
+      finishNode: visitor.finishNode,
+      
+      // Add path collection to pathComplete
+      pathComplete: (path: Path<NodeData, EdgeData>, depth: number) => {
+        // Call the original pathComplete if provided
+        if (visitor.pathComplete) {
+          visitor.pathComplete(path, depth);
+        }
+        
+        // Collect the path
+        matchingPaths.push({
+          nodes: [...path.nodes],
+          edges: [...path.edges]
+        });
+      }
+    };
+    
+    // Perform the traversal with the collector visitor
+    this.traverseBFS(startNodeId, collectorVisitor, searchOptions);
+    
+    return matchingPaths;
   }
 }
