@@ -222,6 +222,24 @@ export interface CreateClause {
 }
 
 /**
+ * Represents the variables to return from a query
+ */
+export interface ReturnItem {
+  /** The expression to return (can be a variable or property access) */
+  expression: VariableExpression | PropertyExpression;
+  /** Optional alias for the returned value */
+  alias?: string;
+}
+
+/**
+ * Represents the RETURN clause in a Cypher query
+ */
+export interface ReturnClause {
+  /** Items to return from the query */
+  items: ReturnItem[];
+}
+
+/**
  * Represents a complete Cypher query statement
  */
 export interface CypherStatement {
@@ -233,6 +251,8 @@ export interface CypherStatement {
   create?: CreateClause;
   /** The SET clause (optional) */
   set?: SetClause;
+  /** The RETURN clause (optional) */
+  return?: ReturnClause;
 }
 
 /**
@@ -418,6 +438,8 @@ export class CypherParser implements Parser {
           statement.create = this.parseCreateClause();
         } else if (this.match(TokenType.SET)) {
           statement.set = this.parseSetClause();
+        } else if (this.match(TokenType.RETURN)) {
+          statement.return = this.parseReturnClause();
         } else {
           // Unrecognized token, record error and skip
           this.errors.push(`Unexpected token: ${this.currentToken.value} at line ${this.currentToken.line}, column ${this.currentToken.column}`);
@@ -448,7 +470,8 @@ export class CypherParser implements Parser {
         this.check(TokenType.MATCH) ||
         this.check(TokenType.WHERE) ||
         this.check(TokenType.CREATE) ||
-        this.check(TokenType.SET)
+        this.check(TokenType.SET) ||
+        this.check(TokenType.RETURN)
       ) {
         return;
       }
@@ -1100,6 +1123,50 @@ export class CypherParser implements Parser {
     }
 
     return { settings };
+  }
+
+  /**
+   * Parses a RETURN clause
+   * @returns The parsed RETURN clause
+   */
+  private parseReturnClause(): ReturnClause {
+    const items: ReturnItem[] = [];
+
+    // Parse the first return item
+    items.push(this.parseReturnItem());
+
+    // Parse additional items separated by commas
+    while (this.match(TokenType.COMMA)) {
+      items.push(this.parseReturnItem());
+    }
+
+    return { items };
+  }
+
+  /**
+   * Parses a single item in a RETURN clause
+   * @returns The parsed return item
+   */
+  private parseReturnItem(): ReturnItem {
+    // Parse the expression (variable or property access)
+    const variable = this.parseVariableExpression();
+    
+    // Check if this is a property access
+    let expression: VariableExpression | PropertyExpression = variable;
+    if (this.match(TokenType.DOT)) {
+      const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
+      expression = {
+        type: 'property',
+        object: variable,
+        property
+      };
+    }
+
+    // Check for AS alias (not implemented yet, for future extension)
+    let alias: string | undefined = undefined;
+    
+    // Return the item
+    return { expression, alias };
   }
 
   /**

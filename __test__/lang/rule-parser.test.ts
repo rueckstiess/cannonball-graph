@@ -1,6 +1,17 @@
 import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../../src/lang/rule-parser';
 import { Lexer } from '../../src/lang';
-import { Rule, TokenType, ComparisonOperator, LogicalOperator, LiteralExpression, ComparisonExpression, LogicalExpression, ExistsExpression } from '@/lang';
+import { 
+  Rule, 
+  TokenType, 
+  ComparisonOperator, 
+  LogicalOperator, 
+  LiteralExpression, 
+  ComparisonExpression, 
+  LogicalExpression, 
+  ExistsExpression,
+  VariableExpression,
+  PropertyExpression
+} from '@/lang';
 
 
 
@@ -1741,6 +1752,88 @@ describe('CypherParser', () => {
       expect(result.set).toBeDefined();
       const setting = result.set!.settings[0];
       expect(setting.value.type).toBe('binary'); // Binary operation
+    });
+  });
+
+  describe('RETURN Clause Parsing', () => {
+    let parser: CypherParser;
+
+    beforeEach(() => {
+      parser = new CypherParser(new Lexer());
+    });
+
+    it('should parse simple RETURN clauses with variables', () => {
+      const query = 'MATCH (p:Person) RETURN p';
+      parser = new CypherParser(new Lexer(), query);
+      
+      const result = parser.parse();
+      
+      expect(result.return).toBeDefined();
+      expect(result.return?.items).toHaveLength(1);
+      
+      const returnItem = result.return!.items[0];
+      expect(returnItem.expression.type).toBe('variable');
+      expect((returnItem.expression as VariableExpression).name).toBe('p');
+    });
+    
+    it('should parse RETURN clauses with property access', () => {
+      const query = 'MATCH (p:Person) RETURN p.name';
+      parser = new CypherParser(new Lexer(), query);
+      
+      const result = parser.parse();
+      
+      expect(result.return).toBeDefined();
+      expect(result.return?.items).toHaveLength(1);
+      
+      const returnItem = result.return!.items[0];
+      expect(returnItem.expression.type).toBe('property');
+      expect((returnItem.expression as PropertyExpression).object.name).toBe('p');
+      expect((returnItem.expression as PropertyExpression).property).toBe('name');
+    });
+    
+    it('should parse RETURN clauses with multiple items', () => {
+      const query = 'MATCH (p:Person) RETURN p.name, p.age, p';
+      parser = new CypherParser(new Lexer(), query);
+      
+      const result = parser.parse();
+      
+      expect(result.return).toBeDefined();
+      expect(result.return?.items).toHaveLength(3);
+      
+      // First return item: p.name
+      expect(result.return!.items[0].expression.type).toBe('property');
+      expect((result.return!.items[0].expression as PropertyExpression).property).toBe('name');
+      
+      // Second return item: p.age
+      expect(result.return!.items[1].expression.type).toBe('property');
+      expect((result.return!.items[1].expression as PropertyExpression).property).toBe('age');
+      
+      // Third return item: p
+      expect(result.return!.items[2].expression.type).toBe('variable');
+      expect((result.return!.items[2].expression as VariableExpression).name).toBe('p');
+    });
+
+    it('should parse complete query with RETURN', () => {
+      const query = `
+        MATCH (p:Person)
+        WHERE p.age > 30
+        RETURN p.name, p.age
+      `;
+      
+      parser = new CypherParser(new Lexer(), query);
+      const result = parser.parse();
+      
+      // Verify all clauses
+      expect(result.match).toBeDefined();
+      expect(result.where).toBeDefined();
+      expect(result.return).toBeDefined();
+      
+      // Verify the RETURN clause specifically
+      expect(result.return?.items).toHaveLength(2);
+      expect(result.return?.items[0].expression.type).toBe('property');
+      expect((result.return?.items[0].expression as PropertyExpression).property).toBe('name');
+      expect(result.return?.items[1].expression.type).toBe('property');
+      expect((result.return?.items[1].expression as PropertyExpression).property).toBe('age');
     });
   });
 });
