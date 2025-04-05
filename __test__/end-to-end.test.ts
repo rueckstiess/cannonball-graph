@@ -106,8 +106,6 @@ describe('End-to-End Query Tests', () => {
       const query = `MATCH (p:person)-[r:KNOWS]->(f:person) RETURN p, r, f`;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: Matches 51 instead of 8
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(8); // 8 KNOWS relationships in the test graph
       expect(result.query?.rows.length).toBe(8);
@@ -117,8 +115,6 @@ describe('End-to-End Query Tests', () => {
       const query = `MATCH (p:person)<-[r:KNOWS]-(f:person) RETURN p, r, f`;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: Engine can't seem to handle <- direction relations correctly, Parser error
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(8); // 8 KNOWS relationships in the reverse direction
     });
@@ -127,8 +123,6 @@ describe('End-to-End Query Tests', () => {
       const query = `MATCH (p:person)-[r:KNOWS]-(f:person) RETURN p, r, f`;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: The engine returns 0 matches
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(16); // 8 in each direction = 16 total
     });
@@ -136,9 +130,6 @@ describe('End-to-End Query Tests', () => {
     test('Match relationship with property constraints', () => {
       const query = `MATCH (p:person)-[r:KNOWS {weight: 5}]->(f:person) RETURN p, r, f`;
       const result = engine.executeQuery(graph, query);
-
-      // BUG: The engine should return 2 matches (Alice->Bob and Eve->Alice),
-      // but it has a duplicated match.
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(2); // Alice->Bob and Eve->Alice have weight 5
@@ -184,8 +175,6 @@ describe('End-to-End Query Tests', () => {
         RETURN r
       `;
       const result = engine.executeQuery(graph, query);
-
-      // BUG: Returns 7 duplicates of the same relationship
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(1);
@@ -377,6 +366,7 @@ describe('End-to-End Query Tests', () => {
       const dbNode = graph.getNode(createdNodeId);
       expect(dbNode).toBeDefined();
       expect(dbNode?.data.title).toBe('Important Task');
+      expect(dbNode?.data.type).toBe('task');
     });
 
     test('Create a relationship between existing nodes', () => {
@@ -522,7 +512,8 @@ describe('End-to-End Query Tests', () => {
       `;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: Has many nested action results
+      // BUG: Maybe? The actionResults array is deeply nested, not sure if this is expected
+      fail('This test passes but there is something odd with the actionResults array, it is deeply nested');
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(1);
@@ -562,8 +553,6 @@ describe('End-to-End Query Tests', () => {
       `;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: Returns 51 matches instead of 8
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(8); // 8 KNOWS relationships
       expect(result.query?.rows.length).toBe(8);
@@ -598,8 +587,6 @@ describe('End-to-End Query Tests', () => {
       `;
       const result = engine.executeQuery(graph, query);
 
-      // BUG: Returns 51 matches instead of 8
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(8); // 8 KNOWS relationships
       expect(result.query?.rows.length).toBe(8);
@@ -624,7 +611,7 @@ describe('End-to-End Query Tests', () => {
       // expect(result.query?.rows.length).toBe(8);
       expect(result.query?.columns).toEqual(['r.since', 'r.weight']);
 
-      // BUG: returns 51 instances, and value missing from relation data
+      // BUG: value missing from relation data
 
       // Check all rows have since and weight properties
       result.query?.rows.forEach(row => {

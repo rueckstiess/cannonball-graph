@@ -515,12 +515,13 @@ export class CypherParser implements Parser {
     const start = this.parseNodePattern();
     const segments: { relationship: RelationshipPattern; node: NodePattern }[] = [];
 
-    // Parse segments (relationship + node) until we don't see a relationship
+    // Parse segments (relationship + node) until we don't see a relationship indicator
     while (
       this.check(TokenType.MINUS) ||
       this.check(TokenType.FORWARD_ARROW) ||
       this.check(TokenType.BACKWARD_ARROW)
     ) {
+      // Each segment consists of a relationship followed by a node
       const relationship = this.parseRelationshipPattern();
       const node = this.parseNodePattern();
       segments.push({ relationship, node });
@@ -587,12 +588,23 @@ export class CypherParser implements Parser {
     // Check for the start of the relationship and determine direction
     let direction: 'outgoing' | 'incoming' | 'both' = 'both';
 
-    if (this.match(TokenType.BACKWARD_ARROW)) {
+    // First check for backward arrow '<-' which is a special case
+    if (this.check(TokenType.BACKWARD_ARROW)) {
+      this.advance(); // Consume the '<-'
       direction = 'incoming';
-    } else if (this.match(TokenType.FORWARD_ARROW)) {
+    }
+    // Then check for forward arrow '->'
+    else if (this.check(TokenType.FORWARD_ARROW)) {
+      this.advance(); // Consume the '->'
       direction = 'outgoing';
-    } else {
-      this.consume(TokenType.MINUS, "Expected relationship pattern to start with '-', '->', or '<-'");
+    }
+    // Otherwise expect a simple '-'
+    else if (this.check(TokenType.MINUS)) {
+      this.advance(); // Consume the '-'
+    }
+    // If none of the above, it's an error
+    else {
+      throw this.error("Expected relationship pattern to start with '-', '->', or '<-'");
     }
 
     // Initialize relationship with default values for fixed-length relationships
@@ -649,13 +661,28 @@ export class CypherParser implements Parser {
       this.consume(TokenType.CLOSE_BRACKET, "Expected ']' after relationship details");
     }
 
-    // Parse the second part of the direction if needed
-    if (direction === 'both' && this.match(TokenType.FORWARD_ARROW)) {
-      relationship.direction = 'outgoing';
-    } else if (direction === 'both' && this.match(TokenType.BACKWARD_ARROW)) {
-      relationship.direction = 'incoming';
-    } else if (direction === 'both') {
-      this.consume(TokenType.MINUS, "Expected relationship pattern to end with '-', '->', or '<-'");
+    // Parse the second part of the direction if needed for undirected relationships
+
+    // We need to check for the ending token regardless of the current direction
+    // For '<-' and '->' relationships, we already consumed the token, but we still need
+    // a closing token if there were brackets involved
+    if (this.check(TokenType.FORWARD_ARROW)) {
+      this.advance(); // Consume the '->'
+      // If initial direction wasn't set previously (was 'both'), set it to 'outgoing'
+      if (direction === 'both') {
+        relationship.direction = 'outgoing';
+      }
+    } else if (this.check(TokenType.BACKWARD_ARROW)) {
+      this.advance(); // Consume the '<-'
+      // If initial direction wasn't set previously (was 'both'), set it to 'incoming'
+      if (direction === 'both') {
+        relationship.direction = 'incoming';
+      }
+    } else if (this.check(TokenType.MINUS)) {
+      this.advance(); // Consume the '-'
+      // Direction remains as determined by the starting token
+    } else {
+      throw this.error("Expected relationship pattern to end with '-', '->', or '<-'");
     }
 
     return relationship;
@@ -909,7 +936,7 @@ export class CypherParser implements Parser {
   }
 
   /**
-   * Parses a primary expression (variable, property access, literal)
+   * Parses a primary expression (variable, property access, literal, array)
    * @returns The parsed expression
    */
   private parsePrimaryExpression(): Expression {
@@ -1154,7 +1181,7 @@ export class CypherParser implements Parser {
   private parseReturnItem(): ReturnItem {
     // Parse the expression (variable or property access)
     const variable = this.parseVariableExpression();
-    
+
     // Check if this is a property access
     let expression: VariableExpression | PropertyExpression = variable;
     if (this.match(TokenType.DOT)) {
@@ -1168,7 +1195,7 @@ export class CypherParser implements Parser {
 
     // Check for AS alias (not implemented yet, for future extension)
     let alias: string | undefined = undefined;
-    
+
     // Return the item
     return { expression, alias };
   }
