@@ -56,14 +56,39 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * const engine = createRuleEngine();
  * 
+ * // Unified API (recommended)
+ * // Execute any graph statement (query, rule, or both)
+ * const result = engine.executeGraphQuery(graph, 'MATCH (n:Person) RETURN n.name');
+ * 
+ * // Execute a graph statement that both modifies and returns data
+ * const result = engine.executeGraphQuery(graph, `
+ *   MATCH (n:Person)
+ *   WHERE n.age > 30
+ *   CREATE (t:Task {name: 'New Task', assignedTo: n.name})
+ *   RETURN n.name, t.name
+ * `);
+ * 
+ * // Access query results if present
+ * if (result.query) {
+ *   console.log(`Columns: ${result.query.columns.join(', ')}`);
+ *   console.log(`Rows: ${result.query.rows.length}`);
+ * }
+ * 
+ * // Access action results if present
+ * if (result.actions) {
+ *   console.log(`Nodes created: ${result.actions.affectedNodes.length}`);
+ *   console.log(`Edges created: ${result.actions.affectedEdges.length}`);
+ * }
+ * 
+ * // Legacy API (deprecated)
  * // Execute a single rule
- * const result = engine.executeRule(graph, rule);
+ * const ruleResult = engine.executeRule(graph, rule);
  * 
  * // Execute multiple rules in priority order
- * const results = engine.executeRules(graph, rules);
+ * const ruleResults = engine.executeRules(graph, rules);
  * 
  * // Parse and execute rules from markdown
- * const results = engine.executeRulesFromMarkdown(graph, markdownText);
+ * const markdownResults = engine.executeRulesFromMarkdown(graph, markdownText);
  * 
  * // Execute a query
  * const queryResult = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');

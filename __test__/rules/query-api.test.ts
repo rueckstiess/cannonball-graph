@@ -4,7 +4,8 @@ import {
   createQueryFormatter, 
   createQueryUtils,
   QueryFormatter,
-  QueryUtils
+  QueryUtils,
+  GraphQueryResult
 } from '@/rules';
 
 describe('Query API', () => {
@@ -28,6 +29,76 @@ describe('Query API', () => {
     // Add some relationships
     graph.addEdge('person1', 'task1', 'ASSIGNED_TO', { date: '2023-01-15' });
     graph.addEdge('person2', 'task2', 'ASSIGNED_TO', { date: '2023-01-20' });
+  });
+  
+  describe('Unified Query API', () => {
+    test('executeGraphQuery supports both read and write operations', () => {
+      // Simpler query that sets a property and returns values
+      const query = `
+        MATCH (p:Person)
+        WHERE p.name = 'Alice'
+        SET p.updated = true
+        RETURN p.name, p.updated
+      `;
+      
+      const result = engine.executeGraphQuery(graph, query);
+      
+      // Check that the result has both query and action data
+      expect(result.success).toBe(true);
+      expect(result.stats.readOperations).toBe(true);
+      expect(result.stats.writeOperations).toBe(true);
+      
+      // Check query results
+      expect(result.query).toBeDefined();
+      expect(result.query!.columns).toEqual(['p.name', 'p.updated']);
+      expect(result.query!.rows[0][0].value).toBe('Alice');
+      expect(result.query!.rows[0][1].value).toBe(true);
+      
+      // Check action results
+      expect(result.actions).toBeDefined();
+      expect(result.actions!.affectedNodes.length).toBe(1);
+    });
+    
+    test('QueryFormatter works with GraphQueryResult', () => {
+      const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      
+      // Check the markdown formatting
+      const markdown = formatter.toMarkdownTable(result);
+      expect(markdown).toContain('| p.name | p.age |');
+      expect(markdown).toContain('| "Alice" | 30 |');
+      
+      // Check the JSON formatting
+      const json = formatter.toJson(result);
+      const parsed = JSON.parse(json);
+      expect(parsed.success).toBe(true);
+      expect(parsed.matchCount).toBe(2);
+      expect(parsed.query.length).toBe(2);
+      
+      // Check the text table formatting
+      const textTable = formatter.toTextTable(result);
+      expect(textTable).toContain('p.name');
+      expect(textTable).toContain('p.age');
+    });
+    
+    test('QueryUtils works with GraphQueryResult', () => {
+      const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      
+      // Check extractColumn works
+      const names = utils.extractColumn(result, 'p.name');
+      expect(names).toEqual(['Alice', 'Bob']);
+      
+      // Check toObjectArray works
+      const objects = utils.toObjectArray(result);
+      expect(objects.length).toBe(2);
+      expect(objects[0]['p.name']).toBe('Alice');
+      
+      // Check isEmpty works
+      expect(utils.isEmpty(result)).toBe(false);
+      
+      // Check getSingleValue works
+      const emptyResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p');
+      expect(utils.isEmpty(emptyResult)).toBe(true);
+    });
   });
   
   describe('QueryFormatter', () => {

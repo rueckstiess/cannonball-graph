@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
 import { Rule } from '@/lang/rule-parser';
-import { RuleEngine, createRuleEngine, QueryResult } from '@/rules/rule-engine';
+import { RuleEngine, createRuleEngine, QueryResult, GraphQueryResult } from '@/rules/rule-engine';
 
 describe('Rule Engine Query Functionality', () => {
   let engine: RuleEngine;
@@ -21,7 +21,7 @@ describe('Rule Engine Query Functionality', () => {
     graph.addEdge('person2', 'task2', 'ASSIGNED_TO', { date: '2023-01-15' });
   });
   
-  test('executeQuery handles simple RETURN of variables', () => {
+  test('executeQuery handles simple RETURN of variables (legacy API)', () => {
     const query = 'MATCH (p:Person) RETURN p';
     const result = engine.executeQuery(graph, query);
     
@@ -39,6 +39,34 @@ describe('Rule Engine Query Functionality', () => {
     expect(result.rows[1][0].type).toBe('node');
     expect(result.rows[1][0].name).toBe('p');
     expect(result.rows[1][0].value.data.name).toBe('Bob');
+  });
+  
+  test('executeGraphQuery handles simple RETURN of variables (new unified API)', () => {
+    const query = 'MATCH (p:Person) RETURN p';
+    const result = engine.executeGraphQuery(graph, query);
+    
+    // Query should execute successfully
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(2); // Two person nodes
+    
+    // Check that stats are included
+    expect(result.stats.readOperations).toBe(true);
+    expect(result.stats.writeOperations).toBe(false);
+    expect(typeof result.stats.executionTimeMs).toBe('number');
+    
+    // Check that query data is included
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p']);
+    expect(result.query!.rows.length).toBe(2);
+    
+    // Check the returned values
+    expect(result.query!.rows[0][0].type).toBe('node');
+    expect(result.query!.rows[0][0].name).toBe('p');
+    expect(result.query!.rows[0][0].value.data.name).toBe('Alice');
+    
+    expect(result.query!.rows[1][0].type).toBe('node');
+    expect(result.query!.rows[1][0].name).toBe('p');
+    expect(result.query!.rows[1][0].value.data.name).toBe('Bob');
   });
   
   test('executeQuery handles RETURN of properties', () => {
@@ -184,6 +212,31 @@ RETURN p.name, p.age
     expect(names).toContain('Bob');
   });
   
+  test('executeGraphQueryFromMarkdown with the new unified API', () => {
+    const markdown = `
+## Test Query
+
+\`\`\`graphquery
+MATCH (p:Person)
+RETURN p.name, p.age
+\`\`\`
+    `;
+    
+    const result = engine.executeGraphQueryFromMarkdown(graph, markdown);
+    
+    // Query should execute successfully
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(2);
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name', 'p.age']);
+    expect(result.query!.rows.length).toBe(2);
+    
+    // Verify the query results
+    const names = result.query!.rows.map(row => row[0].value);
+    expect(names).toContain('Alice');
+    expect(names).toContain('Bob');
+  });
+  
   test('executeQuery handles errors in queries', () => {
     const invalidQuery = 'INVALID SYNTAX';
     const result = engine.executeQuery(graph, invalidQuery);
@@ -202,5 +255,52 @@ RETURN p.name, p.age
     expect(result.success).toBe(false);
     expect(result.error).toContain('RETURN clause');
     expect(result.rows).toEqual([]);
+  });
+  
+  test('executeGraphQuery can handle both CREATE and RETURN in one query', () => {
+    const nodeCount = graph.getAllNodes().length;
+  
+    // Simpler query that just creates a node and returns properties
+    const query = `
+      MATCH (p:Person)
+      WHERE p.name = 'Alice'
+      SET p.updated = true
+      RETURN p.name, p.updated
+    `;
+    
+    const result = engine.executeGraphQuery(graph, query);
+    
+    // Debug info
+    console.log('Test result:', JSON.stringify({
+      success: result.success,
+      matchCount: result.matchCount,
+      error: result.error,
+      hasActions: !!result.actions,
+      hasQuery: !!result.query
+    }, null, 2));
+    
+    // Query should execute successfully
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(1); // Only Alice matches
+    
+    // Check stats
+    expect(result.stats.readOperations).toBe(true);
+    expect(result.stats.writeOperations).toBe(true);
+    
+    // Check that query results are returned
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name', 'p.updated']);
+    expect(result.query!.rows.length).toBe(1);
+    
+    // Check returned values
+    expect(result.query!.rows[0][0].value).toBe('Alice');
+    expect(result.query!.rows[0][1].value).toBe(true);
+    
+    // Check that actions were performed
+    expect(result.actions).toBeDefined();
+    expect(result.actions!.affectedNodes.length).toBe(1); // Updated Alice node
+    
+    // Verify node count remains the same (just updated properties)
+    expect(graph.getAllNodes().length).toBe(nodeCount);
   });
 });
