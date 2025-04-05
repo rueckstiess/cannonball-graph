@@ -133,7 +133,7 @@ SET n.status = "active"
       expect(rules[1].name).toBe('Rule2');
     });
 
-    it('should skip invalid rules and extract valid ones', () => {
+    it('should throw an error if any rule is invalid', () => {
       const markdown = `
 \`\`\`graphrule
 name: ValidRule
@@ -161,19 +161,9 @@ SET n.anotherValid = true
 \`\`\`
 `;
 
-      // Temporarily disable console.warn
-      const originalWarn = console.warn;
-      console.warn = () => { }; // Simple no-op function
-
-      const rules = extractRulesFromMarkdown(markdown);
-
-      // Restore console.warn
-      console.warn = originalWarn;
-
-      expect(rules).toHaveLength(2);
-      expect(rules[0].name).toBe('ValidRule');
-      expect(rules[1].name).toBe('AnotherValidRule');
+      expect(() => extractRulesFromMarkdown(markdown)).toThrow(/priority/i);
     });
+
 
     it('should extract rules with custom code block type', () => {
       const markdown = `

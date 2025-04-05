@@ -359,28 +359,6 @@ CREATE (n:NewNode {name: "TestNode"})
     expect(manualBindings.has('t')).toBe(true);
   });
 
-  /**
-   * BUG ANALYSIS: After thorough debugging, we've identified the root cause of the issue:
-   * 
-   * 1. The RuleEngine correctly finds nodes matching each pattern in a comma-separated list
-   *    (like "MATCH (p:Person), (t:Task)"), as verified by our debug test.
-   * 
-   * 2. However, the rule engine in src/rules/rule-engine.ts (around line 110-152) processes
-   *    each pattern independently and stores their bindings in separate BindingContext objects.
-   * 
-   * 3. When it comes time to execute actions (lines 162-175), each binding context is used
-   *    separately, so the action execution can't find all the needed variables in a single context.
-   * 
-   * 4. This is why we see errors like "Target node t not found in bindings" - the 't' variable
-   *    exists in one binding context, while 'p' exists in another, but actions need both in the same context.
-   * 
-   * FIX PROPOSAL:
-   * - Modify the rule engine to handle multiple independent patterns in a MATCH clause by combining
-   *   their bindings into a "cross product" of all possible combinations.
-   * - For example, if we find 2 Person nodes (p1, p2) and 3 Task nodes (t1, t2, t3), we should create
-   *   6 binding contexts representing all combinations: (p1,t1), (p1,t2), (p1,t3), (p2,t1), (p2,t2), (p2,t3)
-   * - Each of these combined binding contexts should then be used to execute the actions.
-   */
   test('Rule engine should properly bind pattern matching variables to actions', () => {
     // Create a rule engine
     const engine = createRuleEngine();

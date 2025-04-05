@@ -349,6 +349,7 @@ export function parseRuleFromMarkdown(
  * @param markdown - The markdown document
  * @param options - Optional extraction options
  * @returns An array of Rule objects
+ * @throws Error if any rule is invalid
  */
 export function extractRulesFromMarkdown(
   markdown: string,
@@ -367,7 +368,8 @@ export function extractRulesFromMarkdown(
       rules.push(rule);
     } catch (error) {
       // Skip invalid rules or log them if needed
-      console.warn("Skipping invalid rule:", error);
+      console.error(`Found invalid rule definition: ${fullMatch}: ${error}`);
+      throw error;
     }
   }
 

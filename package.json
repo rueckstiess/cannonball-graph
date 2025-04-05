@@ -17,6 +17,7 @@
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
     "example:rule-engine": "npx tsx -r tsconfig-paths/register ./src/examples/rule-engine-example.ts",
+    "example:graph": "npx tsx -r tsconfig-paths/register ./src/examples/graph-example.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [],
