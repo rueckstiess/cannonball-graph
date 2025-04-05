@@ -34,6 +34,7 @@ Rules consist of the following clauses:
 - `WHERE`: Filter matches with conditions
 - `CREATE`: Create new nodes and relationships
 - `SET`: Update properties on existing nodes and relationships
+- `RETURN`: Retrieve data from the graph without modifying it
 
 ### MATCH Clause
 
@@ -114,6 +115,21 @@ The `SET` clause updates properties on existing nodes and relationships:
 SET n.property = "new value", r.count = 42
 ```
 
+### RETURN Clause
+
+The `RETURN` clause retrieves data from the graph without making any modifications:
+
+```
+RETURN n, n.property, r
+```
+
+The RETURN clause allows you to:
+- Return complete nodes and relationships: `RETURN n, r`
+- Return specific properties: `RETURN n.name, r.date`
+- Return mixed results: `RETURN n, r.type, m.age`
+
+When using RETURN, the rule becomes a read-only query that doesn't modify the graph.
+
 ## Data Types
 
 The language supports the following data types:
@@ -146,6 +162,21 @@ MATCH (p:Person {name: "John"})
 ```graphrule
 MATCH (p:Person), (t:Task)
 WHERE p.department = t.assignedDept
+```
+
+### Simple Query with RETURN
+
+```graphquery
+MATCH (p:Person)
+RETURN p.name, p.age
+```
+
+### Complex Query with RETURN
+
+```graphquery
+MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task)
+WHERE t.priority = "High"
+RETURN p.name, t.title, r.date
 ```
 
 ### Condition Filtering
@@ -181,11 +212,11 @@ CREATE (a)-[r:NEEDS_ASSIGNMENT]->(b)
 
 ## Integration with Cannonball
 
-Rules are executed by the Rule Engine:
+Rules and queries are executed by the Rule Engine:
 
 ```typescript
 import { Graph } from '@/graph';
-import { createRuleEngine } from '@/rules';
+import { createRuleEngine, createQueryFormatter, createQueryUtils } from '@/rules';
 
 // Create a graph and rule engine
 const graph = new Graph();
@@ -194,9 +225,23 @@ const engine = createRuleEngine();
 // Add data to graph
 graph.addNode('person1', { name: 'Alice', labels: ['Person'] });
 
-// Execute rules from markdown
-const markdown = `...rule markdown...`;
-const results = engine.executeRulesFromMarkdown(graph, markdown);
+// Execute rules from markdown (transformation rules)
+const ruleMarkdown = `...rule markdown...`;
+const ruleResults = engine.executeRulesFromMarkdown(graph, ruleMarkdown);
+
+// Execute a query (read-only)
+const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name');
+
+// Format query results
+const formatter = createQueryFormatter();
+const markdownTable = formatter.toMarkdownTable(queryResult);
+const jsonOutput = formatter.toJson(queryResult);
+const textTable = formatter.toTextTable(queryResult);
+
+// Work with query results
+const utils = createQueryUtils();
+const names = utils.extractColumn(queryResult, 'p.name');
+const subgraph = utils.toSubgraph(queryResult);
 ```
 
 ## Technical Notes
@@ -206,3 +251,7 @@ const results = engine.executeRulesFromMarkdown(graph, markdown);
 3. All `MATCH` patterns are found and validated before any `CREATE` or `SET` operations.
 4. Changes from one rule execution do not affect the matched patterns within the same rule.
 5. Rules are executed in priority order (higher numbers first).
+6. Queries with only `MATCH`, `WHERE`, and `RETURN` clauses are read-only and do not modify the graph.
+7. The rule engine is designed to support RETURN clauses alongside CREATE/SET clauses, allowing rules to both modify the graph and return results.
+8. Query results include metadata like success status, match count, and column names.
+9. Use `graphquery` code block type for read-only queries, versus `graphrule` for transformation rules.

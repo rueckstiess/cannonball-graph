@@ -1,5 +1,7 @@
 import { ActionFactory, ActionExecutor } from './rule-action-index';
 import { RuleEngine } from './rule-engine';
+import { QueryFormatter } from './query-formatter';
+import { QueryUtils } from './query-utils';
 
 /**
  * Creates a new action factory for converting AST nodes to executable actions.
@@ -62,10 +64,71 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * // Parse and execute rules from markdown
  * const results = engine.executeRulesFromMarkdown(graph, markdownText);
+ * 
+ * // Execute a query
+ * const queryResult = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
  * ```
  */
 export function createRuleEngine<NodeData = any, EdgeData = any>() {
   return new RuleEngine<NodeData, EdgeData>();
+}
+
+/**
+ * Creates a new query formatter for formatting query results.
+ * 
+ * @returns A new QueryFormatter instance
+ * 
+ * @example
+ * ```typescript
+ * import { createRuleEngine, createQueryFormatter } from '@/rules';
+ * 
+ * const engine = createRuleEngine();
+ * const formatter = createQueryFormatter();
+ * 
+ * // Execute a query
+ * const result = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
+ * 
+ * // Format the results as a markdown table
+ * const markdownTable = formatter.toMarkdownTable(result);
+ * 
+ * // Format the results as a JSON string
+ * const json = formatter.toJson(result);
+ * 
+ * // Format the results as a plain text table
+ * const textTable = formatter.toTextTable(result);
+ * ```
+ */
+export function createQueryFormatter<NodeData = any, EdgeData = any>() {
+  return new QueryFormatter<NodeData, EdgeData>();
+}
+
+/**
+ * Creates a new query utils object for working with query results.
+ * 
+ * @returns A new QueryUtils instance
+ * 
+ * @example
+ * ```typescript
+ * import { createRuleEngine, createQueryUtils } from '@/rules';
+ * 
+ * const engine = createRuleEngine();
+ * const utils = createQueryUtils();
+ * 
+ * // Execute a query
+ * const result = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name, n.age');
+ * 
+ * // Extract specific columns
+ * const names = utils.extractColumn(result, 'n.name');
+ * 
+ * // Convert to an array of objects
+ * const people = utils.toObjectArray(result);
+ * 
+ * // Create a subgraph from the query results
+ * const subgraph = utils.toSubgraph(result);
+ * ```
+ */
+export function createQueryUtils<NodeData = any, EdgeData = any>() {
+  return new QueryUtils<NodeData, EdgeData>();
 }
 
 // Re-export action-related types and classes
@@ -73,3 +136,7 @@ export * from './rule-action-index';
 
 // Re-export rule engine types
 export * from './rule-engine';
+
+// Export query-related types and classes
+export * from './query-formatter';
+export * from './query-utils';
