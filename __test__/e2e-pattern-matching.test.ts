@@ -1,5 +1,5 @@
 import { Graph, Node } from '@/graph';
-import { CypherLexer, CypherParser, PatternMatcher, Token } from '@/lang';
+import { Lexer, CypherParser, PatternMatcher, Token } from '@/lang';
 
 
 describe('End-to-End Pattern Matching', () => {
@@ -71,7 +71,7 @@ describe('End-to-End Pattern Matching', () => {
     const matchPart = query.split('RETURN')[0].trim();
 
     // 1. Tokenize the query
-    const lexer = new CypherLexer();
+    const lexer = new Lexer();
     const tokens: Token[] = lexer.tokenize(matchPart);
 
     // 2. Parse the query
@@ -238,7 +238,7 @@ describe('End-to-End Pattern Matching', () => {
         // Strip out the RETURN part since our parser doesn't handle it
         const matchPart = query.split('RETURN')[0].trim();
 
-        const lexer = new CypherLexer();
+        const lexer = new Lexer();
         lexer.tokenize(matchPart);
         const parser = new CypherParser(lexer);
         const statement = parser.parse();
@@ -296,7 +296,7 @@ describe('End-to-End Pattern Matching', () => {
       // 2. t1 -> proj1 -> cat1 (via BELONGS_TO + CATEGORIZED_AS)
 
       // Mock the parser response for this variable length path
-      const mockTokenizer = new CypherLexer();
+      const mockTokenizer = new Lexer();
       mockTokenizer.tokenize('MATCH (t:Task)-[r*1..2]->(c:Category) RETURN c');
       const mockParser = new CypherParser(mockTokenizer);
 
@@ -358,7 +358,7 @@ describe('End-to-End Pattern Matching', () => {
       graph.addEdge('p2', 'p4', 'KNOWS', { timestamp: Date.now() });
 
       // Mock the parser response for unbounded path (p1)-[:KNOWS*]->(p4)
-      const mockTokenizer = new CypherLexer();
+      const mockTokenizer = new Lexer();
       mockTokenizer.tokenize('MATCH (p1:Person {name: "Alice"})-[:KNOWS*]->(p4:Person {name: "Diana"}) RETURN p4');
       const mockParser = new CypherParser(mockTokenizer);
 

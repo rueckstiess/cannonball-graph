@@ -1,5 +1,5 @@
 import {
-  CypherLexer, CypherParser, parseRuleFromMarkdown, transformToCypherAst,
+  Lexer, CypherParser, parseRuleFromMarkdown, transformToCypherAst,
   inspectAst,
   visualizeAst,
   ASTRuleRoot
@@ -29,7 +29,7 @@ describe('Unist integration tests', () => {
     const rule = parseRuleFromMarkdown(sampleRule);
 
     // Parse the Cypher statement
-    const lexer = new CypherLexer();
+    const lexer = new Lexer();
     const parser = new CypherParser(lexer, rule.ruleText);
     const statement = parser.parse();
 

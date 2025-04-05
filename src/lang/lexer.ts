@@ -184,7 +184,7 @@ const KEYWORDS: Record<string, TokenType> = {
 /**
  * Implementation of the Lexer interface for Cypher-like query language
  */
-export class CypherLexer implements Lexer {
+export class Lexer implements Lexer {
   private input: string = '';
   private tokens: Token[] = [];
   private currentPosition: number = 0;

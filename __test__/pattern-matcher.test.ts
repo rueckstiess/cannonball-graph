@@ -2,7 +2,7 @@ import { Graph, Node, Edge, Path } from '@/graph';
 
 import {
   NodePattern, RelationshipPattern, PathPattern,
-  PatternMatcher, CypherLexer, CypherParser
+  PatternMatcher, Lexer, CypherParser
 } from '@/lang';
 
 describe('PatternMatcher', () => {
@@ -591,7 +591,7 @@ describe('PatternMatcher', () => {
      * Helper function to extract node patterns from a Cypher MATCH clause
      */
     function extractNodePatternFromCypher(cypherQuery: string): NodePattern {
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, cypherQuery);
       const statement = parser.parse();
 
@@ -606,7 +606,7 @@ describe('PatternMatcher', () => {
      * Helper function to extract relationship patterns from a Cypher MATCH clause
      */
     function extractRelationshipPatternFromCypher(cypherQuery: string): RelationshipPattern {
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, cypherQuery);
       const statement = parser.parse();
 
@@ -625,7 +625,7 @@ describe('PatternMatcher', () => {
      * Helper function to extract path patterns from a Cypher MATCH clause
      */
     function extractPathPatternFromCypher(cypherQuery: string): PathPattern {
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, cypherQuery);
       const statement = parser.parse();
 
