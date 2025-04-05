@@ -16,6 +16,7 @@
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
+    "example:rule-engine": "npx tsx -r tsconfig-paths/register ./src/examples/rule-engine-example.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [],
@@ -38,6 +39,9 @@
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.36.0",
     "ts-jest": "^29.3.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.29.0",
     "unist-util-inspect": "^8.1.0"
