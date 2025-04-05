@@ -69,8 +69,6 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
       // Create the node data object
       const nodeData = {
         ...this.properties,
-        // Add labels to the node data
-        labels: this.labels
       } as NodeData;
 
       // Generate a unique node ID
@@ -78,7 +76,7 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
 
       // Add the node to the graph
       try {
-        graph.addNode(nodeId, nodeData);
+        graph.addNode(nodeId, this.labels[0], nodeData);
       } catch (error) {
         return {
           success: false,

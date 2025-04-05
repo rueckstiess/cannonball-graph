@@ -166,8 +166,8 @@ describe('Rule Action Integration Tests', () => {
     const testGraph = new Graph();
 
     // Add nodes with proper labels for pattern matching
-    testGraph.addNode("person1", { name: 'John', labels: ['Person'] });
-    testGraph.addNode("task1", { title: 'Task', priority: 'High', labels: ['Task'] });
+    testGraph.addNode("person1", 'Person', { name: 'John' });
+    testGraph.addNode("task1", 'Task', { title: 'Task', priority: 'High' });
 
     // Define rule in markdown - very simple version
     const ruleMarkdown = `
@@ -312,8 +312,8 @@ CREATE (n:NewNode {name: "TestNode"})
     const testGraph = new Graph();
 
     // Add nodes with proper labels
-    testGraph.addNode("person1", { name: 'John', labels: ['Person'] });
-    testGraph.addNode("task1", { title: 'Task 1', priority: 'High', labels: ['Task'] });
+    testGraph.addNode("person1", 'Person', { name: 'John' });
+    testGraph.addNode("task1", 'Task', { title: 'Task 1', priority: 'High' });
 
     // Use a very simple rule to test binding with comma-separated patterns
     const ruleText = `
@@ -370,13 +370,13 @@ CREATE (n:NewNode {name: "TestNode"})
     // Add nodes with proper labels for pattern matching
     const personId = "test-person";
     const taskId = "test-task";
-    testGraph.addNode(personId, { name: 'John', labels: ['Person'] });
-    testGraph.addNode(taskId, { title: 'Fix bugs', priority: 'High', labels: ['Task'] });
+    testGraph.addNode(personId, 'Person', { name: 'John' });
+    testGraph.addNode(taskId, 'Task', { title: 'Fix bugs', priority: 'High' });
 
     // Verify nodes were added correctly
     expect(testGraph.getAllNodes().length).toBe(2);
-    expect(testGraph.findNodes(node => node.data.labels?.includes('Person')).length).toBe(1);
-    expect(testGraph.findNodes(node => node.data.labels?.includes('Task')).length).toBe(1);
+    expect(testGraph.findNodes(node => node.label === 'Person').length).toBe(1);
+    expect(testGraph.findNodes(node => node.label === 'Task').length).toBe(1);
 
     // Define a rule that matches Person and Task nodes and creates a relationship between them
     const ruleMarkdown = `
@@ -458,8 +458,8 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
       const sourceNode = testGraph.getNode(relationship.source);
       const targetNode = testGraph.getNode(relationship.target);
 
-      expect(sourceNode?.data.labels).toContain('Person');
-      expect(targetNode?.data.labels).toContain('Task');
+      expect(sourceNode?.label).toBe('Person');
+      expect(targetNode?.label).toBe('Task');
     }
 
     // If the test reaches this point without failing, the rule engine is correctly
@@ -474,11 +474,10 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     const testGraph = new Graph();
 
     // Add multiple nodes of each label for more complex binding combinations
-    testGraph.addNode("person1", { name: 'Alice', labels: ['Person'] });
-    testGraph.addNode("person2", { name: 'Bob', labels: ['Person'] });
-    testGraph.addNode("task1", { title: 'Task 1', labels: ['Task'] });
-    testGraph.addNode("task2", { title: 'Task 2', labels: ['Task'] });
-
+    testGraph.addNode("person1", 'Person', { name: 'Alice', });
+    testGraph.addNode("person2", 'Person', { name: 'Bob', });
+    testGraph.addNode("task1", 'Task', { title: 'Task 1', });
+    testGraph.addNode("task2", 'Task', { title: 'Task 2', });
     // Define a rule that matches all people and all tasks and connects them
     const ruleMarkdown = `
 ## Connect All People to All Tasks
@@ -520,11 +519,11 @@ CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
 
       // Source should be a person node
       const sourceNode = testGraph.getNode(edge.source);
-      expect(sourceNode?.data.labels).toContain('Person');
+      expect(sourceNode?.label).toBe('Person');
 
       // Target should be a task node
       const targetNode = testGraph.getNode(edge.target);
-      expect(targetNode?.data.labels).toContain('Task');
+      expect(targetNode?.label).toBe('Task');
     }
 
     // More specific cross-product validation
@@ -549,8 +548,7 @@ CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
     const testGraph = new Graph();
 
     // Add a single person node for testing the case where one pattern has only one match
-    testGraph.addNode("person1", { name: 'Alice', labels: ['Person'] });
-
+    testGraph.addNode("person1", 'Person', { name: 'Alice', });
     // Test rule with no matches for one pattern - should have no combined results
     const noMatchRuleMarkdown = `
 ## No Match Rule

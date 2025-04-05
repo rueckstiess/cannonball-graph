@@ -163,61 +163,51 @@ console.log('=======================================\n');
  */
 function setupGraphData(): void {
   // Create people
-  graph.addNode('person1', { name: 'Alice', age: 35, department: 'Engineering', labels: ['Person'] });
-  graph.addNode('person2', { name: 'Bob', age: 28, department: 'Engineering', labels: ['Person'] });
-  graph.addNode('person3', { name: 'Charlie', age: 42, department: 'Marketing', labels: ['Person'] });
-  graph.addNode('person4', { name: 'Diana', age: 31, department: 'Product', labels: ['Person'] });
-
+  graph.addNode('person1', 'Person', { name: 'Alice', age: 35, department: 'Engineering', }); graph.addNode('person2', 'Person', { name: 'Bob', age: 28, department: 'Engineering', }); graph.addNode('person3', 'Person', { name: 'Charlie', age: 42, department: 'Marketing', }); graph.addNode('person4', 'Person', { name: 'Diana', age: 31, department: 'Product', });
   // Create tasks
-  graph.addNode('task1', {
+  graph.addNode('task1', 'Task', {
     title: 'Fix API bug',
     priority: 'High',
     status: 'In Progress',
     department: 'Engineering',
     dueDate: '2023-01-20',
-    labels: ['Task']
   });
 
-  graph.addNode('task2', {
+  graph.addNode('task2', 'Task', {
     title: 'Create marketing materials',
     priority: 'Medium',
     status: 'Not Started',
     department: 'Marketing',
     dueDate: '2023-02-10',
-    labels: ['Task']
   });
 
-  graph.addNode('task3', {
+  graph.addNode('task3', 'Task', {
     title: 'Review product specs',
     priority: 'High',
     status: 'In Progress',
     department: 'Product',
     dueDate: '2023-01-15',
-    labels: ['Task']
   });
 
-  graph.addNode('task4', {
+  graph.addNode('task4', 'Task', {
     title: 'Deploy new feature',
     priority: 'High',
     status: 'Ready For Review',
     department: 'Engineering',
     dueDate: '2023-01-25',
-    labels: ['Task']
   });
 
   // Create projects
-  graph.addNode('project1', {
+  graph.addNode('project1', 'Project', {
     name: 'Mobile App',
     status: 'In Progress',
     dueDate: '2023-03-01',
-    labels: ['Project']
   });
 
-  graph.addNode('project2', {
+  graph.addNode('project2', 'Project', {
     name: 'Website Redesign',
     status: 'Planning',
     dueDate: '2023-04-15',
-    labels: ['Project']
   });
 
   // Add relationships

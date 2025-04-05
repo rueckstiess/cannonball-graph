@@ -8,7 +8,6 @@ import {
 describe('PatternMatcher', () => {
   // Define test data types
   type TestNodeData = {
-    type: string;
     name?: string;
     age?: number;
     active?: boolean;
@@ -48,20 +47,20 @@ describe('PatternMatcher', () => {
     matcher = new PatternMatcher<TestNodeData, TestEdgeData>();
 
     // People
-    graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });
-    graph.addNode('bob', { type: 'person', name: 'Bob', age: 40, active: true });
-    graph.addNode('charlie', { type: 'person', name: 'Charlie', age: 25, active: false });
+    graph.addNode('alice', 'person', { name: 'Alice', age: 30, active: true });
+    graph.addNode('bob', 'person', { name: 'Bob', age: 40, active: true });
+    graph.addNode('charlie', 'person', { name: 'Charlie', age: 25, active: false });
 
     // Organizations
-    graph.addNode('techCorp', { type: 'company', name: 'TechCorp', active: true });
-    graph.addNode('eduInst', { type: 'university', name: 'EduInst' });
+    graph.addNode('techCorp', 'company', { name: 'TechCorp', active: true });
+    graph.addNode('eduInst', 'university', { name: 'EduInst' });
 
     // Tasks
-    graph.addNode('task1', { type: 'task', name: 'Fix bug', active: true });
-    graph.addNode('task2', { type: 'task', name: 'Write docs', active: false });
+    graph.addNode('task1', 'task', { name: 'Fix bug', active: true });
+    graph.addNode('task2', 'task', { name: 'Write docs', active: false });
 
     // Categories
-    graph.addNode('cat1', { type: 'category', name: 'Work', tags: ['important', 'professional'] });
+    graph.addNode('cat1', 'category', { name: 'Work', tags: ['important', 'professional'] });
 
     // Relationships
     // Person -> Person (KNOWS)
@@ -520,7 +519,7 @@ describe('PatternMatcher', () => {
       expect(firstCall).toHaveLength(3);
 
       // Add a new person node - this should NOT appear in cached results
-      graph.addNode('dave', { type: 'person', name: 'Dave', age: 45 });
+      graph.addNode('dave', 'person', { name: 'Dave', age: 45 });
 
       // Second call should use the cache and not include the new node
       const secondCall = matcher.getNodesByLabel(graph, 'person');
@@ -538,7 +537,7 @@ describe('PatternMatcher', () => {
       expect(firstCall).toHaveLength(3);
 
       // Add a new relationship
-      graph.addNode('dave', { type: 'person', name: 'Dave', age: 45 });
+      graph.addNode('dave', 'person', { name: 'Dave', age: 45 });
       graph.addEdge('alice', 'dave', 'KNOWS', { since: '2023-01-01', weight: 1, active: true });
 
       // Second call should use cache
@@ -557,7 +556,7 @@ describe('PatternMatcher', () => {
       expect(beforeNodes).toHaveLength(3);
 
       // Update a node's data
-      graph.updateNodeData('alice', { type: 'person', name: 'Alice Modified', age: 31, active: true });
+      graph.updateNodeData('alice', { name: 'Alice Modified', age: 31, active: true });
 
       // Get nodes again - we should see the updated data
       const afterNodes = matcher.getNodesByLabel(graph, 'person');
@@ -677,7 +676,6 @@ describe('PatternMatcher', () => {
 describe('Path Pattern Matching', () => {
   // Define test data types
   type TestNodeData = {
-    type: string;
     name?: string;
     age?: number;
     active?: boolean;
@@ -702,24 +700,24 @@ describe('Path Pattern Matching', () => {
     matcher = new PatternMatcher<TestNodeData, TestEdgeData>();
 
     // People
-    graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });
-    graph.addNode('bob', { type: 'person', name: 'Bob', age: 40, active: true });
-    graph.addNode('charlie', { type: 'person', name: 'Charlie', age: 25, active: false });
-    graph.addNode('dave', { type: 'person', name: 'Dave', age: 35, active: true });
-    graph.addNode('eve', { type: 'person', name: 'Eve', age: 28, active: true });
+    graph.addNode('alice', 'person', { name: 'Alice', age: 30, active: true });
+    graph.addNode('bob', 'person', { name: 'Bob', age: 40, active: true });
+    graph.addNode('charlie', 'person', { name: 'Charlie', age: 25, active: false });
+    graph.addNode('dave', 'person', { name: 'Dave', age: 35, active: true });
+    graph.addNode('eve', 'person', { name: 'Eve', age: 28, active: true });
 
     // Organizations
-    graph.addNode('techCorp', { type: 'company', name: 'TechCorp', active: true });
-    graph.addNode('eduInst', { type: 'university', name: 'EduInst' });
+    graph.addNode('techCorp', 'company', { name: 'TechCorp', active: true });
+    graph.addNode('eduInst', 'university', { name: 'EduInst' });
 
     // Tasks
-    graph.addNode('task1', { type: 'task', name: 'Fix bug', active: true });
-    graph.addNode('task2', { type: 'task', name: 'Write docs', active: false });
-    graph.addNode('task3', { type: 'task', name: 'Deploy app', active: true });
+    graph.addNode('task1', 'task', { name: 'Fix bug', active: true });
+    graph.addNode('task2', 'task', { name: 'Write docs', active: false });
+    graph.addNode('task3', 'task', { name: 'Deploy app', active: true });
 
     // Categories
-    graph.addNode('cat1', { type: 'category', name: 'Work', tags: ['important', 'professional'] });
-    graph.addNode('cat2', { type: 'category', name: 'Personal', tags: ['leisure', 'health'] });
+    graph.addNode('cat1', 'category', { name: 'Work', tags: ['important', 'professional'] });
+    graph.addNode('cat2', 'category', { name: 'Personal', tags: ['leisure', 'health'] });
 
     // Create a social network with KNOWS relationships (for path testing)
     // Alice knows Bob, Charlie, and Eve
@@ -1214,9 +1212,9 @@ describe('Path Pattern Matching', () => {
 
       paths.forEach(path => {
         // Verify node types
-        expect(path.nodes[0].data.type).toBe('person');
-        expect(path.nodes[1].data.type).toBe('task');
-        expect(path.nodes[2].data.type).toBe('category');
+        expect(path.nodes[0].label).toBe('person');
+        expect(path.nodes[1].label).toBe('task');
+        expect(path.nodes[2].label).toBe('category');
 
         // Verify relationship types
         expect(path.edges[0].label).toBe('ASSIGNED');

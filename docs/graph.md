@@ -176,5 +176,4 @@ interface TaskData {
 const graph = new Graph<PersonData | TaskData>();
 
 // Now the graph is typed
-graph.addNode('person1', { name: 'Bob', age: 25, labels: ['Person'] });
-```
+graph.addNode('person1', 'Person', {  name: 'Bob', age: 25,  });```

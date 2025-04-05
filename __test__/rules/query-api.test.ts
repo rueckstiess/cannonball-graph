@@ -21,10 +21,10 @@ describe('Query API', () => {
     utils = createQueryUtils();
 
     // Set up a test graph
-    graph.addNode('person1', { name: 'Alice', age: 30, labels: ['Person'] });
-    graph.addNode('person2', { name: 'Bob', age: 25, labels: ['Person'] });
-    graph.addNode('task1', { title: 'Task 1', priority: 'High', labels: ['Task'] });
-    graph.addNode('task2', { title: 'Task 2', priority: 'Low', labels: ['Task'] });
+    graph.addNode('person1', 'Person', { name: 'Alice', age: 30 });
+    graph.addNode('person2', 'Person', { name: 'Bob', age: 25 });
+    graph.addNode('task1', 'Task', { title: 'Task 1', priority: 'High' });
+    graph.addNode('task2', 'Task', { title: 'Task 2', priority: 'Low' });
 
     // Add some relationships
     graph.addEdge('person1', 'task1', 'ASSIGNED_TO', { date: '2023-01-15' });

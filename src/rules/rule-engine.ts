@@ -1,5 +1,5 @@
 import { Graph, Node, Edge } from '@/graph';
-import { 
+import {
   Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser,
   CypherStatement, ReturnClause, ReturnItem, PropertyExpression, VariableExpression
 } from '@/lang/rule-parser';
@@ -7,8 +7,8 @@ import { Lexer } from '@/lang/lexer';
 import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
-import { 
-  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult 
+import {
+  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult
 } from './rule-action-index';
 
 /**
@@ -29,12 +29,12 @@ export interface ReturnedValue<NodeData = any, EdgeData = any> {
    * The variable or property name
    */
   name: string;
-  
+
   /**
    * The value from the graph (can be a node, edge, or property value)
    */
   value: Node<NodeData> | Edge<EdgeData> | any;
-  
+
   /**
    * The type of the value ('node', 'edge', or 'property')
    */
@@ -49,7 +49,7 @@ export interface QueryResultData<NodeData = any, EdgeData = any> {
    * The rows of results, each containing the values for one match
    */
   rows: ReturnedValue<NodeData, EdgeData>[][];
-  
+
   /**
    * Column names in order
    */
@@ -64,12 +64,12 @@ export interface ActionResultData<NodeData = any, EdgeData = any> {
    * Results from individual action executions
    */
   actionResults: ActionExecutionResult<NodeData, EdgeData>[];
-  
+
   /**
    * Nodes affected by all actions (created or modified)
    */
   affectedNodes: Node<NodeData>[];
-  
+
   /**
    * Edges affected by all actions (created or modified)
    */
@@ -84,22 +84,22 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
    * Whether execution was successful
    */
   success: boolean;
-  
+
   /**
    * Number of pattern matches found
    */
   matchCount: number;
-  
+
   /**
    * Error message if execution failed
    */
   error?: string;
-  
+
   /**
    * The original statement that was executed
    */
   statement: string;
-  
+
   /**
    * Execution statistics
    */
@@ -108,23 +108,23 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
      * Whether read operations were performed
      */
     readOperations: boolean;
-    
+
     /**
      * Whether write operations were performed
      */
     writeOperations: boolean;
-    
+
     /**
      * Execution time in milliseconds
      */
     executionTimeMs: number;
   };
-  
+
   /**
    * Query results (if the statement contains a RETURN clause)
    */
   query?: QueryResultData<NodeData, EdgeData>;
-  
+
   /**
    * Action results (if the statement contains CREATE/SET clauses)
    */
@@ -140,27 +140,27 @@ export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
    * The rule that was executed
    */
   rule: Rule;
-  
+
   /**
    * Whether execution was successful
    */
   success: boolean;
-  
+
   /**
    * Results from action execution
    */
   actionResults: ActionExecutionResult<NodeData, EdgeData>[];
-  
+
   /**
    * Number of pattern matches found
    */
   matchCount: number;
-  
+
   /**
    * Error message if execution failed
    */
   error?: string;
-  
+
 }
 
 /**
@@ -170,7 +170,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   private patternMatcher: PatternMatcherWithConditions<NodeData, EdgeData>;
   private actionFactory: ActionFactory<NodeData, EdgeData>;
   private actionExecutor: ActionExecutor<NodeData, EdgeData>;
-  
+
   /**
    * Creates a new rule engine
    */
@@ -179,7 +179,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     this.actionFactory = new ActionFactory<NodeData, EdgeData>();
     this.actionExecutor = new ActionExecutor<NodeData, EdgeData>();
   }
-  
+
   /**
    * Executes a graph query or rule on a graph and returns a unified result
    * 
@@ -197,13 +197,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     options?: RuleExecutionOptions
   ): GraphQueryResult<NodeData, EdgeData> {
     const startTime = Date.now();
-    
+
     try {
       // 1. Parse the statement to a CypherStatement
       const lexer = new Lexer();
       const parser = new CypherParser(lexer, statement);
       const cypherStatement = parser.parse();
-      
+
       const parseErrors = parser.getErrors();
       if (parseErrors.length > 0) {
         return {
@@ -218,14 +218,14 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           }
         };
       }
-      
+
       // Determine if we have read and/or write operations
       const hasReadOps = !!cypherStatement.return;
       const hasWriteOps = !!(cypherStatement.create || cypherStatement.set);
-      
+
       // 2. Find all matches for the statement
       const matches = this.findMatches(graph, cypherStatement, options);
-      
+
       // Initialize the result
       const result: GraphQueryResult<NodeData, EdgeData> = {
         success: true,
@@ -237,7 +237,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           executionTimeMs: 0 // Will update at the end
         }
       };
-      
+
       // 3. Execute actions if present (CREATE/SET)
       if (hasWriteOps) {
         // Transform to AST for action creation
@@ -248,42 +248,42 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           0, // Default priority
           false // Not disabled
         );
-        
+
         // Convert AST CREATE/SET clauses to actions
         const actions = this.actionFactory.createActionsFromRuleAst(ast);
-        
+
         // Execute actions for each match
         const actionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
         const allAffectedNodes: Node<NodeData>[] = [];
         const allAffectedEdges: Edge<EdgeData>[] = [];
         let allSuccessful = true;
-        
+
         for (const match of matches) {
-          
+
           const execResult = this.actionExecutor.executeActions(
             graph,
             actions,
             match,
             options
           );
-          
+
           actionResults.push(execResult);
-          
+
           if (execResult.affectedNodes) {
             allAffectedNodes.push(...execResult.affectedNodes);
           }
-          
+
           if (execResult.affectedEdges) {
             allAffectedEdges.push(...execResult.affectedEdges);
           }
-          
+
           if (!execResult.success) {
             allSuccessful = false;
             result.success = false;
             result.error = execResult.error || 'Action execution failed';
           }
         }
-        
+
         // Add action results to the unified result
         result.actions = {
           actionResults,
@@ -291,7 +291,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           affectedEdges: allAffectedEdges
         };
       }
-      
+
       // 4. Extract query results if RETURN is present
       if (hasReadOps) {
         if (cypherStatement.return) {
@@ -299,7 +299,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           result.query = queryData;
         }
       }
-      
+
       // Update execution time
       result.stats.executionTimeMs = Date.now() - startTime;
       return result;
@@ -318,9 +318,9 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       };
     }
   }
-  
-  
-  
+
+
+
   /**
    * Finds pattern matches for a Cypher statement
    * 
@@ -335,63 +335,63 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     options?: RuleExecutionOptions
   ): BindingContext<NodeData, EdgeData>[] {
     let matches: BindingContext<NodeData, EdgeData>[] = [];
-    
+
     if (cypherStatement.match) {
       // First, collect bindings for each pattern separately
       const patternBindingsArray: BindingContext<NodeData, EdgeData>[][] = [];
-      
+
       for (const pattern of cypherStatement.match.patterns) {
         const pathMatches = this.patternMatcher.findMatchingPathsWithCondition(
           graph,
           pattern,
           cypherStatement.where?.condition
         );
-        
+
         // Convert path matches to binding contexts for this pattern
         const patternBindings: BindingContext<NodeData, EdgeData>[] = [];
-        
+
         for (const path of pathMatches) {
           const bindings = new BindingContext<NodeData, EdgeData>();
-          
+
           // Bind the starting node if it has a variable
           if (pattern.start.variable) {
             bindings.set(pattern.start.variable, path.nodes[0]);
           }
-          
+
           // Bind segments (relationships and end nodes)
           for (let i = 0; i < pattern.segments.length; i++) {
             const segment = pattern.segments[i];
-            
+
             if (segment.relationship.variable) {
               bindings.set(segment.relationship.variable, path.edges[i]);
             }
-            
+
             if (segment.node.variable) {
               bindings.set(segment.node.variable, path.nodes[i + 1]);
             }
           }
-          
+
           patternBindings.push(bindings);
-          
+
           // Limit matches if maxMatches is specified
           if (options?.maxMatches && patternBindings.length >= options.maxMatches) {
             break;
           }
         }
-        
+
         // Add this pattern's bindings to the array
         if (patternBindings.length > 0) {
           patternBindingsArray.push(patternBindings);
         }
       }
-      
+
       // Calculate cross-product of bindings from different patterns
       if (patternBindingsArray.length > 0) {
         // Only proceed if ALL patterns have matches
         // (patternBindingsArray.length should equal the number of patterns)
         if (patternBindingsArray.length === cypherStatement.match.patterns.length) {
           matches = this.combineBindings(patternBindingsArray);
-          
+
           // Limit final combined matches if maxMatches is specified
           if (options?.maxMatches && matches.length > options.maxMatches) {
             matches = matches.slice(0, options.maxMatches);
@@ -405,10 +405,10 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       // If no MATCH clause, create a single empty binding context
       matches.push(new BindingContext<NodeData, EdgeData>());
     }
-    
+
     return matches;
   }
-  
+
   /**
    * Extracts query data from binding contexts and a RETURN clause
    * 
@@ -422,7 +422,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   ): QueryResultData<NodeData, EdgeData> {
     const columns: string[] = [];
     const rows: ReturnedValue<NodeData, EdgeData>[][] = [];
-    
+
     // Extract column names from the return items
     for (const item of returnClause.items) {
       // For variables, use the variable name
@@ -434,16 +434,16 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         columns.push(`${item.expression.object.name}.${item.expression.property}`);
       }
     }
-    
+
     // For each match, extract the values for each return item
     for (const match of matches) {
       const row: ReturnedValue<NodeData, EdgeData>[] = [];
-      
+
       for (const item of returnClause.items) {
         if (item.expression.type === 'variable') {
           const varExpr = item.expression as VariableExpression;
           const value = match.get(varExpr.name);
-          
+
           if (value !== undefined) {
             const type = this.isNode(value) ? 'node' : 'edge';
             row.push({
@@ -463,11 +463,11 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         else if (item.expression.type === 'property') {
           const propExpr = item.expression as PropertyExpression;
           const object = match.get(propExpr.object.name);
-          
+
           if (object !== undefined) {
             // Extract property value from the object
             let propertyValue: any = null;
-            
+
             // For graph nodes and edges, property is in data
             if (this.isNode(object) || this.isEdge(object)) {
               propertyValue = object.data[propExpr.property as keyof typeof object.data];
@@ -476,7 +476,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             else if (typeof object === 'object' && object !== null) {
               propertyValue = (object as any)[propExpr.property];
             }
-            
+
             row.push({
               name: `${propExpr.object.name}.${propExpr.property}`,
               value: propertyValue,
@@ -492,17 +492,17 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           }
         }
       }
-      
+
       rows.push(row);
     }
-    
+
     return {
       rows,
       columns
     };
   }
-  
-  
+
+
   /**
    * Type guard to check if a value is a graph node
    * 
@@ -514,13 +514,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       value !== null &&
       typeof value === 'object' &&
       'id' in value &&
+      'label' in value &&
       'data' in value &&
       !('source' in value) &&
-      !('target' in value) &&
-      !('label' in value)
+      !('target' in value)
     );
   }
-  
+
   /**
    * Type guard to check if a value is a graph edge
    * 
@@ -538,7 +538,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       'data' in value
     );
   }
-  
+
   /**
    * Executes multiple graph queries on a graph in priority order (highest first)
    * 
@@ -554,38 +554,38 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   ): GraphQueryResult<NodeData, EdgeData>[] {
     // Sort rules by priority (highest first)
     const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-    
+
     // Execute each rule
     const results: GraphQueryResult<NodeData, EdgeData>[] = [];
-    
+
     for (const rule of sortedRules) {
       // Skip disabled rules
       if (rule.disabled) {
         continue;
       }
-      
+
       const result = this.executeQuery(graph, rule.ruleText, options);
       results.push(result);
-      
+
       // Log execution for monitoring
       console.log(`Executed rule '${rule.name}': ${result.success ? 'SUCCESS' : 'FAILED'}`);
       console.log(`  - Matches: ${result.matchCount}`);
-      
+
       if (result.actions) {
         console.log(`  - Actions executed: ${result.actions.actionResults.reduce(
           (sum, r) => sum + r.actionResults.length, 0
         )}`);
       }
-      
+
       if (result.error) {
         console.error(`  - Error: ${result.error}`);
       }
     }
-    
+
     return results;
   }
-  
-  
+
+
   /**
    * Parse and execute graph queries from markdown
    * 
@@ -602,8 +602,8 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     const rules = extractRulesFromMarkdown(markdown);
     return this.executeQueries(graph, rules, options);
   }
-  
-  
+
+
   /**
    * Execute a graph query from a markdown code block
    * 
@@ -623,7 +623,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       // Extract the query from the markdown code block
       const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``);
       const match = regex.exec(markdown);
-      
+
       if (!match) {
         return {
           success: false,
@@ -637,9 +637,9 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           }
         };
       }
-      
+
       const statement = match[1].trim();
-      
+
       // Execute the query
       return this.executeQuery(graph, statement, options);
     } catch (error: any) {
@@ -656,8 +656,8 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       };
     }
   }
-  
-  
+
+
   /**
    * Combines multiple sets of binding contexts into a cross product of all combinations.
    * For example, if we have:
@@ -675,46 +675,46 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     if (bindingSets.length === 0) {
       return [];
     }
-    
+
     if (bindingSets.length === 1) {
       return bindingSets[0];
     }
-    
+
     // Start with the first set of bindings
     let result = [...bindingSets[0]];
-    
+
     // Iterate through the remaining binding sets and combine with current result
     for (let i = 1; i < bindingSets.length; i++) {
       const currentBindings = bindingSets[i];
-      
+
       // Create a new result array for the current combination
       const newResult: BindingContext<NodeData, EdgeData>[] = [];
-      
+
       // For each existing binding context in the result
       for (const existingBindings of result) {
         // Combine with each binding from the current set
         for (const currentBinding of currentBindings) {
           // Create a new binding context to combine both
           const combinedBindings = new BindingContext<NodeData, EdgeData>();
-          
+
           // Copy variables from the existing bindings
           this.copyBindings(existingBindings, combinedBindings);
-          
+
           // Copy variables from the current binding
           this.copyBindings(currentBinding, combinedBindings);
-          
+
           // Add to the new result set
           newResult.push(combinedBindings);
         }
       }
-      
+
       // Update the result for the next iteration
       result = newResult;
     }
-    
+
     return result;
   }
-  
+
   /**
    * Helper method to copy bindings from one context to another
    * 
@@ -727,7 +727,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   ): void {
     // Get all variable names from the source context
     const variableNames = source.getVariableNames();
-    
+
     // Copy each variable to the target context
     for (const varName of variableNames) {
       const value = source.get(varName);

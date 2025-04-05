@@ -301,10 +301,10 @@ CREATE (t)-[r2:REQUIRES_COLLAB {departments: "Engineering, Marketing"}]->(t)
  */
 function setupInitialGraphData(graph: Graph) {
   // Create people
-  const alice = { name: 'Alice', age: 35, seniorLevel: true, department: 'Engineering', labels: ['Person'] };
-  const bob = { name: 'Bob', age: 28, seniorLevel: false, department: 'Engineering', labels: ['Person'] };
-  const charlie = { name: 'Charlie', age: 42, seniorLevel: true, department: 'Marketing', labels: ['Person'] };
-  const diana = { name: 'Diana', age: 31, seniorLevel: true, department: 'Product', labels: ['Person'] };
+  const alice = { name: 'Alice', age: 35, seniorLevel: true, department: 'Engineering' };
+  const bob = { name: 'Bob', age: 28, seniorLevel: false, department: 'Engineering' };
+  const charlie = { name: 'Charlie', age: 42, seniorLevel: true, department: 'Marketing' };
+  const diana = { name: 'Diana', age: 31, seniorLevel: true, department: 'Product' };
 
   // Create tasks
   const task1 = {
@@ -314,7 +314,6 @@ function setupInitialGraphData(graph: Graph) {
     status: 'Unassigned',
     department: 'Engineering',
     dueDate: '2023-01-20',
-    labels: ['Task']
   };
 
   const task2 = {
@@ -324,7 +323,6 @@ function setupInitialGraphData(graph: Graph) {
     status: 'Unassigned',
     department: 'Marketing',
     dueDate: '2023-02-10',
-    labels: ['Task']
   };
 
   const task3 = {
@@ -335,7 +333,6 @@ function setupInitialGraphData(graph: Graph) {
     crossDepartment: true,
     department: 'Product',
     dueDate: '2023-01-15',
-    labels: ['Task']
   };
 
   const task4 = {
@@ -345,7 +342,6 @@ function setupInitialGraphData(graph: Graph) {
     status: 'Ready For Review',
     department: 'Engineering',
     dueDate: '2023-01-25',
-    labels: ['Task']
   };
 
   // Add all nodes
@@ -359,15 +355,15 @@ function setupInitialGraphData(graph: Graph) {
   const task3Id = generateId('task');
   const task4Id = generateId('task');
 
-  graph.addNode(aliceId, alice);
-  graph.addNode(bobId, bob);
-  graph.addNode(charlieId, charlie);
-  graph.addNode(dianaId, diana);
+  graph.addNode(aliceId, 'Person', alice);
+  graph.addNode(bobId, 'Person', bob);
+  graph.addNode(charlieId, 'Charlie', charlie);
+  graph.addNode(dianaId, 'Diana', diana);
 
-  graph.addNode(task1Id, task1);
-  graph.addNode(task2Id, task2);
-  graph.addNode(task3Id, task3);
-  graph.addNode(task4Id, task4);
+  graph.addNode(task1Id, 'Task', task1);
+  graph.addNode(task2Id, 'Task', task2);
+  graph.addNode(task3Id, 'Task', task3);
+  graph.addNode(task4Id, 'Task', task4);
 
   // Add some initial relationships
   graph.addEdge(task1Id, task4Id, 'DEPENDS_ON', { critical: true });
@@ -381,7 +377,6 @@ function setupInitialGraphData(graph: Graph) {
     status: 'Blocked',
     department: 'Engineering',
     dueDate: '2023-01-05',
-    labels: ['Task']
   };
 
   const task6 = {
@@ -391,14 +386,13 @@ function setupInitialGraphData(graph: Graph) {
     status: 'In Progress',
     department: 'Engineering',
     dueDate: '2023-01-10',
-    labels: ['Task']
   };
 
   const task5Id = generateId('task');
   const task6Id = generateId('task');
 
-  graph.addNode(task5Id, task5);
-  graph.addNode(task6Id, task6);
+  graph.addNode(task5Id, 'Task', task5);
+  graph.addNode(task6Id, 'Task', task6);
 
   graph.addEdge(task6Id, task1Id, 'DEPENDS_ON', { critical: false });
   graph.addEdge(task1Id, task5Id, 'DEPENDS_ON', { critical: true });

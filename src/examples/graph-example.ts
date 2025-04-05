@@ -4,8 +4,8 @@ import { Graph, Node, Edge } from '@/graph';
 const graph = new Graph();
 
 // Add nodes
-graph.addNode('alice', { name: 'Alice', age: 30 });
-graph.addNode('task1', { title: 'Complete report', priority: 'High' });
+graph.addNode('alice', 'Person', { name: 'Alice', age: 30 });
+graph.addNode('task1', 'Task', { title: 'Complete report', priority: 'High' });
 
 // Connect nodes with a labeled edge
 graph.addEdge('alice', 'task1', 'ASSIGNED_TO', { date: '2023-05-15' });
@@ -27,9 +27,9 @@ const newGraph = new Graph();
 newGraph.fromJSON(serialized);
 
 // add more people
-graph.addNode('bob', { name: 'Bob', age: 25 });
-graph.addNode('charlie', { name: 'Charlie', age: 49 });
-graph.addNode('diana', { name: 'Diana', age: 57 });
+graph.addNode('bob', 'Person', { name: 'Bob', age: 25 });
+graph.addNode('charlie', 'Person', { name: 'Charlie', age: 49 });
+graph.addNode('diana', 'Person', { name: 'Diana', age: 57 });
 
 // connections between people
 graph.addEdge('alice', 'bob', 'FRIENDS_WITH', { since: '2020-01-01' });

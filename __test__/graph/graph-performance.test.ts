@@ -12,10 +12,9 @@ import {
  */
 
 // tag with slow test
-describe.skip('Graph Performance', () => {
+describe('Graph Performance', () => {
   // Define types for test data
   type TestNodeData = {
-    type: string;
     name?: string;
     content?: string;
     tags?: string[];
@@ -79,8 +78,7 @@ describe.skip('Graph Performance', () => {
       }
 
       // Create the node
-      newGraph.addNode(nodeId, {
-        type: nodeType,
+      newGraph.addNode(nodeId, nodeType, {
         name: `${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} ${i}`,
         content,
         tags,
@@ -214,14 +212,14 @@ describe.skip('Graph Performance', () => {
     it('should efficiently find nodes by predicate', () => {
       // Find all task nodes
       measureTime(() => {
-        const taskNodes = graph.findNodes(node => node.data.type === 'task');
+        const taskNodes = graph.findNodes(node => node.label === 'task');
         return taskNodes.length;
       }, 'Finding all task nodes');
 
       // Find completed high-priority tasks
       measureTime(() => {
         const highPriorityTasks = graph.findNodes(node =>
-          node.data.type === 'task' &&
+          node.label === 'task' &&
           node.data.priority === 1 &&
           node.data.completed === true
         );

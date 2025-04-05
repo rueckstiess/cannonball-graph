@@ -11,7 +11,6 @@ import {
 describe('ConditionEvaluator', () => {
   // Define test data types
   type TestNodeData = {
-    type: string;
     name?: string;
     age?: number;
     active?: boolean;
@@ -36,27 +35,24 @@ describe('ConditionEvaluator', () => {
     graph = new Graph<TestNodeData, TestEdgeData>();
 
     // Create people nodes
-    graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });
-    graph.addNode('bob', { type: 'person', name: 'Bob', age: 25, active: false });
-    graph.addNode('charlie', { type: 'person', name: 'Charlie', age: 35, active: true, level: 'senior' });
+    graph.addNode('alice', 'person', { name: 'Alice', age: 30, active: true });
+    graph.addNode('bob', 'person', { name: 'Bob', age: 25, active: false });
+    graph.addNode('charlie', 'person', { name: 'Charlie', age: 35, active: true, level: 'senior' });
 
     // Create task nodes
-    graph.addNode('task1', {
-      type: 'task',
+    graph.addNode('task1', 'task', {
       name: 'Fix bug',
       priority: 1,
       active: true,
       tags: ['bug', 'critical']
     });
-    graph.addNode('task2', {
-      type: 'task',
+    graph.addNode('task2', 'task', {
       name: 'Write docs',
       priority: 2,
       active: false,
       tags: ['docs']
     });
-    graph.addNode('task3', {
-      type: 'task',
+    graph.addNode('task3', 'task', {
       name: 'Deploy app',
       priority: 3,
       active: true,
@@ -64,8 +60,8 @@ describe('ConditionEvaluator', () => {
     });
 
     // Create project nodes
-    graph.addNode('proj1', { type: 'project', name: 'Project A', active: true });
-    graph.addNode('proj2', { type: 'project', name: 'Project B', active: false });
+    graph.addNode('proj1', 'project', { name: 'Project A', active: true });
+    graph.addNode('proj2', 'project', { name: 'Project B', active: false });
 
     // Create relationships
     // Person -> Task (ASSIGNED)

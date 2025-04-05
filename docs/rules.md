@@ -223,8 +223,7 @@ const graph = new Graph();
 const engine = createRuleEngine();
 
 // Add data to graph
-graph.addNode('person1', { name: 'Alice', labels: ['Person'] });
-
+graph.addNode('person1', 'Person', {  name: 'Alice',  });
 // Execute rules from markdown (transformation rules)
 const ruleMarkdown = `...rule markdown...`;
 const ruleResults = engine.executeRulesFromMarkdown(graph, ruleMarkdown);

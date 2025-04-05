@@ -203,7 +203,6 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     graph: Graph<NodeData, EdgeData>,
     pattern: NodePattern
   ): Node<NodeData>[] {
-    // Implementation from previous example...
     if (pattern.labels && pattern.labels.length > 0) {
       const labeledNodes = this.getNodesByLabel(graph, pattern.labels[0]);
       return labeledNodes.filter(node => this.matchesNodePattern(node, pattern));
@@ -215,7 +214,6 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     node: Node<NodeData>,
     pattern: NodePattern
   ): boolean {
-    // Implementation from previous example...
     if (pattern.labels && pattern.labels.length > 0) {
       const nodeLabels = this.getNodeLabels(node);
       for (const requiredLabel of pattern.labels) {
@@ -372,18 +370,10 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   }
 
   // --- Helper Methods (getNodeLabels, labelMatches, typeMatches, etc.) ---
-  // Assume these are implemented correctly as per previous discussions/code
   private getNodeLabels(node: Node<NodeData>): string[] {
-    if (node.data && typeof node.data === 'object' && node.data !== null) {
-      const data = node.data as Record<string, any>;
-      if (data.type) { // Handle single type property
-        return Array.isArray(data.type) ? data.type : [data.type];
-      }
-      if (data.labels && Array.isArray(data.labels)) { // Handle labels array
-        return data.labels;
-      }
-    }
-    return [];
+    // For now we only support nodes with a single label, but we keep 
+    // it as an array for future extension
+    return [node.label];
   }
 
   private labelMatches(nodeLabels: string[], requiredLabel: string): boolean {
@@ -475,10 +465,10 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
       return results;
     }
     const segments = pattern.segments || [];
-    
+
     // Find matching nodes for the start pattern
     let initialNodes = this.findMatchingNodes(graph, pattern.start);
-    
+
     // If startNodeIds is provided, filter the initial nodes to only include those
     if (startNodeIds && startNodeIds.length > 0) {
       const startNodeIdSet = new Set(startNodeIds);

@@ -63,7 +63,7 @@
   In graph.ts:
 
   // Before
-  graph.addNode('alice', { type: 'person', name: 'Alice', age: 30 });
+  graph.addNode('alice', 'person', { name: 'Alice', age: 30  });
 
   // After
   graph.addNode('alice', { labels: ['person'], name: 'Alice', age: 30 });
@@ -114,7 +114,7 @@
 
   // Before
   // Add nodes with different types
-  graph.addNode('alice', { type: 'person', name: 'Alice', age: 30 });
+  graph.addNode('alice', 'person', { name: 'Alice', age: 30  });
   // Verify
   const nodes = graph.getAllNodes().filter(n => n.data.type === 'project');
 
@@ -238,7 +238,7 @@ Refactoring Plan: Migrate from labels to Single type Model
   graph.addNode('alice', { labels: ['person'], name: 'Alice', age: 30 });
 
   // After
-  graph.addNode('alice', { type: 'person', name: 'Alice', age: 30 });
+  graph.addNode('alice', 'person', { name: 'Alice', age: 30  });
 
   In pattern-matcher.ts:
 
@@ -313,7 +313,7 @@ Refactoring Plan: Migrate from labels to Single type Model
   const nodes = graph.getAllNodes().filter(n => n.data.labels?.includes('project'));
 
   // After
-  graph.addNode('alice', { type: 'person', name: 'Alice', age: 30 });
+  graph.addNode('alice', 'person', { name: 'Alice', age: 30  });
   const nodes = graph.getAllNodes().filter(n => n.data.type === 'project');
 
   6. Handling Multiple Labels in Cypher Syntax

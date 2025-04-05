@@ -29,10 +29,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
     }
-    
+
     return this.extractColumnFromQueryData(result.query, columnName);
   }
-  
+
   /**
    * Helper to extract column from QueryResultData
    */
@@ -44,10 +44,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (columnIndex === -1) {
       throw new Error(`Column "${columnName}" not found in query results`);
     }
-    
+
     return queryData.rows.map((row: ReturnedValue<NodeData, EdgeData>[]) => row[columnIndex].value);
   }
-  
+
   /**
    * Converts query results to an array of objects with column names as keys
    * 
@@ -60,10 +60,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
     }
-    
+
     return this.queryDataToObjectArray(result.query);
   }
-  
+
   /**
    * Helper to convert QueryResultData to object array
    */
@@ -72,16 +72,16 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
   ): Record<string, any>[] {
     return queryData.rows.map((row: ReturnedValue<NodeData, EdgeData>[]) => {
       const obj: Record<string, any> = {};
-      
+
       for (let i = 0; i < row.length; i++) {
         const columnName = queryData.columns[i];
         obj[columnName] = row[i].value;
       }
-      
+
       return obj;
     });
   }
-  
+
   /**
    * Extracts all nodes from query results
    * 
@@ -94,10 +94,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
     }
-    
+
     return this.extractNodesFromQueryData(result.query);
   }
-  
+
   /**
    * Helper to extract nodes from QueryResultData
    */
@@ -105,7 +105,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     queryData: QueryResultData<NodeData, EdgeData>
   ): Node<NodeData>[] {
     const nodes: Node<NodeData>[] = [];
-    
+
     for (const row of queryData.rows) {
       for (const item of row) {
         if (item.type === 'node') {
@@ -113,16 +113,16 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
         }
       }
     }
-    
+
     // Remove duplicates by node ID
     const uniqueNodes = new Map<string, Node<NodeData>>();
     for (const node of nodes) {
       uniqueNodes.set(node.id, node);
     }
-    
+
     return Array.from(uniqueNodes.values());
   }
-  
+
   /**
    * Extracts all edges from query results
    * 
@@ -135,10 +135,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
     }
-    
+
     return this.extractEdgesFromQueryData(result.query);
   }
-  
+
   /**
    * Helper to extract edges from QueryResultData
    */
@@ -146,7 +146,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     queryData: QueryResultData<NodeData, EdgeData>
   ): Edge<EdgeData>[] {
     const edges: Edge<EdgeData>[] = [];
-    
+
     for (const row of queryData.rows) {
       for (const item of row) {
         if (item.type === 'edge') {
@@ -154,7 +154,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
         }
       }
     }
-    
+
     // Remove duplicates using composite key since Edge doesn't have an id
     const uniqueEdges = new Map<string, Edge<EdgeData>>();
     for (const edge of edges) {
@@ -162,10 +162,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
       const key = `${edge.source}-${edge.label}-${edge.target}`;
       uniqueEdges.set(key, edge);
     }
-    
+
     return Array.from(uniqueEdges.values());
   }
-  
+
   /**
    * Creates a new subgraph from query results
    * 
@@ -176,32 +176,32 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     result: GraphQueryResult<NodeData, EdgeData>
   ): Graph<NodeData, EdgeData> {
     const subgraph = new Graph<NodeData, EdgeData>();
-    
+
     // Extract all nodes and edges
     const nodes = this.extractNodes(result);
     const edges = this.extractEdges(result);
-    
+
     // Add nodes to the subgraph
     for (const node of nodes) {
-      subgraph.addNode(node.id, { ...node.data });
+      subgraph.addNode(node.id, node.label, { ...node.data });
     }
-    
+
     // Add edges to the subgraph
     for (const edge of edges) {
       // Only add edges if both source and target nodes exist in the subgraph
       if (subgraph.hasNode(edge.source) && subgraph.hasNode(edge.target)) {
         subgraph.addEdge(
-          edge.source, 
-          edge.target, 
-          edge.label, 
+          edge.source,
+          edge.target,
+          edge.label,
           { ...edge.data }
         );
       }
     }
-    
+
     return subgraph;
   }
-  
+
   /**
    * Checks if the query result is empty (has no rows)
    * 
@@ -213,7 +213,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
   ): boolean {
     return !result.success || !result.query || result.query.rows.length === 0;
   }
-  
+
   /**
    * Gets a single value from the first row of a query result
    * 
@@ -228,10 +228,10 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return undefined;
     }
-    
+
     return this.getSingleValueFromQueryData(result.query, columnName);
   }
-  
+
   /**
    * Helper to get a single value from QueryResultData
    */
@@ -239,17 +239,17 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     queryData: QueryResultData<NodeData, EdgeData>,
     columnName?: string
   ): any {
-    const columnIndex = columnName ? 
-      queryData.columns.indexOf(columnName) : 
+    const columnIndex = columnName ?
+      queryData.columns.indexOf(columnName) :
       0;
-      
+
     if (columnIndex === -1) {
       throw new Error(`Column "${columnName}" not found in query results`);
     }
-    
+
     return queryData.rows[0][columnIndex].value;
   }
-  
+
   /**
    * Combines multiple query results into a single result
    * (Only works if all results have the same columns)
@@ -272,30 +272,30 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
         }
       };
     }
-    
+
     // Extract query data from all results
     const allQueryData: QueryResultData<NodeData, EdgeData>[] = [];
     let hasReadOps = false;
     let hasWriteOps = false;
     let totalMatchCount = 0;
     let totalExecutionTime = 0;
-    
+
     for (const result of results) {
       if (!result.success) {
         continue;
       }
-      
+
       totalMatchCount += result.matchCount;
-      
+
       if (result.query) {
         allQueryData.push(result.query);
       }
-      
+
       hasReadOps = hasReadOps || result.stats.readOperations;
       hasWriteOps = hasWriteOps || result.stats.writeOperations;
       totalExecutionTime += result.stats.executionTimeMs;
     }
-    
+
     if (allQueryData.length === 0) {
       return {
         success: true,
@@ -308,23 +308,23 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
         }
       };
     }
-    
+
     // Use the first result's columns as the base
     const baseQueryData = allQueryData[0];
     const combinedRows: ReturnedValue<NodeData, EdgeData>[][] = [...baseQueryData.rows];
-    
+
     for (let i = 1; i < allQueryData.length; i++) {
       const queryData = allQueryData[i];
-      
+
       // Make sure columns match
       if (!this.columnsMatch(baseQueryData.columns, queryData.columns)) {
         throw new Error('Cannot combine results with different columns');
       }
-      
+
       // Add rows
       combinedRows.push(...queryData.rows);
     }
-    
+
     // Create combined result
     return {
       success: true,
@@ -341,8 +341,8 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
       }
     };
   }
-  
-  
+
+
   /**
    * Checks if two column arrays have the same values
    * 
@@ -354,13 +354,13 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
     if (columns1.length !== columns2.length) {
       return false;
     }
-    
+
     for (let i = 0; i < columns1.length; i++) {
       if (columns1[i] !== columns2[i]) {
         return false;
       }
     }
-    
+
     return true;
   }
 }

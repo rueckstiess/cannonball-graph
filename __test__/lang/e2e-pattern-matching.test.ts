@@ -5,7 +5,6 @@ import { Lexer, CypherParser, PatternMatcher, Token } from '@/lang';
 describe('End-to-End Pattern Matching', () => {
   // Define type for node data to make tests more explicit
   type TestNodeData = {
-    type: string;
     name?: string;
     age?: number;
     active?: boolean;
@@ -22,22 +21,22 @@ describe('End-to-End Pattern Matching', () => {
     graph = new Graph<TestNodeData>();
 
     // Add Person nodes
-    graph.addNode('p1', { type: 'Person', name: 'Alice', age: 30, active: true });
-    graph.addNode('p2', { type: 'Person', name: 'Bob', age: 25, active: false });
-    graph.addNode('p3', { type: 'Person', name: 'Charlie', age: 35, active: true });
+    graph.addNode('p1', 'Person', { name: 'Alice', age: 30, active: true });
+    graph.addNode('p2', 'Person', { name: 'Bob', age: 25, active: false });
+    graph.addNode('p3', 'Person', { name: 'Charlie', age: 35, active: true });
 
     // Add Task nodes
-    graph.addNode('t1', { type: 'Task', name: 'Fix bug', priority: 1, active: true, due: '2023-12-01' });
-    graph.addNode('t2', { type: 'Task', name: 'Write docs', priority: 2, active: false, due: '2023-12-15' });
-    graph.addNode('t3', { type: 'Task', name: 'Deploy app', priority: 3, active: true, due: '2023-12-30' });
+    graph.addNode('t1', 'Task', { name: 'Fix bug', priority: 1, active: true, due: '2023-12-01' });
+    graph.addNode('t2', 'Task', { name: 'Write docs', priority: 2, active: false, due: '2023-12-15' });
+    graph.addNode('t3', 'Task', { name: 'Deploy app', priority: 3, active: true, due: '2023-12-30' });
 
     // Add Project nodes
-    graph.addNode('proj1', { type: 'Project', name: 'Cannonball', active: true });
-    graph.addNode('proj2', { type: 'Project', name: 'Side Project', active: false });
+    graph.addNode('proj1', 'Project', { name: 'Cannonball', active: true });
+    graph.addNode('proj2', 'Project', { name: 'Side Project', active: false });
 
     // Add Category nodes
-    graph.addNode('cat1', { type: 'Category', name: 'Work', tags: ['important', 'professional'] });
-    graph.addNode('cat2', { type: 'Category', name: 'Personal', tags: ['leisure', 'health'] });
+    graph.addNode('cat1', 'Category', { name: 'Work', tags: ['important', 'professional'] });
+    graph.addNode('cat2', 'Category', { name: 'Personal', tags: ['leisure', 'health'] });
 
     // Add relationships
     // Person -> Task (ASSIGNED)
@@ -216,7 +215,7 @@ describe('End-to-End Pattern Matching', () => {
   describe('Type Coercion', () => {
     it('should not perform type coercion by default', () => {
       // Add a task with string priority
-      graph.addNode('t4', { type: 'Task', name: 'String priority task', priority: '2' as any, active: true });
+      graph.addNode('t4', 'Task', { name: 'String priority task', priority: '2' as any, active: true });
 
       // Query for numeric priority 2
       const query = 'MATCH (t:Task {priority: 2}) RETURN t';
@@ -229,7 +228,7 @@ describe('End-to-End Pattern Matching', () => {
 
     it('can handle type coercion when enabled', () => {
       // Same as above but with coercion enabled
-      graph.addNode('t4', { type: 'Task', name: 'String priority task', priority: '2' as any, active: true });
+      graph.addNode('t4', 'Task', { name: 'String priority task', priority: '2' as any, active: true });
 
       // Create custom executeMatchQuery with type coercion
       function executeCoercingQuery(query: string): Node<TestNodeData>[] {
@@ -345,7 +344,7 @@ describe('End-to-End Pattern Matching', () => {
         // Verify one of the paths leads to cat1
         const targetPaths = paths.filter(p => {
           const lastNode = p.nodes[p.nodes.length - 1];
-          return lastNode.id === 'cat1' && lastNode.data.type === 'Category';
+          return lastNode.id === 'cat1' && lastNode.label === 'Category';
         });
 
         expect(targetPaths.length).toBeGreaterThan(0);
@@ -354,7 +353,7 @@ describe('End-to-End Pattern Matching', () => {
 
     it('should support unbounded variable length paths', () => {
       // Create a longer path between nodes
-      graph.addNode('p4', { type: 'Person', name: 'Diana', age: 40, active: true });
+      graph.addNode('p4', 'Person', { name: 'Diana', age: 40, active: true });
       graph.addEdge('p2', 'p4', 'KNOWS', { timestamp: Date.now() });
 
       // Mock the parser response for unbounded path (p1)-[:KNOWS*]->(p4)
