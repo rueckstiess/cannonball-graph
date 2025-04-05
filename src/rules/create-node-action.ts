@@ -19,7 +19,7 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
     public variable: string,
     public labels: string[],
     public properties: Record<string, any>
-  ) {}
+  ) { }
 
   /**
    * Validates that the action can be executed
@@ -30,22 +30,22 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
   ): { valid: boolean; error?: string } {
     // Check if the variable already exists in bindings
     if (bindings.has(this.variable)) {
-      return { 
-        valid: false, 
-        error: `Variable ${this.variable} already exists in bindings` 
+      return {
+        valid: false,
+        error: `Variable ${this.variable} already exists in bindings`
       };
     }
-    
+
     // Labels should be strings
     for (const label of this.labels) {
       if (typeof label !== 'string') {
-        return { 
-          valid: false, 
-          error: `Label must be a string, got ${typeof label}` 
+        return {
+          valid: false,
+          error: `Label must be a string, got ${typeof label}`
         };
       }
     }
-    
+
     return { valid: true };
   }
 
@@ -59,9 +59,9 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
     // Validate first
     const validation = this.validate(graph, bindings);
     if (!validation.valid) {
-      return { 
-        success: false, 
-        error: validation.error 
+      return {
+        success: false,
+        error: validation.error
       };
     }
 
@@ -75,7 +75,7 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
 
       // Generate a unique node ID
       const nodeId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Add the node to the graph
       try {
         graph.addNode(nodeId, nodeData);
@@ -85,7 +85,7 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
           error: `Failed to add node: ${error}`
         };
       }
-      
+
       // Get the created node
       const newNode = graph.getNode(nodeId);
       if (!newNode) {
@@ -117,18 +117,18 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements ICreate
     const propsStr = Object.entries(this.properties)
       .map(([key, value]) => {
         // Format the value based on its type
-        const formattedValue = typeof value === 'string' 
-          ? `"${value}"` 
+        const formattedValue = typeof value === 'string'
+          ? `"${value}"`
           : String(value);
-          
+
         return `${key}: ${formattedValue}`;
       })
       .join(', ');
-      
-    const labelsStr = this.labels.length > 0 
-      ? `:${this.labels.join(':')}` 
+
+    const labelsStr = this.labels.length > 0
+      ? `:${this.labels.join(':')}`
       : '';
-      
+
     return `CREATE (${this.variable}${labelsStr} {${propsStr}})`;
   }
 }

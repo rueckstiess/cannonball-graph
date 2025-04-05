@@ -156,11 +156,13 @@ export interface PatternMatcher<NodeData = any, EdgeData = any> {
    * Finds paths in the graph that match the given path pattern
    * @param graph The graph to search
    * @param pattern The path pattern to match
+   * @param startNodeIds Optional array of node IDs to constrain the starting nodes
    * @returns Array of matching paths, where each path contains arrays of nodes and edges
    */
   findMatchingPaths(
     graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern
+    pattern: PathPattern,
+    startNodeIds?: NodeId[]
   ): Array<{
     nodes: Node<NodeData>[];
     edges: Edge<EdgeData>[];
@@ -462,7 +464,8 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
 
   findMatchingPaths(
     graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern
+    pattern: PathPattern,
+    startNodeIds?: NodeId[]
   ): Array<Path<NodeData, EdgeData>> {
 
     const results: Array<Path<NodeData, EdgeData>> = [];
@@ -472,7 +475,15 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
       return results;
     }
     const segments = pattern.segments || [];
-    const initialNodes = this.findMatchingNodes(graph, pattern.start);
+    
+    // Find matching nodes for the start pattern
+    let initialNodes = this.findMatchingNodes(graph, pattern.start);
+    
+    // If startNodeIds is provided, filter the initial nodes to only include those
+    if (startNodeIds && startNodeIds.length > 0) {
+      const startNodeIdSet = new Set(startNodeIds);
+      initialNodes = initialNodes.filter(node => startNodeIdSet.has(node.id));
+    }
 
     // Handle patterns with only a start node
     if (segments.length === 0) {
