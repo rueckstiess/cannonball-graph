@@ -400,6 +400,18 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     this.incomingEdges = new Map<NodeId, Map<NodeId, Map<string, EdgeData>>>();
   }
 
+  /**
+   * Returns the full node object including its label and data.
+   * @param id The ID of the node to retrieve
+   * @returns The full node object or undefined if not found
+   */
+  private getFullNode(id: NodeId): Node<NodeData> | undefined {
+    const data = this.nodes.get(id);
+    const label = this.nodeLabels.get(id);
+    return data !== undefined && label !== undefined ? { id, label, data } : undefined;
+  }
+
+
   // Node operations
 
   /**
@@ -410,7 +422,6 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     if (this.nodes.has(id)) {
       throw new Error(`Node with ID "${id}" already exists`);
     }
-
     this.nodes.set(id, data);
     this.nodeLabels.set(id, label);
     this.outgoingEdges.set(id, new Map());
@@ -422,12 +433,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    * @returns The node or undefined if not found
    */
   getNode(id: NodeId): Node<NodeData> | undefined {
-    const data = this.nodes.get(id);
-    if (data === undefined) {
-      return undefined;
-    }
-    const label = this.getNodeLabel(id);
-    return { id, label, data };
+    return this.getFullNode(id);
   }
 
   /**
@@ -480,75 +486,47 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    * @returns true if the node was removed, false if it doesn't exist
    */
   removeNode(id: NodeId): boolean {
-    if (!this.nodes.has(id)) {
-      return false;
-    }
+    if (!this.nodes.has(id)) return false;
 
-    // Remove all outgoing edges
     if (this.outgoingEdges.has(id)) {
-      const targets = this.outgoingEdges.get(id)!;
-
-      // For each target node, remove the incoming edges from this source
-      for (const [targetId, labels] of targets.entries()) {
-        const targetIncoming = this.incomingEdges.get(targetId);
-        if (targetIncoming) {
-          targetIncoming.delete(id);
-        }
+      for (const targetId of this.outgoingEdges.get(id)!.keys()) {
+        this.incomingEdges.get(targetId)?.delete(id);
       }
-
       this.outgoingEdges.delete(id);
     }
 
-    // Remove all incoming edges
     if (this.incomingEdges.has(id)) {
-      const sources = this.incomingEdges.get(id)!;
-
-      // For each source node, remove the outgoing edges to this target
-      for (const [sourceId, labels] of sources.entries()) {
-        const sourceOutgoing = this.outgoingEdges.get(sourceId);
-        if (sourceOutgoing) {
-          sourceOutgoing.delete(id);
-        }
+      for (const sourceId of this.incomingEdges.get(id)!.keys()) {
+        this.outgoingEdges.get(sourceId)?.delete(id);
       }
-
       this.incomingEdges.delete(id);
     }
 
-    // Remove the node itself
     this.nodes.delete(id);
     this.nodeLabels.delete(id);
-
     return true;
   }
-
   /**
    * Get all nodes in the graph.
    */
   getAllNodes(): Node<NodeData>[] {
-    const result: Node<NodeData>[] = [];
-
-    for (const [id, data] of this.nodes.entries()) {
-      const label = this.getNodeLabel(id);
-      result.push({ id, label, data });
-    }
-
-    return result;
+    return Array.from(this.nodes.keys())
+      .map(id => this.getFullNode(id)!)
+      .filter(Boolean);
   }
+
 
   /**
    * Find nodes that match a predicate.
    */
   findNodes(predicate: (node: Node<NodeData>) => boolean): Node<NodeData>[] {
     const result: Node<NodeData>[] = [];
-
-    for (const [id, data] of this.nodes.entries()) {
-      const label = this.getNodeLabel(id);
-      const node: Node<NodeData> = { id, label, data };
-      if (predicate(node)) {
+    for (const id of this.nodes.keys()) {
+      const node = this.getFullNode(id);
+      if (node && predicate(node)) {
         result.push(node);
       }
     }
-
     return result;
   }
 
@@ -988,28 +966,18 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    */
   clear(): void {
     this.nodes.clear();
+    this.nodeLabels.clear();
     this.outgoingEdges.clear();
     this.incomingEdges.clear();
   }
-
 
 
   /**
    * Load the graph from a serialized object.
    */
   toJSON(): GraphData<NodeData, EdgeData> {
-    const nodes = Array.from(this.nodes.entries()).map(([id, data]) => {
-      const label = this.getNodeLabel(id);
-      return { id, label, data };
-    });
-
-    const edges = this.getAllEdges().map(({ source, target, label, data }) => ({
-      source,
-      target,
-      label,
-      data
-    }));
-
+    const nodes = this.getAllNodes().map(({ id, label, data }) => ({ id, label, data }));
+    const edges = this.getAllEdges().map(({ source, target, label, data }) => ({ source, target, label, data }));
     return { nodes, edges };
   }
 
@@ -1018,18 +986,13 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    */
   fromJSON(data: GraphData<NodeData, EdgeData>): void {
     this.clear();
-
-    // Add nodes
     for (const { id, label, data: nodeData } of data.nodes) {
       this.addNode(id, label, nodeData);
     }
-
-    // Add edges
     for (const { source, target, label, data: edgeData } of data.edges) {
       this.addEdge(source, target, label, edgeData);
     }
   }
-
 
 
   /**

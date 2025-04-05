@@ -1,7 +1,8 @@
 import { Graph, Node, Edge, NodeId, PathOptions, GraphData } from '@/graph';
 
+
 describe('Graph', () => {
-  let graph: Graph<{ type: string, name: string }, { weight: number }>;
+  let graph: Graph<{ name: string }, { weight: number }>;
 
   beforeEach(() => {
     graph = new Graph();
@@ -9,14 +10,14 @@ describe('Graph', () => {
 
   describe('Node operations', () => {
     it('should add and retrieve a node', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
       expect(graph.hasNode('n1')).toBe(true);
 
       const node = graph.getNode('n1');
       expect(node).toBeDefined();
       expect(node?.id).toBe('n1');
+      expect(node?.label).toBe('person');
       expect(node?.data.name).toBe('Alice');
-      expect(node?.data.type).toBe('person');
     });
 
     it('should return undefined for non-existent node', () => {
@@ -25,20 +26,20 @@ describe('Graph', () => {
     });
 
     it('should update a node', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
-      const result = graph.updateNodeData('n1', { type: 'person', name: 'Alicia' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      const result = graph.updateNodeData('n1', { name: 'Alicia' });
 
       expect(result).toBe(true);
       expect(graph.getNode('n1')?.data.name).toBe('Alicia');
     });
 
     it('should return false when updating non-existent node', () => {
-      const result = graph.updateNodeData('nonexistent', { type: 'person', name: 'Nobody' });
+      const result = graph.updateNodeData('nonexistent', { name: 'Nobody' });
       expect(result).toBe(false);
     });
 
     it('should remove a node', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
       const result = graph.removeNode('n1');
 
       expect(result).toBe(true);
@@ -51,8 +52,8 @@ describe('Graph', () => {
     });
 
     it('should get all nodes', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
-      graph.addNode('n2', { type: 'person', name: 'Bob' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      graph.addNode('n2', 'person', { name: 'Bob' });
 
       const nodes = graph.getAllNodes();
       expect(nodes.length).toBe(2);
@@ -61,11 +62,11 @@ describe('Graph', () => {
     });
 
     it('should find nodes with predicate', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
-      graph.addNode('n2', { type: 'person', name: 'Bob' });
-      graph.addNode('n3', { type: 'robot', name: 'R2D2' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      graph.addNode('n2', 'person', { name: 'Bob' });
+      graph.addNode('n3', 'robot', { name: 'R2D2' });
 
-      const people = graph.findNodes(n => n.data.type === 'person');
+      const people = graph.findNodes(n => n.label === 'person');
       expect(people.length).toBe(2);
 
       const bobNode = graph.findNodes(n => n.data.name === 'Bob');
@@ -74,23 +75,21 @@ describe('Graph', () => {
     });
 
     it('should handle adding a node with existing ID', () => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
 
-      // This should either throw or update the existing node
       expect(() => {
-        graph.addNode('n1', { type: 'person', name: 'Alice 2.0' });
+        graph.addNode('n1', 'person', { name: 'Alice 2.0' });
       }).toThrow();
 
-      // Node should retain original data
       expect(graph.getNode('n1')?.data.name).toBe('Alice');
     });
   });
 
   describe('Edge operations', () => {
     beforeEach(() => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
-      graph.addNode('n2', { type: 'person', name: 'Bob' });
-      graph.addNode('n3', { type: 'person', name: 'Charlie' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      graph.addNode('n2', 'person', { name: 'Bob' });
+      graph.addNode('n3', 'person', { name: 'Charlie' });
     });
 
     it('should add and retrieve an edge', () => {
@@ -230,12 +229,12 @@ describe('Graph', () => {
   describe('Traversal operations', () => {
     beforeEach(() => {
       // Set up a small network
-      graph.addNode('a', { type: 'person', name: 'Alice' });
-      graph.addNode('b', { type: 'person', name: 'Bob' });
-      graph.addNode('c', { type: 'person', name: 'Charlie' });
-      graph.addNode('d', { type: 'person', name: 'Dave' });
-      graph.addNode('e', { type: 'person', name: 'Eve' });
-      graph.addNode('f', { type: 'location', name: 'Office' });
+      graph.addNode('a', 'person', { name: 'Alice' });
+      graph.addNode('b', 'person', { name: 'Bob' });
+      graph.addNode('c', 'person', { name: 'Charlie' });
+      graph.addNode('d', 'person', { name: 'Dave' });
+      graph.addNode('e', 'person', { name: 'Eve' });
+      graph.addNode('f', 'location', { name: 'Office' });
 
       graph.addEdge('a', 'b', 'KNOWS', { weight: 5 });
       graph.addEdge('b', 'c', 'KNOWS', { weight: 3 });
@@ -562,7 +561,7 @@ describe('Graph', () => {
           pathComplete: (path, depth) => {
             // Only collect paths where last node is a location node
             const lastNode = path.nodes[path.nodes.length - 1];
-            return lastNode.data.type === 'location';
+            return lastNode.label === 'location';
           }
         });
 
@@ -658,8 +657,8 @@ describe('Graph', () => {
 
   describe('Graph-wide operations', () => {
     beforeEach(() => {
-      graph.addNode('n1', { type: 'person', name: 'Alice' });
-      graph.addNode('n2', { type: 'person', name: 'Bob' });
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      graph.addNode('n2', 'person', { name: 'Bob' });
       graph.addEdge('n1', 'n2', 'KNOWS', { weight: 5 });
     });
 
@@ -672,15 +671,20 @@ describe('Graph', () => {
     });
 
     it('should serialize to JSON', () => {
+      const graph = new Graph<{ name: string }, { weight: number }>();
+      graph.addNode('n1', 'person', { name: 'Alice' });
+      graph.addNode('n2', 'person', { name: 'Bob' });
+      graph.addEdge('n1', 'n2', 'KNOWS', { weight: 5 });
+
       const json = graph.toJSON();
 
       expect(json.nodes).toBeDefined();
       expect(json.edges).toBeDefined();
 
-      expect(Object.keys(json.nodes).length).toBe(2);
+      expect(json.nodes.length).toBe(2);
       expect(json.edges.length).toBe(1);
 
-      expect(json.nodes['n1']).toEqual({ type: 'person', name: 'Alice' });
+      expect(json.nodes).toContainEqual({ id: 'n1', label: 'person', data: { name: 'Alice' } });
       expect(json.edges[0]).toEqual({
         source: 'n1',
         target: 'n2',
@@ -690,24 +694,25 @@ describe('Graph', () => {
     });
 
     it('should deserialize from JSON', () => {
-      const json: GraphData<{ type: string, name: string }, { weight: number }> = {
-        nodes: {
-          'x1': { type: 'robot', name: 'XBot' },
-          'x2': { type: 'robot', name: 'YBot' }
-        },
+      const json: GraphData<{ name: string }, { weight: number }> = {
+        nodes: [
+          { id: 'x1', label: 'robot', data: { name: 'XBot' } },
+          { id: 'x2', label: 'robot', data: { name: 'YBot' } }
+        ],
         edges: [
           { source: 'x1', target: 'x2', label: 'CONNECTED_TO', data: { weight: 10 } }
         ]
       };
 
-      graph.clear();
+      const graph = new Graph<{ name: string }, { weight: number }>();
       graph.fromJSON(json);
 
       expect(graph.getAllNodes().length).toBe(2);
       expect(graph.getAllEdges().length).toBe(1);
 
-      expect(graph.hasNode('x1')).toBe(true);
-      expect(graph.getNode('x1')?.data.name).toBe('XBot');
+      const x1 = graph.getNode('x1');
+      expect(x1?.label).toBe('robot');
+      expect(x1?.data.name).toBe('XBot');
 
       expect(graph.hasEdge('x1', 'x2', 'CONNECTED_TO')).toBe(true);
       expect(graph.getEdge('x1', 'x2', 'CONNECTED_TO')?.data.weight).toBe(10);
