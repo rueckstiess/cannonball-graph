@@ -697,6 +697,8 @@ MATCH (n)
         expect(pattern.segments.length).toBe(1);
         expect(pattern.segments[0].relationship.direction).toBe('outgoing');
         expect(pattern.segments[0].relationship.type).toBe('KNOWS');
+        expect(pattern.segments[0].relationship.minHops).toBe(1);
+        expect(pattern.segments[0].relationship.maxHops).toBe(1);
       });
 
       it('should parse bidirectional relationships', () => {
@@ -1077,8 +1079,8 @@ describe('CypherParser', () => {
         type: 'KNOWS',
         properties: {},
         direction: 'outgoing',
-        minHops: undefined,
-        maxHops: undefined
+        minHops: 1,  // Fixed-length relationship has minHops=1
+        maxHops: 1   // Fixed-length relationship has maxHops=1
       });
     });
 
@@ -1091,8 +1093,8 @@ describe('CypherParser', () => {
         type: 'KNOWS',
         properties: {},
         direction: 'incoming',
-        minHops: undefined,
-        maxHops: undefined
+        minHops: 1,  // Fixed-length relationship has minHops=1
+        maxHops: 1   // Fixed-length relationship has maxHops=1
       });
     });
 
@@ -1105,8 +1107,8 @@ describe('CypherParser', () => {
         type: 'KNOWS',
         properties: {},
         direction: 'both',
-        minHops: undefined,
-        maxHops: undefined
+        minHops: 1,  // Fixed-length relationship has minHops=1
+        maxHops: 1   // Fixed-length relationship has maxHops=1
       });
     });
 
@@ -1183,8 +1185,8 @@ describe('CypherParser', () => {
         type: 'KNOWS',
         properties: {},
         direction: 'outgoing',
-        minHops: 1,
-        maxHops: undefined
+        minHops: 1,    // Default for variable length path
+        maxHops: undefined // Unbounded max hops
       });
     });
   });
@@ -1207,8 +1209,8 @@ describe('CypherParser', () => {
               type: 'KNOWS',
               properties: {},
               direction: 'outgoing',
-              minHops: undefined,
-              maxHops: undefined
+              minHops: 1,
+              maxHops: 1
             },
             node: {
               variable: 'b',
@@ -1240,8 +1242,8 @@ describe('CypherParser', () => {
               type: 'KNOWS',
               properties: {},
               direction: 'outgoing',
-              minHops: undefined,
-              maxHops: undefined
+              minHops: 1,
+              maxHops: 1
             },
             node: {
               variable: 'b',
@@ -1255,8 +1257,8 @@ describe('CypherParser', () => {
               type: 'WORKS_AT',
               properties: {},
               direction: 'outgoing',
-              minHops: undefined,
-              maxHops: undefined
+              minHops: 1,
+              maxHops: 1
             },
             node: {
               variable: 'c',

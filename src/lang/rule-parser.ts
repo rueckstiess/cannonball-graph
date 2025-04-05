@@ -595,9 +595,12 @@ export class CypherParser implements Parser {
       this.consume(TokenType.MINUS, "Expected relationship pattern to start with '-', '->', or '<-'");
     }
 
+    // Initialize relationship with default values for fixed-length relationships
     const relationship: RelationshipPattern = {
       properties: {},
-      direction
+      direction,
+      minHops: 1,  // Default to 1 for fixed-length relationships
+      maxHops: 1   // Default to 1 for fixed-length relationships
     };
 
     // Check if we have a relationship detail in square brackets
@@ -618,7 +621,8 @@ export class CypherParser implements Parser {
 
         // Check for variable length path (e.g., *1..3)
         if (this.match(TokenType.ASTERISK)) {
-          relationship.minHops = 1; // Default
+          relationship.minHops = 1; // Default for variable length paths
+          relationship.maxHops = undefined; // Reset to undefined for unbounded paths by default
 
           // Check for specific range
           if (this.check(TokenType.NUMBER)) {
