@@ -376,15 +376,15 @@ export interface EvaluationResult {
 /**
  * Implementation of the BindingContext interface that manages variable bindings
  */
-export class BindingContextImpl<NodeData = any, EdgeData = any> implements BindingContext<NodeData, EdgeData> {
+export class BindingContext<NodeData = any, EdgeData = any> implements BindingContext<NodeData, EdgeData> {
   private bindings: Map<string, any>;
-  private parent: BindingContextImpl<NodeData, EdgeData> | null;
+  private parent: BindingContext<NodeData, EdgeData> | null;
 
   /**
    * Creates a new binding context
    * @param parent Optional parent context to inherit bindings from
    */
-  constructor(parent: BindingContextImpl<NodeData, EdgeData> | null = null) {
+  constructor(parent: BindingContext<NodeData, EdgeData> | null = null) {
     this.bindings = new Map<string, any>();
     this.parent = parent;
   }
@@ -429,14 +429,14 @@ export class BindingContextImpl<NodeData = any, EdgeData = any> implements Bindi
    * @returns A new binding context with this one as parent
    */
   createChildContext(): BindingContext<NodeData, EdgeData> {
-    return new BindingContextImpl<NodeData, EdgeData>(this);
+    return new BindingContext<NodeData, EdgeData>(this);
   }
 }
 
 /**
  * Implementation of the ConditionEvaluator interface
  */
-export class ConditionEvaluatorImpl<NodeData = any, EdgeData = any> implements ConditionEvaluator<NodeData, EdgeData> {
+export class ConditionEvaluator<NodeData = any, EdgeData = any> implements ConditionEvaluator<NodeData, EdgeData> {
   private options: Required<ConditionEvaluatorOptions>;
   private patternMatcher: PatternMatcher<NodeData, EdgeData>;
 
@@ -473,7 +473,7 @@ export class ConditionEvaluatorImpl<NodeData = any, EdgeData = any> implements C
   evaluateExpression(
     graph: Graph<NodeData, EdgeData>,
     expression: Expression,
-    bindings: BindingContext<NodeData, EdgeData> = new BindingContextImpl()
+    bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): any {
     switch (expression.type) {
       case 'literal':
@@ -509,7 +509,7 @@ export class ConditionEvaluatorImpl<NodeData = any, EdgeData = any> implements C
   evaluateCondition(
     graph: Graph<NodeData, EdgeData>,
     condition: Expression,
-    bindings: BindingContext<NodeData, EdgeData> = new BindingContextImpl()
+    bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): boolean {
     const result = this.evaluateExpression(graph, condition, bindings);
     return Boolean(result);

@@ -4,8 +4,7 @@ import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression,
   ComparisonExpression, LogicalExpression, ExistsExpression,
   ComparisonOperator, LogicalOperator, PathPattern, PatternMatcher,
-  ConditionEvaluatorImpl, BindingContextImpl, ConditionEvaluator, BindingContext,
-  EvaluationResult, ConditionEvaluatorOptions
+  ConditionEvaluator, BindingContext, EvaluationResult, ConditionEvaluatorOptions
 } from '@/lang';
 
 
@@ -86,11 +85,11 @@ describe('ConditionEvaluator', () => {
 
     // Create the condition evaluator with a pattern matcher
     const patternMatcher = new PatternMatcher<TestNodeData, TestEdgeData>();
-    evaluator = new ConditionEvaluatorImpl<TestNodeData, TestEdgeData>();
+    evaluator = new ConditionEvaluator<TestNodeData, TestEdgeData>();
     evaluator.setPatternMatcher(patternMatcher);
 
     // Create initial bindings
-    bindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+    bindings = new BindingContext<TestNodeData, TestEdgeData>();
   });
 
   describe('BindingContext', () => {
@@ -618,7 +617,7 @@ describe('ConditionEvaluator', () => {
 
     it('should support type coercion when enabled', () => {
       // Create a condition evaluator with type coercion enabled
-      const coercingEvaluator = new ConditionEvaluatorImpl<TestNodeData, TestEdgeData>({
+      const coercingEvaluator = new ConditionEvaluator<TestNodeData, TestEdgeData>({
         enableTypeCoercion: true
       });
 
@@ -633,7 +632,7 @@ describe('ConditionEvaluator', () => {
       expect(coercingEvaluator.evaluateComparison('false', ComparisonOperator.EQUALS, false)).toBe(true);
 
       // Verify non-coercing evaluator behaves strictly
-      const strictEvaluator = new ConditionEvaluatorImpl<TestNodeData, TestEdgeData>({
+      const strictEvaluator = new ConditionEvaluator<TestNodeData, TestEdgeData>({
         enableTypeCoercion: false
       });
 
@@ -1136,7 +1135,7 @@ describe('ConditionEvaluator', () => {
 
       // Filter using WHERE condition
       const filteredNodes = matchingNodes.filter(node => {
-        const nodeBindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+        const nodeBindings = new BindingContext<TestNodeData, TestEdgeData>();
         nodeBindings.set('n', node);
         return evaluator.evaluateCondition(graph, whereCondition, nodeBindings);
       });

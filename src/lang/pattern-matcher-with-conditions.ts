@@ -3,8 +3,7 @@
 import { Graph, Node, Edge, Path } from '@/graph';
 import { Expression, WhereClause } from './rule-parser';
 import { NodePattern, RelationshipPattern, PathPattern, PatternMatcher, PatternMatcherOptions } from './pattern-matcher';
-import { ConditionEvaluator, BindingContext, ConditionEvaluatorOptions } from './condition-evaluator';
-import { ConditionEvaluatorImpl, BindingContextImpl } from './condition-evaluator';
+import { BindingContext, ConditionEvaluatorOptions, ConditionEvaluator } from './condition-evaluator';
 
 /**
  * Extension of the PatternMatcher to support condition evaluation
@@ -22,7 +21,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     evaluatorOptions: ConditionEvaluatorOptions = {}
   ) {
     super(options);
-    this.conditionEvaluator = new ConditionEvaluatorImpl<NodeData, EdgeData>(evaluatorOptions);
+    this.conditionEvaluator = new ConditionEvaluator<NodeData, EdgeData>(evaluatorOptions);
     this.conditionEvaluator.setPatternMatcher(this);
   }
 
@@ -38,7 +37,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     graph: Graph<NodeData, EdgeData>,
     pattern: NodePattern,
     condition?: Expression,
-    bindings: BindingContext<NodeData, EdgeData> = new BindingContextImpl()
+    bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): Node<NodeData>[] {
     // Find all nodes matching the pattern
     const matchingNodes = super.findMatchingNodes(graph, pattern);
@@ -77,7 +76,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     pattern: RelationshipPattern,
     condition?: Expression,
     sourceId?: string,
-    bindings: BindingContext<NodeData, EdgeData> = new BindingContextImpl()
+    bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): Edge<EdgeData>[] {
     // Find all relationships matching the pattern
     const matchingRelationships = super.findMatchingRelationships(graph, pattern, sourceId);
@@ -126,7 +125,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     graph: Graph<NodeData, EdgeData>,
     pattern: PathPattern,
     condition?: Expression,
-    bindings: BindingContext<NodeData, EdgeData> = new BindingContextImpl()
+    bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): Array<Path<NodeData, EdgeData>> {
     // Find all paths matching the pattern
     const matchingPaths = super.findMatchingPaths(graph, pattern);
@@ -183,7 +182,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
 
     for (const path of matchingPaths) {
       // Create a binding context for this match
-      const bindings = new BindingContextImpl<NodeData, EdgeData>();
+      const bindings = new BindingContext<NodeData, EdgeData>();
 
       // Bind all nodes and relationships in the path
       if (pathPattern.start.variable) {

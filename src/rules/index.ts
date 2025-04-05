@@ -49,7 +49,7 @@
 //  * ```
 //  */
 // export function createBindingContext<NodeData = any, EdgeData = any>(): BindingContext<NodeData, EdgeData> {
-//   return new BindingContextImpl<NodeData, EdgeData>();
+//   return new BindingContext<NodeData, EdgeData>();
 // }
 
 // /**
@@ -72,5 +72,5 @@
 // export function createConditionEvaluator<NodeData = any, EdgeData = any>(
 //   options?: ConditionEvaluatorOptions
 // ): ConditionEvaluator<NodeData, EdgeData> {
-//   return new ConditionEvaluatorImpl<NodeData, EdgeData>(options);
+//   return new ConditionEvaluator<NodeData, EdgeData>(options);
 // }

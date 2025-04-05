@@ -1,7 +1,7 @@
 import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, NodePattern, RelationshipPattern, PathPattern, ComparisonOperator,
-  LogicalOperator, PatternMatcher, PatternMatcherWithConditions, BindingContextImpl
+  LogicalOperator, PatternMatcher, PatternMatcherWithConditions, BindingContext
 } from '@/lang';
 
 /**
@@ -410,7 +410,7 @@ describe('Graph Performance', () => {
       measureTime(() => {
         let matchCount = 0;
         for (const node of sampleNodes) {
-          const bindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+          const bindings = new BindingContext<TestNodeData, TestEdgeData>();
           bindings.set('n', node);
 
           if (patternMatcherWithConditions.getConditionEvaluator().evaluateCondition(graph, condition, bindings)) {
@@ -484,7 +484,7 @@ describe('Graph Performance', () => {
       measureTime(() => {
         let matchCount = 0;
         for (const node of sampleNodes) {
-          const bindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+          const bindings = new BindingContext<TestNodeData, TestEdgeData>();
           bindings.set('n', node);
 
           if (patternMatcherWithConditions.getConditionEvaluator().evaluateCondition(graph, condition, bindings)) {
@@ -544,7 +544,7 @@ describe('Graph Performance', () => {
 
         let filteredCount = 0;
         for (const node of matchingNodes) {
-          const bindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+          const bindings = new BindingContext<TestNodeData, TestEdgeData>();
           bindings.set('n', node);
 
           if (patternMatcherWithConditions.getConditionEvaluator().evaluateCondition(graph, condition, bindings)) {
@@ -644,7 +644,7 @@ describe('Graph Performance', () => {
 
         let matchCount = 0;
         for (const node of sampleNodes) {
-          const bindings = new BindingContextImpl<TestNodeData, TestEdgeData>();
+          const bindings = new BindingContext<TestNodeData, TestEdgeData>();
           bindings.set('n', node);
 
           if (patternMatcherWithConditions.getConditionEvaluator().evaluateCondition(graph, existsExpr, bindings)) {
