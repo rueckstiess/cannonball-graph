@@ -1,6 +1,7 @@
-import { Graph } from '@/graph';
+import { Graph, Node, Edge } from '@/graph';
 import { 
-  Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser 
+  Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser,
+  CypherStatement, ReturnClause, ReturnItem, PropertyExpression, VariableExpression
 } from '@/lang/rule-parser';
 import { Lexer } from '@/lang/lexer';
 import { transformToCypherAst } from '@/lang/ast-transformer';
@@ -18,6 +19,56 @@ export interface RuleExecutionOptions extends ActionExecutionOptions {
    * Maximum number of matches to process
    */
   maxMatches?: number;
+}
+
+/**
+ * Represents a returned value from a query
+ */
+export interface ReturnedValue<NodeData = any, EdgeData = any> {
+  /**
+   * The variable or property name
+   */
+  name: string;
+  
+  /**
+   * The value from the graph (can be a node, edge, or property value)
+   */
+  value: Node<NodeData> | Edge<EdgeData> | any;
+  
+  /**
+   * The type of the value ('node', 'edge', or 'property')
+   */
+  type: 'node' | 'edge' | 'property';
+}
+
+/**
+ * Represents the result of executing a query
+ */
+export interface QueryResult<NodeData = any, EdgeData = any> {
+  /**
+   * Whether execution was successful
+   */
+  success: boolean;
+  
+  /**
+   * The rows of results, each containing the values for one match
+   */
+  rows: ReturnedValue<NodeData, EdgeData>[][];
+  
+  /**
+   * Column names in order
+   */
+  columns: string[];
+  
+  /**
+   * Number of pattern matches found
+   */
+  matchCount: number;
+  
+  /**
+   * Error message if execution failed
+   */
+  error?: string;
 }
 
 /**
@@ -48,6 +99,11 @@ export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
    * Error message if execution failed
    */
   error?: string;
+  
+  /**
+   * Query results (if the rule contains a RETURN clause)
+   */
+  queryResults?: QueryResult<NodeData, EdgeData>;
 }
 
 /**
@@ -65,6 +121,64 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     this.patternMatcher = new PatternMatcherWithConditions<NodeData, EdgeData>();
     this.actionFactory = new ActionFactory<NodeData, EdgeData>();
     this.actionExecutor = new ActionExecutor<NodeData, EdgeData>();
+  }
+  
+  /**
+   * Executes a query on a graph and returns the results
+   * 
+   * @param graph The graph to query
+   * @param queryText The query text (should contain MATCH and RETURN clauses)
+   * @param options Execution options
+   * @returns Query results
+   */
+  executeQuery(
+    graph: Graph<NodeData, EdgeData>,
+    queryText: string,
+    options?: RuleExecutionOptions
+  ): QueryResult<NodeData, EdgeData> {
+    try {
+      // 1. Parse the query text to a CypherStatement
+      const lexer = new Lexer();
+      const parser = new CypherParser(lexer, queryText);
+      const cypherStatement = parser.parse();
+      
+      const parseErrors = parser.getErrors();
+      if (parseErrors.length > 0) {
+        return {
+          success: false,
+          rows: [],
+          columns: [],
+          matchCount: 0,
+          error: `Parse errors: ${parseErrors.join(', ')}`
+        };
+      }
+      
+      // Check that the query includes a RETURN clause
+      if (!cypherStatement.return) {
+        return {
+          success: false,
+          rows: [],
+          columns: [],
+          matchCount: 0,
+          error: 'Query must include a RETURN clause'
+        };
+      }
+      
+      // 2. Find all matches for the query
+      const matches = this.findMatches(graph, cypherStatement, options);
+      
+      // 3. Extract return values from matches
+      return this.extractQueryResults(matches, cypherStatement.return);
+    }
+    catch (error: any) {
+      return {
+        success: false,
+        rows: [],
+        columns: [],
+        matchCount: 0,
+        error: error.message || String(error)
+      };
+    }
   }
   
   /**
@@ -107,82 +221,18 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       );
       
       // 3. Execute MATCH-WHERE to find pattern matches
-      let matches: BindingContext<NodeData, EdgeData>[] = [];
+      const matches = this.findMatches(graph, cypherStatement, options);
       
-      if (cypherStatement.match) {
-        // First, collect bindings for each pattern separately
-        const patternBindingsArray: BindingContext<NodeData, EdgeData>[][] = [];
-        
-        for (const pattern of cypherStatement.match.patterns) {
-          const pathMatches = this.patternMatcher.findMatchingPathsWithCondition(
-            graph,
-            pattern,
-            cypherStatement.where?.condition
-          );
-          
-          // Convert path matches to binding contexts for this pattern
-          const patternBindings: BindingContext<NodeData, EdgeData>[] = [];
-          
-          for (const path of pathMatches) {
-            const bindings = new BindingContext<NodeData, EdgeData>();
-            
-            // Bind the starting node if it has a variable
-            if (pattern.start.variable) {
-              bindings.set(pattern.start.variable, path.nodes[0]);
-            }
-            
-            // Bind segments (relationships and end nodes)
-            for (let i = 0; i < pattern.segments.length; i++) {
-              const segment = pattern.segments[i];
-              
-              if (segment.relationship.variable) {
-                bindings.set(segment.relationship.variable, path.edges[i]);
-              }
-              
-              if (segment.node.variable) {
-                bindings.set(segment.node.variable, path.nodes[i + 1]);
-              }
-            }
-            
-            patternBindings.push(bindings);
-            
-            // Limit matches if maxMatches is specified
-            if (options?.maxMatches && patternBindings.length >= options.maxMatches) {
-              break;
-            }
-          }
-          
-          // Add this pattern's bindings to the array
-          if (patternBindings.length > 0) {
-            patternBindingsArray.push(patternBindings);
-          }
-        }
-        
-        // Calculate cross-product of bindings from different patterns
-        if (patternBindingsArray.length > 0) {
-          // Only proceed if ALL patterns have matches
-          // (patternBindingsArray.length should equal the number of patterns)
-          if (patternBindingsArray.length === cypherStatement.match.patterns.length) {
-            matches = this.combineBindings(patternBindingsArray);
-            
-            // Limit final combined matches if maxMatches is specified
-            if (options?.maxMatches && matches.length > options.maxMatches) {
-              matches = matches.slice(0, options.maxMatches);
-            }
-          } else {
-            // If not all patterns have matches, the result should be empty
-            matches = [];
-          }
-        }
-      } else {
-        // If no MATCH clause, create a single empty binding context
-        matches.push(new BindingContext<NodeData, EdgeData>());
+      // 4. Process RETURN clause if present
+      let queryResults: QueryResult<NodeData, EdgeData> | undefined;
+      if (cypherStatement.return) {
+        queryResults = this.extractQueryResults(matches, cypherStatement.return);
       }
       
-      // 4. Convert AST CREATE/SET clauses to actions
+      // 5. Convert AST CREATE/SET clauses to actions
       const actions = this.actionFactory.createActionsFromRuleAst(ast);
       
-      // 5. Execute actions for each match
+      // 6. Execute actions for each match
       const actionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
       let allSuccessful = true;
       
@@ -206,7 +256,8 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         success: allSuccessful,
         actionResults,
         matchCount: matches.length,
-        error: allSuccessful ? undefined : 'Some actions failed during execution'
+        error: allSuccessful ? undefined : 'Some actions failed during execution',
+        queryResults
       };
     } catch (error: any) {
       return {
@@ -217,6 +268,225 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         error: error.message || String(error)
       };
     }
+  }
+  
+  /**
+   * Finds pattern matches for a Cypher statement
+   * 
+   * @param graph The graph to search
+   * @param cypherStatement The Cypher statement to match
+   * @param options Execution options
+   * @returns Array of binding contexts for each match
+   */
+  private findMatches(
+    graph: Graph<NodeData, EdgeData>,
+    cypherStatement: CypherStatement,
+    options?: RuleExecutionOptions
+  ): BindingContext<NodeData, EdgeData>[] {
+    let matches: BindingContext<NodeData, EdgeData>[] = [];
+    
+    if (cypherStatement.match) {
+      // First, collect bindings for each pattern separately
+      const patternBindingsArray: BindingContext<NodeData, EdgeData>[][] = [];
+      
+      for (const pattern of cypherStatement.match.patterns) {
+        const pathMatches = this.patternMatcher.findMatchingPathsWithCondition(
+          graph,
+          pattern,
+          cypherStatement.where?.condition
+        );
+        
+        // Convert path matches to binding contexts for this pattern
+        const patternBindings: BindingContext<NodeData, EdgeData>[] = [];
+        
+        for (const path of pathMatches) {
+          const bindings = new BindingContext<NodeData, EdgeData>();
+          
+          // Bind the starting node if it has a variable
+          if (pattern.start.variable) {
+            bindings.set(pattern.start.variable, path.nodes[0]);
+          }
+          
+          // Bind segments (relationships and end nodes)
+          for (let i = 0; i < pattern.segments.length; i++) {
+            const segment = pattern.segments[i];
+            
+            if (segment.relationship.variable) {
+              bindings.set(segment.relationship.variable, path.edges[i]);
+            }
+            
+            if (segment.node.variable) {
+              bindings.set(segment.node.variable, path.nodes[i + 1]);
+            }
+          }
+          
+          patternBindings.push(bindings);
+          
+          // Limit matches if maxMatches is specified
+          if (options?.maxMatches && patternBindings.length >= options.maxMatches) {
+            break;
+          }
+        }
+        
+        // Add this pattern's bindings to the array
+        if (patternBindings.length > 0) {
+          patternBindingsArray.push(patternBindings);
+        }
+      }
+      
+      // Calculate cross-product of bindings from different patterns
+      if (patternBindingsArray.length > 0) {
+        // Only proceed if ALL patterns have matches
+        // (patternBindingsArray.length should equal the number of patterns)
+        if (patternBindingsArray.length === cypherStatement.match.patterns.length) {
+          matches = this.combineBindings(patternBindingsArray);
+          
+          // Limit final combined matches if maxMatches is specified
+          if (options?.maxMatches && matches.length > options.maxMatches) {
+            matches = matches.slice(0, options.maxMatches);
+          }
+        } else {
+          // If not all patterns have matches, the result should be empty
+          matches = [];
+        }
+      }
+    } else {
+      // If no MATCH clause, create a single empty binding context
+      matches.push(new BindingContext<NodeData, EdgeData>());
+    }
+    
+    return matches;
+  }
+  
+  /**
+   * Extracts query results from binding contexts and a RETURN clause
+   * 
+   * @param matches The binding contexts from pattern matches
+   * @param returnClause The RETURN clause specifying what to return
+   * @returns The query results
+   */
+  private extractQueryResults(
+    matches: BindingContext<NodeData, EdgeData>[],
+    returnClause: ReturnClause
+  ): QueryResult<NodeData, EdgeData> {
+    const columns: string[] = [];
+    const rows: ReturnedValue<NodeData, EdgeData>[][] = [];
+    
+    // Extract column names from the return items
+    for (const item of returnClause.items) {
+      // For variables, use the variable name
+      if (item.expression.type === 'variable') {
+        columns.push(item.expression.name);
+      }
+      // For property expressions, use variable.property
+      else if (item.expression.type === 'property') {
+        columns.push(`${item.expression.object.name}.${item.expression.property}`);
+      }
+    }
+    
+    // For each match, extract the values for each return item
+    for (const match of matches) {
+      const row: ReturnedValue<NodeData, EdgeData>[] = [];
+      
+      for (const item of returnClause.items) {
+        if (item.expression.type === 'variable') {
+          const varExpr = item.expression as VariableExpression;
+          const value = match.get(varExpr.name);
+          
+          if (value !== undefined) {
+            const type = this.isNode(value) ? 'node' : 'edge';
+            row.push({
+              name: varExpr.name,
+              value,
+              type
+            });
+          } else {
+            // Variable not found, push null
+            row.push({
+              name: varExpr.name,
+              value: null,
+              type: 'property'
+            });
+          }
+        }
+        else if (item.expression.type === 'property') {
+          const propExpr = item.expression as PropertyExpression;
+          const object = match.get(propExpr.object.name);
+          
+          if (object !== undefined) {
+            // Extract property value from the object
+            let propertyValue: any = null;
+            
+            // For graph nodes and edges, property is in data
+            if (this.isNode(object) || this.isEdge(object)) {
+              propertyValue = object.data[propExpr.property as keyof typeof object.data];
+            }
+            // For other objects, property is direct
+            else if (typeof object === 'object' && object !== null) {
+              propertyValue = (object as any)[propExpr.property];
+            }
+            
+            row.push({
+              name: `${propExpr.object.name}.${propExpr.property}`,
+              value: propertyValue,
+              type: 'property'
+            });
+          } else {
+            // Object not found, push null
+            row.push({
+              name: `${propExpr.object.name}.${propExpr.property}`,
+              value: null,
+              type: 'property'
+            });
+          }
+        }
+      }
+      
+      rows.push(row);
+    }
+    
+    return {
+      success: true,
+      rows,
+      columns,
+      matchCount: matches.length
+    };
+  }
+  
+  /**
+   * Type guard to check if a value is a graph node
+   * 
+   * @param value The value to check
+   * @returns True if the value is a graph node
+   */
+  private isNode(value: any): value is Node<NodeData> {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      'id' in value &&
+      'data' in value &&
+      !('source' in value) &&
+      !('target' in value) &&
+      !('label' in value)
+    );
+  }
+  
+  /**
+   * Type guard to check if a value is a graph edge
+   * 
+   * @param value The value to check
+   * @returns True if the value is a graph edge
+   */
+  private isEdge(value: any): value is Edge<EdgeData> {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      'id' in value &&
+      'source' in value &&
+      'target' in value &&
+      'label' in value &&
+      'data' in value
+    );
   }
   
   /**
@@ -275,6 +545,51 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   ): RuleExecutionResult<NodeData, EdgeData>[] {
     const rules = extractRulesFromMarkdown(markdown);
     return this.executeRules(graph, rules, options);
+  }
+  
+  /**
+   * Execute a query from a markdown code block
+   * 
+   * @param graph The graph to query
+   * @param markdown The markdown containing the query in a code block
+   * @param codeBlockType The type of code block to look for (default: "graphquery")
+   * @param options Execution options
+   * @returns Result of the query execution
+   */
+  executeQueryFromMarkdown(
+    graph: Graph<NodeData, EdgeData>,
+    markdown: string,
+    codeBlockType: string = "graphquery",
+    options?: RuleExecutionOptions
+  ): QueryResult<NodeData, EdgeData> {
+    try {
+      // Extract the query from the markdown code block
+      const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``);
+      const match = regex.exec(markdown);
+      
+      if (!match) {
+        return {
+          success: false,
+          rows: [],
+          columns: [],
+          matchCount: 0,
+          error: `No ${codeBlockType} code block found in the provided markdown`
+        };
+      }
+      
+      const queryText = match[1].trim();
+      
+      // Execute the query
+      return this.executeQuery(graph, queryText, options);
+    } catch (error: any) {
+      return {
+        success: false,
+        rows: [],
+        columns: [],
+        matchCount: 0,
+        error: error.message || String(error)
+      };
+    }
   }
   
   /**

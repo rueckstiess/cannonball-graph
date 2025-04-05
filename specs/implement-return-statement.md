@@ -25,8 +25,8 @@ Implementation Plan for RETURN Statement
     - Add executeQuery helper method that returns matched data instead of execution results
   4. API Update
     - Add new methods to expose query functionality:
-    executeQuery(graph: Graph, rule: Rule): QueryResult
-  executeQueryFromMarkdown(graph: Graph, markdown: string): QueryResult
+      - executeQuery(graph: Graph, rule: Rule): QueryResult
+      - executeQueryFromMarkdown(graph: Graph, markdown: string): QueryResult
   5. Testing & Documentation
     - Add tests for the new RETURN clause
     - Update documentation to show query examples
