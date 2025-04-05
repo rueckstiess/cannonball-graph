@@ -179,15 +179,6 @@ describe('End-to-End Pattern Matching', () => {
   });
 
   describe('Complex Queries', () => {
-    it('should handle multiple labels in a query', () => {
-      // In our Cypher subset, having multiple labels typically means any of them
-      const query = 'MATCH (n:Person:Task) RETURN n';
-      const result = executeMatchQuery(query);
-
-      // This should only match nodes that have BOTH labels in our implementation
-      // Since no node has both, it will return empty
-      expect(result).toHaveLength(0);
-    });
 
     it('should match nodes with specific priority ranges', () => {
       // Tasks with priority greater than 1

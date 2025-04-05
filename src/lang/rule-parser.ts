@@ -555,6 +555,11 @@ export class CypherParser implements Parser {
       node.labels.push(label);
     }
 
+    // Currently we only support matching on a single label
+    if (node.labels.length > 1) {
+      throw Error(`Only a single label supported, but got ${node.labels}`)
+    }
+
     // Parse properties if any
     if (this.match(TokenType.OPEN_BRACE)) {
       node.properties = this.parsePropertyMap();

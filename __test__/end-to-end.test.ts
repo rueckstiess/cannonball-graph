@@ -81,9 +81,10 @@ describe('End-to-End Query Tests', () => {
 
     test('Match by multiple node types', () => {
       const query = `MATCH (t:task:active) RETURN t`;
-      const result = engine.executeQuery(graph, query);
 
-      expect(result.success).toBe(true);
+      const result = engine.executeQuery(graph, query);
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/single label supported, but got task,active/g)
       expect(result.matchCount).toBe(0); // None match both task AND active as types
     });
 
@@ -344,28 +345,15 @@ describe('End-to-End Query Tests', () => {
       expect(nodes[0].data.name).toBe('New Project');
     });
 
-    test('Create a node with multiple types', () => {
+    test('Fail when trying to create a node with multiple types', () => {
       const query = `
         CREATE (n:task:priority {title: "Important Task", due: "2023-12-31"})
         RETURN n
       `;
       const result = engine.executeQuery(graph, query);
 
-      expect(result.success).toBe(true);
-
-      // Check the returned node
-      const node = result.query?.rows[0][0].value;
-      expect(node.data.title).toBe('Important Task');
-      expect(node.data.due).toBe('2023-12-31');
-
-      // BUG: Same as before, created node has no type, but instead a labels[] property
-
-      // Verify the node exists in the graph
-      const createdNodeId = node.id;
-      const dbNode = graph.getNode(createdNodeId);
-      expect(dbNode).toBeDefined();
-      expect(dbNode?.data.title).toBe('Important Task');
-      expect(dbNode?.label).toBe('task');
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Only a single label supported, but got task,priority/)
     });
 
     test.skip('Create a relationship between existing nodes', () => {
@@ -502,7 +490,7 @@ describe('End-to-End Query Tests', () => {
       expect(node?.data.completedDate).toBe('2023-06-15');
     });
 
-    test.skip('SET properties on relationship', () => {
+    test('SET properties on relationship', () => {
       const query = `
         MATCH (p:person)-[r:KNOWS]->(f:person)
         WHERE p.name = "Alice" AND f.name = "Bob"
@@ -512,7 +500,6 @@ describe('End-to-End Query Tests', () => {
       const result = engine.executeQuery(graph, query);
 
       // BUG: Maybe? The actionResults array is deeply nested, not sure if this is expected
-      fail('This test passes but there is something odd with the actionResults array, it is deeply nested');
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(1);

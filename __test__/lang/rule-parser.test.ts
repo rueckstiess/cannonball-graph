@@ -1032,13 +1032,7 @@ describe('CypherParser', () => {
 
     it('should parse node pattern with multiple labels', () => {
       parser = new CypherParser(new Lexer(), '(person:Person:Employee)');
-      const result = parser['parseNodePattern']();
-
-      expect(result).toEqual({
-        variable: 'person',
-        labels: ['Person', 'Employee'],
-        properties: {}
-      });
+      expect(() => parser['parseNodePattern']()).toThrow(/single label supported/)
     });
 
     it('should parse node pattern with properties', () => {
