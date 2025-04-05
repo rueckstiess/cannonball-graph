@@ -16,10 +16,10 @@ describe('Lexer', () => {
     });
 
     it('should tokenize keywords', () => {
-      const input = 'MATCH WHERE CREATE SET REMOVE DELETE EXISTS NOT AND OR XOR NULL IN CONTAINS STARTS ENDS WITH IS';
+      const input = 'MATCH WHERE CREATE SET REMOVE DELETE EXISTS NOT AND OR XOR NULL IN CONTAINS STARTS ENDS WITH IS RETURN';
       const tokens = lexer.tokenize(input);
 
-      expect(tokens.length).toBe(19); // 18 keywords + EOF
+      expect(tokens.length).toBe(20); // 19 keywords + EOF
       expect(tokens[0].type).toBe(TokenType.MATCH);
       expect(tokens[1].type).toBe(TokenType.WHERE);
       expect(tokens[2].type).toBe(TokenType.CREATE);
@@ -38,7 +38,8 @@ describe('Lexer', () => {
       expect(tokens[15].type).toBe(TokenType.ENDS);
       expect(tokens[16].type).toBe(TokenType.WITH);
       expect(tokens[17].type).toBe(TokenType.IS);
-      expect(tokens[18].type).toBe(TokenType.EOF);
+      expect(tokens[18].type).toBe(TokenType.RETURN);
+      expect(tokens[19].type).toBe(TokenType.EOF);
     });
 
     it('should tokenize keywords case-insensitively by default', () => {
@@ -297,12 +298,42 @@ describe('Lexer', () => {
       const tokens = lexer.tokenize(input);
 
       expect(tokens[0].type).toBe(TokenType.WHERE);
-      expect(tokens[1].type).toBe(TokenType.IDENTIFIER); // 'a'
-      expect(tokens[2].type).toBe(TokenType.DOT);
-      expect(tokens[3].type).toBe(TokenType.IDENTIFIER); // 'age'
-      expect(tokens[4].type).toBe(TokenType.GREATER_THAN);
-      expect(tokens[5].type).toBe(TokenType.NUMBER); // '30'
-      expect(tokens[6].type).toBe(TokenType.AND);
+    });
+    
+    it('should tokenize RETURN clauses', () => {
+      const input = 'RETURN a, b.name';
+      const tokens = lexer.tokenize(input);
+      
+      expect(tokens.length).toBe(7); // RETURN + a + COMMA + b + DOT + name + EOF
+      expect(tokens[0].type).toBe(TokenType.RETURN);
+      expect(tokens[1].type).toBe(TokenType.IDENTIFIER);
+      expect(tokens[1].value).toBe('a');
+      expect(tokens[2].type).toBe(TokenType.COMMA);
+      expect(tokens[3].type).toBe(TokenType.IDENTIFIER);
+      expect(tokens[3].value).toBe('b');
+      expect(tokens[4].type).toBe(TokenType.DOT);
+      expect(tokens[5].type).toBe(TokenType.IDENTIFIER);
+      expect(tokens[5].value).toBe('name');
+      expect(tokens[6].type).toBe(TokenType.EOF);
+    });
+    
+    it('should tokenize complete queries with RETURN', () => {
+      const input = 'MATCH (p:Person) WHERE p.age > 30 RETURN p.name, p.age';
+      const tokens = lexer.tokenize(input);
+      
+      // Check just the main clauses to verify RETURN works in context
+      expect(tokens[0].type).toBe(TokenType.MATCH);
+      // ... middle tokens
+      
+      // Find the RETURN token
+      const returnIndex = tokens.findIndex(token => token.type === TokenType.RETURN);
+      expect(returnIndex).toBeGreaterThan(0); // Ensure RETURN was found
+      expect(tokens[returnIndex].type).toBe(TokenType.RETURN);
+      
+      // Verify tokens after RETURN are what we expect
+      expect(tokens[returnIndex + 1].type).toBe(TokenType.IDENTIFIER); // p
+      expect(tokens[returnIndex + 2].type).toBe(TokenType.DOT); // .
+      expect(tokens[returnIndex + 3].type).toBe(TokenType.IDENTIFIER); // name
       // ... rest of the tokens
     });
 

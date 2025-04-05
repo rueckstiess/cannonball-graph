@@ -21,6 +21,7 @@ export enum TokenType {
   ENDS = 'ENDS',
   WITH = 'WITH',
   IS = 'IS',
+  RETURN = 'RETURN',
 
   // Literals
   IDENTIFIER = 'IDENTIFIER', // Variable names, property names
@@ -177,6 +178,7 @@ const KEYWORDS: Record<string, TokenType> = {
   ENDS: TokenType.ENDS,
   WITH: TokenType.WITH,
   IS: TokenType.IS,
+  RETURN: TokenType.RETURN,
   TRUE: TokenType.BOOLEAN,
   FALSE: TokenType.BOOLEAN,
 };
