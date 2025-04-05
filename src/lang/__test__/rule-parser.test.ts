@@ -1,5 +1,5 @@
-import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../src/lang/rule-parser';
-import { Lexer } from '../src/lang';
+import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../rule-parser';
+import { Lexer } from '..';
 import { Rule, TokenType, ComparisonOperator, LogicalOperator, LiteralExpression, ComparisonExpression, LogicalExpression, ExistsExpression } from '@/lang';
 
 
