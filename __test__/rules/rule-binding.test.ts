@@ -1,0 +1,120 @@
+import { Graph } from '@/graph';
+import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
+import { Rule } from '@/lang/rule-parser';
+import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
+
+describe('Rule Engine Binding Tests', () => {
+  let engine: RuleEngine;
+  let graph: Graph;
+  
+  beforeEach(() => {
+    engine = createRuleEngine();
+    graph = new Graph();
+    
+    // Add test nodes
+    graph.addNode('person1', { name: 'Alice', labels: ['Person'] });
+    graph.addNode('person2', { name: 'Bob', labels: ['Person'] });
+    graph.addNode('task1', { title: 'Task 1', priority: 'High', labels: ['Task'] });
+    graph.addNode('task2', { title: 'Task 2', priority: 'Low', labels: ['Task'] });
+  });
+  
+  test('RuleEngine combines bindings from comma-separated patterns', () => {
+    // Define a rule with comma-separated patterns
+    const rule: Rule = {
+      name: 'ConnectPeopleToTasks',
+      description: 'Connect all people to all tasks',
+      priority: 5,
+      disabled: false,
+      ruleText: 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)',
+      markdown: '```graphrule\nname: ConnectPeopleToTasks\ndescription: Connect all people to all tasks\npriority: 5\nMATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)\n```'
+    };
+    
+    const result = engine.executeRule(graph, rule);
+    
+    // Verify execution succeeded
+    expect(result.success).toBe(true);
+    
+    // With 2 people and 2 tasks, we should have 4 binding combinations (2×2=4)
+    expect(result.matchCount).toBe(4);
+    expect(result.actionResults.length).toBe(4);
+    
+    // We should have created 4 relationships
+    const edges = graph.getAllEdges();
+    expect(edges.length).toBe(4);
+    
+    // Each relationship should have the correct type and property
+    edges.forEach(edge => {
+      expect(edge.label).toBe('WORKS_ON');
+      expect(edge.data.date).toBe('2023-01-15');
+    });
+    
+    // Check that each person is connected to each task
+    const person1Edges = graph.getEdgesForNode('person1', 'outgoing');
+    const person2Edges = graph.getEdgesForNode('person2', 'outgoing');
+    
+    expect(person1Edges.length).toBe(2);
+    expect(person2Edges.length).toBe(2);
+    
+    // Verify the specific connections using a set of source-target pairs
+    const connections = new Set();
+    edges.forEach(edge => connections.add(`${edge.source}->${edge.target}`));
+    
+    expect(connections.has('person1->task1')).toBe(true);
+    expect(connections.has('person1->task2')).toBe(true);
+    expect(connections.has('person2->task1')).toBe(true);
+    expect(connections.has('person2->task2')).toBe(true);
+  });
+  
+  test('RuleEngine handles the case where one pattern has no matches', () => {
+    // Create a rule that references a non-existent label
+    const rule: Rule = {
+      name: 'NoMatchesRule',
+      description: 'Rule that matches nothing',
+      priority: 1,
+      disabled: false,
+      ruleText: 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)',
+      markdown: '```graphrule\nname: NoMatchesRule\ndescription: Rule that matches nothing\npriority: 1\nMATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)\n```'
+    };
+    
+    const result = engine.executeRule(graph, rule);
+    
+    // We're specifically testing that even when Category nodes don't exist,
+    // the rule engine correctly handles this case
+    expect(result.matchCount).toBeGreaterThan(0); // There are matching Person nodes
+    
+    // No actions should be executed because of the missing Category nodes
+    expect(result.actionResults.every(r => !r.success)).toBe(true); // Actions fail
+    expect(result.success).toBe(false); // Overall success is false
+    
+    // No new relationships should be created
+    expect(graph.getAllEdges().length).toBe(0);
+  });
+  
+  test('RuleEngine handles single pattern rules correctly', () => {
+    // Define a rule with only one pattern
+    const rule: Rule = {
+      name: 'UpdatePersonRule',
+      description: 'Update all person nodes',
+      priority: 1,
+      disabled: false,
+      ruleText: 'MATCH (p:Person) SET p.status = "Active"',
+      markdown: '```graphrule\nname: UpdatePersonRule\ndescription: Update all person nodes\npriority: 1\nMATCH (p:Person) SET p.status = "Active"\n```'
+    };
+    
+    const result = engine.executeRule(graph, rule);
+    
+    // Verify execution succeeded
+    expect(result.success).toBe(true);
+    
+    // Should have 2 matches (2 Person nodes)
+    expect(result.matchCount).toBe(2);
+    expect(result.actionResults.length).toBe(2);
+    
+    // Each Person node should have been updated
+    const person1 = graph.getNode('person1');
+    const person2 = graph.getNode('person2');
+    
+    expect(person1?.data.status).toBe('Active');
+    expect(person2?.data.status).toBe('Active');
+  });
+});
