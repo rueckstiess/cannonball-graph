@@ -1,5 +1,5 @@
 import { Graph, Node } from '@/graph';
-import { CypherLexer, CypherParser, PatternMatcherImpl, Token } from '@/lang';
+import { CypherLexer, CypherParser, PatternMatcher, Token } from '@/lang';
 
 
 describe('End-to-End Pattern Matching', () => {
@@ -64,7 +64,7 @@ describe('End-to-End Pattern Matching', () => {
    */
   function executeMatchQuery(query: string): Node<TestNodeData>[] {
     // The pattern matcher to use
-    const patternMatcher = new PatternMatcherImpl<TestNodeData>();
+    const patternMatcher = new PatternMatcher<TestNodeData>();
 
     // Strip out the RETURN part since our parser doesn't handle it
     // This assumes queries are in the format: MATCH (...) RETURN x
@@ -233,7 +233,7 @@ describe('End-to-End Pattern Matching', () => {
 
       // Create custom executeMatchQuery with type coercion
       function executeCoercingQuery(query: string): Node<TestNodeData>[] {
-        const patternMatcher = new PatternMatcherImpl<TestNodeData>({ enableTypeCoercion: true });
+        const patternMatcher = new PatternMatcher<TestNodeData>({ enableTypeCoercion: true });
 
         // Strip out the RETURN part since our parser doesn't handle it
         const matchPart = query.split('RETURN')[0].trim();
@@ -321,7 +321,7 @@ describe('End-to-End Pattern Matching', () => {
       };
 
       // Create matcher and execute
-      const patternMatcher = new PatternMatcherImpl<TestNodeData>();
+      const patternMatcher = new PatternMatcher<TestNodeData>();
       const firstPattern = statement.match.patterns[0];
 
       // Find all tasks
@@ -383,7 +383,7 @@ describe('End-to-End Pattern Matching', () => {
       };
 
       // Create matcher and execute
-      const patternMatcher = new PatternMatcherImpl<TestNodeData>();
+      const patternMatcher = new PatternMatcher<TestNodeData>();
       const firstPattern = statement.match.patterns[0];
 
       // Find Alice

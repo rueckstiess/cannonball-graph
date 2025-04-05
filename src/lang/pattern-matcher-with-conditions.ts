@@ -2,14 +2,14 @@
 
 import { Graph, Node, Edge, Path } from '@/graph';
 import { Expression, WhereClause } from './rule-parser';
-import { NodePattern, RelationshipPattern, PathPattern, PatternMatcherImpl, PatternMatcherOptions } from './pattern-matcher';
+import { NodePattern, RelationshipPattern, PathPattern, PatternMatcher, PatternMatcherOptions } from './pattern-matcher';
 import { ConditionEvaluator, BindingContext, ConditionEvaluatorOptions } from './condition-evaluator';
 import { ConditionEvaluatorImpl, BindingContextImpl } from './condition-evaluator';
 
 /**
- * Extension of the PatternMatcherImpl to support condition evaluation
+ * Extension of the PatternMatcher to support condition evaluation
  */
-export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extends PatternMatcherImpl<NodeData, EdgeData> {
+export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extends PatternMatcher<NodeData, EdgeData> {
   private conditionEvaluator: ConditionEvaluator<NodeData, EdgeData>;
 
   /**

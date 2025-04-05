@@ -3,7 +3,7 @@ import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression,
   ComparisonExpression, LogicalExpression, ExistsExpression,
-  ComparisonOperator, LogicalOperator, PathPattern, PatternMatcherImpl,
+  ComparisonOperator, LogicalOperator, PathPattern, PatternMatcher,
   ConditionEvaluatorImpl, BindingContextImpl, ConditionEvaluator, BindingContext,
   EvaluationResult, ConditionEvaluatorOptions
 } from '@/lang';
@@ -85,7 +85,7 @@ describe('ConditionEvaluator', () => {
     graph.addEdge('charlie', 'alice', 'KNOWS', { since: '2022-03-20', weight: 4 });
 
     // Create the condition evaluator with a pattern matcher
-    const patternMatcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
+    const patternMatcher = new PatternMatcher<TestNodeData, TestEdgeData>();
     evaluator = new ConditionEvaluatorImpl<TestNodeData, TestEdgeData>();
     evaluator.setPatternMatcher(patternMatcher);
 
@@ -1107,7 +1107,7 @@ describe('ConditionEvaluator', () => {
       // Test the ability to filter pattern matches using WHERE conditions
 
       // Set up the PatternMatcher to find all people
-      const patternMatcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
+      const patternMatcher = new PatternMatcher<TestNodeData, TestEdgeData>();
       evaluator.setPatternMatcher(patternMatcher);
 
       // Find people with name = 'Alice'

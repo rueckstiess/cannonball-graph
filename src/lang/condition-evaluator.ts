@@ -3,7 +3,7 @@ import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression, ComparisonExpression,
   LogicalExpression, ExistsExpression, ComparisonOperator, LogicalOperator
 } from './rule-parser';
-import { PathPattern, PatternMatcher, PatternMatcherImpl } from './pattern-matcher';
+import { PathPattern, PatternMatcher } from './pattern-matcher';
 
 
 /**
@@ -290,7 +290,7 @@ export interface ConditionEvaluator<NodeData = any, EdgeData = any> {
    * 
    * @example
    * ```typescript
-   * const patternMatcher = new PatternMatcherImpl();
+   * const patternMatcher = new PatternMatcher();
    * const evaluator = createConditionEvaluator();
    * evaluator.setPatternMatcher(patternMatcher);
    * ```
@@ -452,7 +452,7 @@ export class ConditionEvaluatorImpl<NodeData = any, EdgeData = any> implements C
     };
 
     // Initialize with default pattern matcher
-    this.patternMatcher = new PatternMatcherImpl<NodeData, EdgeData>();
+    this.patternMatcher = new PatternMatcher<NodeData, EdgeData>();
   }
 
   /**

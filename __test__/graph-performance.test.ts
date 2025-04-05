@@ -1,7 +1,7 @@
 import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, NodePattern, RelationshipPattern, PathPattern, ComparisonOperator,
-  LogicalOperator, PatternMatcherImpl, PatternMatcherWithConditions, BindingContextImpl
+  LogicalOperator, PatternMatcher, PatternMatcherWithConditions, BindingContextImpl
 } from '@/lang';
 
 /**
@@ -34,7 +34,7 @@ describe('Graph Performance', () => {
   };
 
   let graph: Graph<TestNodeData, TestEdgeData>;
-  let patternMatcher: PatternMatcherImpl<TestNodeData, TestEdgeData>;
+  let patternMatcher: PatternMatcher<TestNodeData, TestEdgeData>;
   let patternMatcherWithConditions: PatternMatcherWithConditions<TestNodeData, TestEdgeData>;
 
   // Performance test parameters
@@ -191,7 +191,7 @@ describe('Graph Performance', () => {
     // Generate the test graph (or load from cache if available)
     try {
       graph = generateLargeGraph();
-      patternMatcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
+      patternMatcher = new PatternMatcher<TestNodeData, TestEdgeData>();
       patternMatcherWithConditions = new PatternMatcherWithConditions<TestNodeData, TestEdgeData>();
     } catch (error) {
       console.error('Error setting up performance tests:', error);

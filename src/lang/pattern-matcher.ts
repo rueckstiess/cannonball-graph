@@ -177,7 +177,7 @@ export interface PatternMatcher<NodeData = any, EdgeData = any> {
 /**
  * Implementation of the pattern matcher
  */
-export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements PatternMatcher<NodeData, EdgeData> {
+export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMatcher<NodeData, EdgeData> {
   private options: Required<PatternMatcherOptions>;
 
   // Cache for node labels
@@ -711,4 +711,4 @@ export class PatternMatcherImpl<NodeData = any, EdgeData = any> implements Patte
     return undefined;
   }
 
-} // End PatternMatcherImpl Class
+} // End PatternMatcher Class

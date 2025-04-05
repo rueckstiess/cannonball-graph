@@ -1,8 +1,8 @@
 import { Graph, Node, Edge, Path } from '@/graph';
 
 import {
-  NodePattern, RelationshipPattern, PathPattern, PatternMatcher,
-  PatternMatcherImpl, CypherLexer, CypherParser
+  NodePattern, RelationshipPattern, PathPattern,
+  PatternMatcher, CypherLexer, CypherParser
 } from '@/lang';
 
 describe('PatternMatcher', () => {
@@ -45,7 +45,7 @@ describe('PatternMatcher', () => {
 
 
     graph = new Graph<TestNodeData, TestEdgeData>();
-    matcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
+    matcher = new PatternMatcher<TestNodeData, TestEdgeData>();
 
     // People
     graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });
@@ -106,7 +106,7 @@ describe('PatternMatcher', () => {
       });
 
       it('should respect case sensitivity when configured', () => {
-        const caseSensitiveMatcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>({
+        const caseSensitiveMatcher = new PatternMatcher<TestNodeData, TestEdgeData>({
           caseSensitiveLabels: true
         });
 
@@ -218,7 +218,7 @@ describe('PatternMatcher', () => {
       });
 
       it('should respect case sensitivity when configured', () => {
-        const caseSensitiveMatcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>({
+        const caseSensitiveMatcher = new PatternMatcher<TestNodeData, TestEdgeData>({
           caseSensitiveLabels: true
         });
 
@@ -699,7 +699,7 @@ describe('Path Pattern Matching', () => {
   beforeEach(() => {
     // Create a new graph for each test
     graph = new Graph<TestNodeData, TestEdgeData>();
-    matcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
+    matcher = new PatternMatcher<TestNodeData, TestEdgeData>();
 
     // People
     graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });
