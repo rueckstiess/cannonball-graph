@@ -22,7 +22,7 @@ logGraphState();
 console.log('\n2. Basic query: Find all Person nodes');
 const basicQuery = 'MATCH (p:Person) RETURN p';
 
-const basicResult = engine.executeQuery(graph, basicQuery);
+const basicResult = engine.executeGraphQuery(graph, basicQuery);
 
 console.log(`Query: ${basicQuery}`);
 console.log(`Success: ${basicResult.success}`);
@@ -36,7 +36,7 @@ console.log(formatter.toTextTable(basicResult));
 console.log('\n3. Property access: Get person names and ages');
 const propertyQuery = 'MATCH (p:Person) RETURN p.name, p.age';
 
-const propertyResult = engine.executeQuery(graph, propertyQuery);
+const propertyResult = engine.executeGraphQuery(graph, propertyQuery);
 
 console.log(`Query: ${propertyQuery}`);
 console.log(`Success: ${propertyResult.success}`);
@@ -59,7 +59,7 @@ console.log(peopleObjects);
 console.log('\n4. Using WHERE conditions: Find people over 30');
 const whereQuery = 'MATCH (p:Person) WHERE p.age > 30 RETURN p.name, p.age, p.department';
 
-const whereResult = engine.executeQuery(graph, whereQuery);
+const whereResult = engine.executeGraphQuery(graph, whereQuery);
 
 console.log(`Query: ${whereQuery}`);
 console.log(`Success: ${whereResult.success}`);
@@ -73,7 +73,7 @@ console.log(formatter.toMarkdownTable(whereResult));
 console.log('\n5. Relationship patterns: Find task assignments');
 const relationshipQuery = 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN p.name, t.title, r.date';
 
-const relationshipResult = engine.executeQuery(graph, relationshipQuery);
+const relationshipResult = engine.executeGraphQuery(graph, relationshipQuery);
 
 console.log(`Query: ${relationshipQuery}`);
 console.log(`Success: ${relationshipResult.success}`);
@@ -90,7 +90,7 @@ const complexQuery = `
   RETURN p.name, proj.name, t.title
 `;
 
-const complexResult = engine.executeQuery(graph, complexQuery.trim());
+const complexResult = engine.executeGraphQuery(graph, complexQuery.trim());
 
 console.log(`Query: ${complexQuery.trim()}`);
 console.log(`Success: ${complexResult.success}`);
@@ -116,7 +116,7 @@ RETURN t.title, t.dueDate
 Results should be reviewed by the team.
 `;
 
-const markdownResult = engine.executeQueryFromMarkdown(graph, markdown);
+const markdownResult = engine.executeGraphQueryFromMarkdown(graph, markdown);
 
 console.log('Markdown:');
 console.log(markdown);
@@ -132,7 +132,7 @@ console.log(formatter.toTextTable(markdownResult));
 console.log('\n8. JSON output: Format results as JSON');
 const jsonQuery = 'MATCH (p:Person)-[:ASSIGNED_TO]->(t:Task) RETURN p, t';
 
-const jsonResult = engine.executeQuery(graph, jsonQuery);
+const jsonResult = engine.executeGraphQuery(graph, jsonQuery);
 
 console.log(`Query: ${jsonQuery}`);
 console.log(`Success: ${jsonResult.success}`);
@@ -146,7 +146,7 @@ console.log(formatter.toJson(jsonResult, { prettyPrint: true }));
 console.log('\n9. Subgraph creation: Create a subgraph from query results');
 const subgraphQuery = 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN p, r, t';
 
-const subgraphResult = engine.executeQuery(graph, subgraphQuery);
+const subgraphResult = engine.executeGraphQuery(graph, subgraphQuery);
 const subgraph = utils.toSubgraph(subgraphResult);
 
 console.log(`Query: ${subgraphQuery}`);

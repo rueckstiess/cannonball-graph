@@ -1,4 +1,4 @@
-import { QueryResult, ReturnedValue, GraphQueryResult, QueryResultData } from './rule-engine';
+import { ReturnedValue, GraphQueryResult, QueryResultData } from './rule-engine';
 import { Graph, Node, Edge } from '@/graph';
 
 /**
@@ -63,41 +63,17 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @returns A markdown table string
    */
   toMarkdownTable(
-    result: GraphQueryResult<NodeData, EdgeData> | QueryResult<NodeData, EdgeData>,
+    result: GraphQueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
     
-    // Handle new GraphQueryResult type
-    if ('query' in result) {
-      if (!result.success || !result.query || result.query.rows.length === 0) {
-        return 'No results';
-      }
-      
-      return this.formatQueryDataAsMarkdown(result.query, opts);
-    }
-    
-    // Handle legacy QueryResult type
-    const queryResult = result as QueryResult<NodeData, EdgeData>;
-    if (!queryResult.success || queryResult.rows.length === 0) {
+    if (!result.success || !result.query || result.query.rows.length === 0) {
       return 'No results';
     }
     
-    // Create header row
-    let table = '| ' + queryResult.columns.join(' | ') + ' |\n';
-    
-    // Create header-body separator
-    table += '| ' + queryResult.columns.map(() => '---').join(' | ') + ' |\n';
-    
-    // Add data rows
-    for (const row of queryResult.rows) {
-      table += '| ' + row.map((item: ReturnedValue<NodeData, EdgeData>) => 
-        this.formatValue(item, opts)
-      ).join(' | ') + ' |\n';
-    }
-    
-    return table;
+    return this.formatQueryDataAsMarkdown(result.query, opts);
   }
   
   /**
@@ -135,76 +111,46 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @returns A JSON string
    */
   toJson(
-    result: GraphQueryResult<NodeData, EdgeData> | QueryResult<NodeData, EdgeData>,
+    result: GraphQueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
     
-    // Handle new GraphQueryResult type
-    if ('query' in result) {
-      if (!result.success) {
-        return JSON.stringify({ error: result.error }, null, opts.prettyPrint ? opts.indentSpaces : 0);
-      }
-      
-      // Create a full response with all data
-      const response: Record<string, any> = {
-        success: result.success,
-        matchCount: result.matchCount,
-        statement: result.statement,
-        stats: result.stats
+    if (!result.success) {
+      return JSON.stringify({ error: result.error }, null, opts.prettyPrint ? opts.indentSpaces : 0);
+    }
+    
+    // Create a full response with all data
+    const response: Record<string, any> = {
+      success: result.success,
+      matchCount: result.matchCount,
+      statement: result.statement,
+      stats: result.stats
+    };
+    
+    // Add query results if present
+    if (result.query) {
+      response.query = this.formatQueryDataAsJson(result.query, opts);
+    }
+    
+    // Add action results if present 
+    if (result.actions) {
+      response.actions = {
+        affectedNodesCount: result.actions.affectedNodes.length,
+        affectedEdgesCount: result.actions.affectedEdges.length
       };
       
-      // Add query results if present
-      if (result.query) {
-        response.query = this.formatQueryDataAsJson(result.query, opts);
+      if (opts.includeIds) {
+        response.actions.affectedNodes = result.actions.affectedNodes.map(node => node.id);
+        response.actions.affectedEdges = result.actions.affectedEdges.map(edge => 
+          `${edge.source}-${edge.label}-${edge.target}`
+        );
       }
-      
-      // Add action results if present 
-      if (result.actions) {
-        response.actions = {
-          affectedNodesCount: result.actions.affectedNodes.length,
-          affectedEdgesCount: result.actions.affectedEdges.length
-        };
-        
-        if (opts.includeIds) {
-          response.actions.affectedNodes = result.actions.affectedNodes.map(node => node.id);
-          response.actions.affectedEdges = result.actions.affectedEdges.map(edge => 
-            `${edge.source}-${edge.label}-${edge.target}`
-          );
-        }
-      }
-      
-      return JSON.stringify(
-        response,
-        null,
-        opts.prettyPrint ? opts.indentSpaces : 0
-      );
     }
-    
-    // Handle legacy QueryResult type
-    const queryResult = result as QueryResult<NodeData, EdgeData>;
-    if (!queryResult.success) {
-      return JSON.stringify({ error: queryResult.error }, null, opts.prettyPrint ? opts.indentSpaces : 0);
-    }
-    
-    // Convert query results to a more JSON-friendly structure
-    const formattedData = queryResult.rows.map((row: ReturnedValue<NodeData, EdgeData>[]) => {
-      const rowObj: Record<string, any> = {};
-      
-      for (let i = 0; i < row.length; i++) {
-        const columnName = queryResult.columns[i];
-        rowObj[columnName] = this.formatValueForJson(row[i], opts);
-      }
-      
-      return rowObj;
-    });
     
     return JSON.stringify(
-      { 
-        matchCount: queryResult.matchCount,
-        results: formattedData 
-      },
+      response,
       null,
       opts.prettyPrint ? opts.indentSpaces : 0
     );
@@ -242,56 +188,17 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @returns A plain text table string
    */
   toTextTable(
-    result: GraphQueryResult<NodeData, EdgeData> | QueryResult<NodeData, EdgeData>,
+    result: GraphQueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
     
-    // Handle new GraphQueryResult type
-    if ('query' in result) {
-      if (!result.success || !result.query || result.query.rows.length === 0) {
-        return 'No results';
-      }
-      
-      return this.formatQueryDataAsTextTable(result.query, opts);
-    }
-    
-    // Handle legacy QueryResult type
-    const queryResult = result as QueryResult<NodeData, EdgeData>;
-    if (!queryResult.success || queryResult.rows.length === 0) {
+    if (!result.success || !result.query || result.query.rows.length === 0) {
       return 'No results';
     }
     
-    // Calculate the width of each column
-    const columnWidths: number[] = queryResult.columns.map((column: string) => column.length);
-    
-    // Find the maximum width for each column from the data
-    for (const row of queryResult.rows) {
-      for (let i = 0; i < row.length; i++) {
-        const valueString = this.formatValue(row[i], opts);
-        columnWidths[i] = Math.max(columnWidths[i], valueString.length);
-      }
-    }
-    
-    // Create the header row
-    let table = queryResult.columns.map((column: string, index: number) => 
-      column.padEnd(columnWidths[index])
-    ).join(' | ') + '\n';
-    
-    // Create the separator line
-    table += columnWidths.map((width: number) => 
-      '-'.repeat(width)
-    ).join('-+-') + '\n';
-    
-    // Add data rows
-    for (const row of queryResult.rows) {
-      table += row.map((item: ReturnedValue<NodeData, EdgeData>, index: number) => 
-        this.formatValue(item, opts).padEnd(columnWidths[index])
-      ).join(' | ') + '\n';
-    }
-    
-    return table;
+    return this.formatQueryDataAsTextTable(result.query, opts);
   }
   
   /**

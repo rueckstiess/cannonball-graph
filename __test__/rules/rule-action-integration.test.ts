@@ -393,11 +393,11 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     `;
 
     // Execute the rule
-    const results = engine.executeRulesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Log results for debugging
     console.log('\nRule execution results for pattern matching binding test:');
-    console.log(`Rule: ${results[0].rule.name}`);
+    console.log(`Rule text: ${results[0].statement}`);
     console.log(`Success: ${results[0].success}`);
     console.log(`Matches found: ${results[0].matchCount}`);
     console.log(`Error: ${results[0].error || 'none'}`);
@@ -433,13 +433,13 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     expect(results[0].error).toBeUndefined(); // THIS WILL FAIL with current implementation
 
     // 4. All actions should have executed successfully
-    if (results[0].actionResults && results[0].actionResults.length > 0) {
+    if (results[0].actions && results[0].actions.actionResults.length > 0) {
       console.log('Action execution results:',
-        results[0].actionResults.map(r => ({ success: r.success, error: r.error }))
+        results[0].actions.actionResults.map(r => ({ success: r.success, error: r.error }))
       );
 
       // All actions should succeed (no binding errors)
-      const allActionsSucceeded = results[0].actionResults.every(r => r.success === true);
+      const allActionsSucceeded = results[0].actions.actionResults.every(r => r.success === true);
       expect(allActionsSucceeded).toBe(true); // THIS WILL FAIL with current implementation
     }
 
@@ -495,7 +495,7 @@ CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
 
     // Execute the rule
     const engine = createRuleEngine();
-    const results = engine.executeRulesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Verify rule execution result
     expect(results.length).toBe(1);
@@ -566,13 +566,13 @@ CREATE (p)-[r:WORKS_ON]->(proj)
     `;
 
     const engine = createRuleEngine();
-    const noMatchResults = engine.executeRulesFromMarkdown(testGraph, noMatchRuleMarkdown);
+    const noMatchResults = engine.executeGraphQueriesFromMarkdown(testGraph, noMatchRuleMarkdown);
 
     // Rule should execute but create no relationships because one pattern has no matches
     expect(noMatchResults.length).toBe(1);
     expect(noMatchResults[0].success).toBe(true);
     expect(noMatchResults[0].matchCount).toBe(0); // No matches when one pattern has no matches
-    expect(noMatchResults[0].actionResults.length).toBe(0); // No actions executed with no matches
+    expect(noMatchResults[0].actions?.actionResults.length).toBe(0); // No actions executed with no matches
 
     // No edges should be created
     expect(testGraph.getAllEdges().length).toBe(0);
@@ -591,7 +591,7 @@ SET p.status = "Active"
 \`\`\`
     `;
 
-    const singlePatternResults = engine.executeRulesFromMarkdown(testGraph, singlePatternRuleMarkdown);
+    const singlePatternResults = engine.executeGraphQueriesFromMarkdown(testGraph, singlePatternRuleMarkdown);
 
     // Rule should execute and match the single person
     expect(singlePatternResults.length).toBe(1);

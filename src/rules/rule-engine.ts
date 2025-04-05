@@ -42,26 +42,6 @@ export interface ReturnedValue<NodeData = any, EdgeData = any> {
 }
 
 /**
- * Represents a returned value from a query
- */
-export interface ReturnedValue<NodeData = any, EdgeData = any> {
-  /**
-   * The variable or property name
-   */
-  name: string;
-  
-  /**
-   * The value from the graph (can be a node, edge, or property value)
-   */
-  value: Node<NodeData> | Edge<EdgeData> | any;
-  
-  /**
-   * The type of the value ('node', 'edge', or 'property')
-   */
-  type: 'node' | 'edge' | 'property';
-}
-
-/**
  * Represents the query part of a result
  */
 export interface QueryResultData<NodeData = any, EdgeData = any> {
@@ -151,36 +131,6 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
   actions?: ActionResultData<NodeData, EdgeData>;
 }
 
-/**
- * @deprecated Use GraphQueryResult instead
- * Represents the result of executing a query
- */
-export interface QueryResult<NodeData = any, EdgeData = any> {
-  /**
-   * Whether execution was successful
-   */
-  success: boolean;
-  
-  /**
-   * The rows of results, each containing the values for one match
-   */
-  rows: ReturnedValue<NodeData, EdgeData>[][];
-  
-  /**
-   * Column names in order
-   */
-  columns: string[];
-  
-  /**
-   * Number of pattern matches found
-   */
-  matchCount: number;
-  
-  /**
-   * Error message if execution failed
-   */
-  error?: string;
-}
 
 /**
  * Result of rule execution
@@ -211,14 +161,6 @@ export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
    */
   error?: string;
   
-  /**
-   * @deprecated Use GraphQueryResult.query instead
-   * Query results (if the rule contains a RETURN clause)
-   */
-  queryResults?: {
-    columns: string[];
-    rows: ReturnedValue<NodeData, EdgeData>[][];
-  };
 }
 
 /**
@@ -377,118 +319,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     }
   }
   
-  /**
-   * Executes a query on a graph and returns the results
-   * 
-   * @deprecated Use executeGraphQuery instead
-   * @param graph The graph to query
-   * @param queryText The query text (should contain MATCH and RETURN clauses)
-   * @param options Execution options
-   * @returns Query results
-   */
-  executeQuery(
-    graph: Graph<NodeData, EdgeData>,
-    queryText: string,
-    options?: RuleExecutionOptions
-  ): QueryResult<NodeData, EdgeData> {
-    try {
-      // Use the new unified method and convert result
-      const result = this.executeGraphQuery(graph, queryText, options);
-      
-      // Convert to old format for backward compatibility
-      if (!result.success) {
-        return {
-          success: false,
-          rows: [],
-          columns: [],
-          matchCount: result.matchCount,
-          error: result.error
-        };
-      }
-      
-      if (!result.query) {
-        return {
-          success: false,
-          rows: [],
-          columns: [],
-          matchCount: result.matchCount,
-          error: 'Query must include a RETURN clause'
-        };
-      }
-      
-      return {
-        success: result.success,
-        rows: result.query.rows,
-        columns: result.query.columns,
-        matchCount: result.matchCount,
-        error: result.error
-      };
-    }
-    catch (error: any) {
-      return {
-        success: false,
-        rows: [],
-        columns: [],
-        matchCount: 0,
-        error: error.message || String(error)
-      };
-    }
-  }
   
-  /**
-   * Executes a rule on a graph
-   * 
-   * @deprecated Use executeGraphQuery instead
-   * @param graph The graph to execute the rule on
-   * @param rule The rule to execute
-   * @param options Execution options
-   * @returns Result of the rule execution
-   */
-  executeRule(
-    graph: Graph<NodeData, EdgeData>,
-    rule: Rule,
-    options?: RuleExecutionOptions
-  ): RuleExecutionResult<NodeData, EdgeData> {
-    try {
-      // Use the new unified method and convert result
-      const result = this.executeGraphQuery(graph, rule.ruleText, options);
-      
-      // Convert to old format for backward compatibility
-      const actionResults: ActionExecutionResult<NodeData, EdgeData>[] = 
-        result.actions?.actionResults || [];
-      
-      // Determine success based on action results
-      const allSuccessful = actionResults.every(result => result.success);
-      
-      // Extract query results if present
-      let queryResults: QueryResult<NodeData, EdgeData> | undefined;
-      if (result.query) {
-        queryResults = {
-          success: true,
-          rows: result.query.rows,
-          columns: result.query.columns,
-          matchCount: result.matchCount
-        };
-      }
-      
-      return {
-        rule,
-        success: result.actions ? allSuccessful : result.success,
-        actionResults,
-        matchCount: result.matchCount,
-        error: result.error,
-        queryResults
-      };
-    } catch (error: any) {
-      return {
-        rule,
-        success: false,
-        actionResults: [],
-        matchCount: 0,
-        error: error.message || String(error)
-      };
-    }
-  }
   
   /**
    * Finds pattern matches for a Cypher statement
@@ -671,27 +502,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     };
   }
   
-  /**
-   * Extracts query results from binding contexts and a RETURN clause
-   * 
-   * @deprecated Use extractQueryData instead
-   * @param matches The binding contexts from pattern matches
-   * @param returnClause The RETURN clause specifying what to return
-   * @returns The query results
-   */
-  private extractQueryResults(
-    matches: BindingContext<NodeData, EdgeData>[],
-    returnClause: ReturnClause
-  ): QueryResult<NodeData, EdgeData> {
-    const queryData = this.extractQueryData(matches, returnClause);
-    
-    return {
-      success: true,
-      rows: queryData.rows,
-      columns: queryData.columns,
-      matchCount: matches.length
-    };
-  }
   
   /**
    * Type guard to check if a value is a graph node
@@ -775,47 +585,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     return results;
   }
   
-  /**
-   * Executes multiple rules on a graph in priority order (highest first)
-   * 
-   * @deprecated Use executeGraphQueries instead
-   * @param graph The graph to execute the rules on
-   * @param rules The rules to execute
-   * @param options Execution options
-   * @returns Results of rule execution
-   */
-  executeRules(
-    graph: Graph<NodeData, EdgeData>,
-    rules: Rule[],
-    options?: RuleExecutionOptions
-  ): RuleExecutionResult<NodeData, EdgeData>[] {
-    // Sort rules by priority (highest first)
-    const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-    
-    // Execute each rule
-    const results: RuleExecutionResult<NodeData, EdgeData>[] = [];
-    
-    for (const rule of sortedRules) {
-      // Skip disabled rules
-      if (rule.disabled) {
-        continue;
-      }
-      
-      const result = this.executeRule(graph, rule, options);
-      results.push(result);
-      
-      // Log execution for monitoring
-      console.log(`Executed rule '${rule.name}': ${result.success ? 'SUCCESS' : 'FAILED'}`);
-      console.log(`  - Matches: ${result.matchCount}`);
-      console.log(`  - Actions executed: ${result.actionResults.reduce((sum, r) => sum + r.actionResults.length, 0)}`);
-      
-      if (result.error) {
-        console.error(`  - Error: ${result.error}`);
-      }
-    }
-    
-    return results;
-  }
   
   /**
    * Parse and execute graph queries from markdown
@@ -834,23 +603,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     return this.executeGraphQueries(graph, rules, options);
   }
   
-  /**
-   * Parse and execute rules from markdown
-   * 
-   * @deprecated Use executeGraphQueriesFromMarkdown instead
-   * @param graph The graph to execute the rules on
-   * @param markdown The markdown containing the rules
-   * @param options Execution options
-   * @returns Results of rule execution
-   */
-  executeRulesFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    options?: RuleExecutionOptions
-  ): RuleExecutionResult<NodeData, EdgeData>[] {
-    const rules = extractRulesFromMarkdown(markdown);
-    return this.executeRules(graph, rules, options);
-  }
   
   /**
    * Execute a graph query from a markdown code block
@@ -905,69 +657,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     }
   }
   
-  /**
-   * Execute a query from a markdown code block
-   * 
-   * @deprecated Use executeGraphQueryFromMarkdown instead
-   * @param graph The graph to query
-   * @param markdown The markdown containing the query in a code block
-   * @param codeBlockType The type of code block to look for (default: "graphquery")
-   * @param options Execution options
-   * @returns Result of the query execution
-   */
-  executeQueryFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    codeBlockType: string = "graphquery",
-    options?: RuleExecutionOptions
-  ): QueryResult<NodeData, EdgeData> {
-    try {
-      // Use the new unified method and convert result
-      const result = this.executeGraphQueryFromMarkdown(
-        graph, 
-        markdown, 
-        codeBlockType, 
-        options
-      );
-      
-      // Convert to old format for backward compatibility
-      if (!result.success) {
-        return {
-          success: false,
-          rows: [],
-          columns: [],
-          matchCount: 0,
-          error: result.error
-        };
-      }
-      
-      if (!result.query) {
-        return {
-          success: false,
-          rows: [],
-          columns: [],
-          matchCount: result.matchCount,
-          error: 'Query must include a RETURN clause'
-        };
-      }
-      
-      return {
-        success: result.success,
-        rows: result.query.rows,
-        columns: result.query.columns,
-        matchCount: result.matchCount,
-        error: result.error
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        rows: [],
-        columns: [],
-        matchCount: 0,
-        error: error.message || String(error)
-      };
-    }
-  }
   
   /**
    * Combines multiple sets of binding contexts into a cross product of all combinations.

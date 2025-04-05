@@ -70,14 +70,14 @@ describe('Rule Engine Binding Tests', () => {
       markdown: '```graphrule\nname: NoMatchesRule\ndescription: Rule that matches nothing\npriority: 1\nMATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)\n```'
     };
     
-    const result = engine.executeRule(graph, rule);
+    const result = engine.executeGraphQuery(graph, rule.ruleText);
     
     // We're specifically testing that even when Category nodes don't exist,
     // the rule engine correctly handles this case with an empty result set
     expect(result.matchCount).toBe(0); // No combined matches when one pattern has no matches
     
     // No actions should be executed because there were no matches
-    expect(result.actionResults.length).toBe(0); // No actions attempted
+    expect(result.actions?.actionResults.length).toBe(0); // No actions attempted
     expect(result.success).toBe(true); // Operation completes successfully even with no matches
     
     // No new relationships should be created
@@ -95,14 +95,14 @@ describe('Rule Engine Binding Tests', () => {
       markdown: '```graphrule\nname: UpdatePersonRule\ndescription: Update all person nodes\npriority: 1\nMATCH (p:Person) SET p.status = "Active"\n```'
     };
     
-    const result = engine.executeRule(graph, rule);
+    const result = engine.executeGraphQuery(graph, rule.ruleText);
     
     // Verify execution succeeded
     expect(result.success).toBe(true);
     
     // Should have 2 matches (2 Person nodes)
     expect(result.matchCount).toBe(2);
-    expect(result.actionResults.length).toBe(2);
+    expect(result.actions?.actionResults.length).toBe(2);
     
     // Each Person node should have been updated
     const person1 = graph.getNode('person1');
