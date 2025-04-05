@@ -299,7 +299,7 @@ CREATE (t)-[r2:REQUIRES_COLLAB {departments: "Engineering, Marketing"}]->(t)
 /**
  * Setup initial graph data with a variety of nodes and relationships
  */
-function setupInitialGraphData(graph) {
+function setupInitialGraphData(graph: Graph) {
   // Create people
   const alice = { name: 'Alice', age: 35, seniorLevel: true, department: 'Engineering', labels: ['Person'] };
   const bob = { name: 'Bob', age: 28, seniorLevel: false, department: 'Engineering', labels: ['Person'] };
@@ -407,14 +407,14 @@ function setupInitialGraphData(graph) {
 /**
  * Generate a unique ID with a given prefix
  */
-function generateId(prefix) {
+function generateId(prefix: any) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 }
 
 /**
  * Log the current state of the graph with node and edge counts
  */
-function logGraphState(graph, label) {
+function logGraphState(graph: Graph, label: string) {
   console.log(`\n--- ${label} ---`);
   console.log(`Nodes: ${graph.getAllNodes().length}`);
   console.log(`Edges: ${graph.getAllEdges().length}`);
@@ -439,7 +439,7 @@ function logGraphState(graph, label) {
 /**
  * Log rule execution results in a standardized format
  */
-function logRuleResults(results) {
+function logRuleResults(results: any[]) {
   for (const result of results) {
     console.log(`\nRule execution: ${result.statement}`);
     console.log(`Success: ${result.success}`);
