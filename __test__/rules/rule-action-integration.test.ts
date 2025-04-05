@@ -9,6 +9,8 @@ import {
   ASTCreateNode,
   ASTSetNode
 } from '@/lang/ast-transformer';
+import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
+import { NodePattern, PathPattern } from '@/lang/pattern-matcher';
 import {
   CreateNodeAction,
   CreateRelationshipAction,
@@ -299,5 +301,189 @@ CREATE (n:NewNode {name: "TestNode"})
     expect(result.actionResults[0].success).toBe(true);
     expect(result.actionResults[1].success).toBe(false); 
     expect(result.actionResults[2].success).toBe(true);
+  });
+
+  test('Debug rule engine pattern matching for simple node patterns', () => {
+    // Create a rule engine
+    const engine = createRuleEngine();
+    
+    // Create a test graph
+    const testGraph = new Graph();
+    
+    // Add nodes with proper labels
+    testGraph.addNode("person1", { name: 'John', labels: ['Person'] });
+    testGraph.addNode("task1", { title: 'Task 1', priority: 'High', labels: ['Task'] });
+    
+    // Use a very simple rule to test binding with comma-separated patterns
+    const ruleText = `
+    MATCH (p:Person), (t:Task)
+    RETURN p, t
+    `;
+    
+    // Use the pattern matcher directly to verify if we can match these patterns
+    const patternMatcher = new PatternMatcherWithConditions();
+    
+    // Define simple node patterns
+    const personPattern: NodePattern = {
+      variable: 'p',
+      labels: ['Person'],
+      properties: {}
+    };
+    
+    const taskPattern: NodePattern = {
+      variable: 't',
+      labels: ['Task'],
+      properties: {}
+    };
+    
+    // Find matching nodes directly
+    const personNodes = patternMatcher.findMatchingNodes(testGraph, personPattern);
+    const taskNodes = patternMatcher.findMatchingNodes(testGraph, taskPattern);
+    
+    console.log('\nDebug pattern matching directly:');
+    console.log('Person nodes found:', personNodes.length);
+    console.log('Task nodes found:', taskNodes.length);
+    
+    // Now if we manually put these in bindings, it should work
+    const manualBindings = new BindingContext();
+    if (personNodes.length > 0) manualBindings.set('p', personNodes[0]);
+    if (taskNodes.length > 0) manualBindings.set('t', taskNodes[0]);
+    
+    console.log('Manual bindings "p" exists:', manualBindings.has('p'));
+    console.log('Manual bindings "t" exists:', manualBindings.has('t'));
+    
+    // These tests should pass - proving pattern matching works directly
+    expect(personNodes.length).toBeGreaterThan(0);
+    expect(taskNodes.length).toBeGreaterThan(0);
+    expect(manualBindings.has('p')).toBe(true);
+    expect(manualBindings.has('t')).toBe(true);
+  });
+  
+  /**
+   * BUG ANALYSIS: After thorough debugging, we've identified the root cause of the issue:
+   * 
+   * 1. The RuleEngine correctly finds nodes matching each pattern in a comma-separated list
+   *    (like "MATCH (p:Person), (t:Task)"), as verified by our debug test.
+   * 
+   * 2. However, the rule engine in src/rules/rule-engine.ts (around line 110-152) processes
+   *    each pattern independently and stores their bindings in separate BindingContext objects.
+   * 
+   * 3. When it comes time to execute actions (lines 162-175), each binding context is used
+   *    separately, so the action execution can't find all the needed variables in a single context.
+   * 
+   * 4. This is why we see errors like "Target node t not found in bindings" - the 't' variable
+   *    exists in one binding context, while 'p' exists in another, but actions need both in the same context.
+   * 
+   * FIX PROPOSAL:
+   * - Modify the rule engine to handle multiple independent patterns in a MATCH clause by combining
+   *   their bindings into a "cross product" of all possible combinations.
+   * - For example, if we find 2 Person nodes (p1, p2) and 3 Task nodes (t1, t2, t3), we should create
+   *   6 binding contexts representing all combinations: (p1,t1), (p1,t2), (p1,t3), (p2,t1), (p2,t2), (p2,t3)
+   * - Each of these combined binding contexts should then be used to execute the actions.
+   */
+  test('Rule engine should properly bind pattern matching variables to actions', () => {
+    // Create a rule engine
+    const engine = createRuleEngine();
+    
+    // Create a graph with nodes similar to our example
+    const testGraph = new Graph();
+    
+    // Add nodes with proper labels for pattern matching
+    const personId = "test-person";
+    const taskId = "test-task";
+    testGraph.addNode(personId, { name: 'John', labels: ['Person'] });
+    testGraph.addNode(taskId, { title: 'Fix bugs', priority: 'High', labels: ['Task'] });
+    
+    // Verify nodes were added correctly
+    expect(testGraph.getAllNodes().length).toBe(2);
+    expect(testGraph.findNodes(node => node.data.labels?.includes('Person')).length).toBe(1);
+    expect(testGraph.findNodes(node => node.data.labels?.includes('Task')).length).toBe(1);
+    
+    // Define a rule that matches Person and Task nodes and creates a relationship between them
+    const ruleMarkdown = `
+## Connect People to Tasks
+
+\`\`\`graphrule
+name: ConnectPersonToTask
+description: Create WORKS_ON relationships between people and tasks
+priority: 10
+
+MATCH (p:Person), (t:Task)
+CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
+\`\`\`
+    `;
+    
+    // Execute the rule
+    const results = engine.executeRulesFromMarkdown(testGraph, ruleMarkdown);
+    
+    // Log results for debugging
+    console.log('\nRule execution results for pattern matching binding test:');
+    console.log(`Rule: ${results[0].rule.name}`);
+    console.log(`Success: ${results[0].success}`);
+    console.log(`Matches found: ${results[0].matchCount}`);
+    console.log(`Error: ${results[0].error || 'none'}`);
+    
+    // Examine rule engine internal state 
+    console.log('\nRule engine execution details:');
+    try {
+      const ruleEngineStateStr = JSON.stringify(results[0], (key, value) => {
+        // Limit circular references
+        if (key === 'bindings' && typeof value === 'object') {
+          return 'BindingContext object';
+        }
+        return value;
+      }, 2);
+      console.log(ruleEngineStateStr.substring(0, 1000) + '...'); // Limit output size
+    } catch (error) {
+      console.log('Could not stringify rule engine results:', error);
+    }
+    
+    // Log graph state after rule execution
+    console.log('Nodes in graph:', testGraph.getAllNodes().length);
+    console.log('Edges in graph:', testGraph.getAllEdges().length);
+    
+    // EXPECTED CORRECT BEHAVIOR:
+    
+    // 1. Pattern matching should find Person and Task nodes
+    expect(results[0].matchCount).toBeGreaterThan(0); 
+    
+    // 2. Rule execution should succeed because variables should be properly bound
+    expect(results[0].success).toBe(true); // THIS WILL FAIL with current implementation
+    
+    // 3. There should be no execution errors
+    expect(results[0].error).toBeUndefined(); // THIS WILL FAIL with current implementation
+    
+    // 4. All actions should have executed successfully
+    if (results[0].actionResults && results[0].actionResults.length > 0) {
+      console.log('Action execution results:', 
+        results[0].actionResults.map(r => ({ success: r.success, error: r.error }))
+      );
+      
+      // All actions should succeed (no binding errors)
+      const allActionsSucceeded = results[0].actionResults.every(r => r.success === true);
+      expect(allActionsSucceeded).toBe(true); // THIS WILL FAIL with current implementation
+    }
+    
+    // 5. A relationship should have been created between Person and Task nodes
+    expect(testGraph.getAllEdges().length).toBeGreaterThan(0); // THIS WILL FAIL with current implementation
+    
+    // 6. The relationship should have the correct properties
+    const edges = testGraph.getAllEdges();
+    if (edges.length > 0) {
+      const relationship = edges[0];
+      expect(relationship.label).toBe('WORKS_ON');
+      expect(relationship.data.assigned).toBe(true);
+      expect(relationship.data.date).toBe('2023-01-15');
+      
+      // The relationship should connect the Person and Task nodes
+      const sourceNode = testGraph.getNode(relationship.source);
+      const targetNode = testGraph.getNode(relationship.target);
+      
+      expect(sourceNode?.data.labels).toContain('Person');
+      expect(targetNode?.data.labels).toContain('Task');
+    }
+    
+    // If the test reaches this point without failing, the rule engine is correctly
+    // transferring variable bindings from pattern matching to action execution
   });
 });
