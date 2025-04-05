@@ -1,13 +1,9 @@
 // This file extends src/rules/pattern-matcher.ts with condition evaluation capabilities
 
-import { Graph, Node, Edge, Path } from '../graph/types';
-import {
-  Expression, NodePattern, RelationshipPattern, PathPattern, WhereClause
-} from './types';
-import { PatternMatcher, PatternMatcherImpl, PatternMatcherOptions } from './pattern-matcher';
-import {
-  ConditionEvaluator, BindingContext, ConditionEvaluatorOptions
-} from './condition-evaluator';
+import { Graph, Node, Edge, Path } from '@/graph';
+import { Expression, WhereClause } from './rule-parser';
+import { NodePattern, RelationshipPattern, PathPattern, PatternMatcherImpl, PatternMatcherOptions } from './pattern-matcher';
+import { ConditionEvaluator, BindingContext, ConditionEvaluatorOptions } from './condition-evaluator';
 import { ConditionEvaluatorImpl, BindingContextImpl } from './condition-evaluator';
 
 /**

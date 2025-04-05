@@ -1,73 +1,79 @@
 import { Node, Parent } from 'unist';
-import { u } from 'unist-builder';
-import { CypherStatement, ComparisonExpression, ExistsExpression, LiteralExpression, 
-  LogicalExpression, PropertyExpression, VariableExpression, NodePattern, RelationshipPattern, 
-  PathPattern, Expression, MatchClause, WhereClause, CreateClause, SetClause } from './types';
+
 import { inspect } from 'unist-util-inspect';
+
+import {
+  CypherStatement, ComparisonExpression, ExistsExpression, LiteralExpression,
+  LogicalExpression, PropertyExpression, VariableExpression, Expression, MatchClause,
+  WhereClause, CreateClause, SetClause
+} from './rule-parser';
+
+import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher';
+
 
 /**
  * Interface for rule AST nodes
  */
-export interface RuleNode extends Node {
+export interface ASTRuleNode extends Node {
   type: string;
 }
 
 /**
  * Root node of the Rule AST
  */
-export interface RuleRoot extends Parent {
+export interface ASTRuleRoot extends Parent {
   type: 'rule';
   name: string;
   description: string;
   priority: number;
   disabled?: boolean;
-  children: Array<MatchNode | WhereNode | CreateNode | SetNode>;
+  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode>;
 }
 
 /**
  * Match clause node in the Rule AST
  */
-export interface MatchNode extends Parent {
+export interface ASTMatchNode extends Parent {
   type: 'match';
-  children: PathPatternNode[];
+  children: ASTPathPatternNode[];
 }
 
 /**
  * Where clause node in the Rule AST
  */
-export interface WhereNode extends Parent {
+export interface ASTWhereNode extends Parent {
   type: 'where';
-  children: [ExpressionNode];
+  children: [ASTExpressionNode];
 }
 
 /**
  * Create clause node in the Rule AST
  */
-export interface CreateNode extends Parent {
+export interface ASTCreateNode extends Parent {
   type: 'create';
-  children: Array<CreateNodePatternNode | CreateRelPatternNode>;
+  children: Array<ASTCreateNodePatternNode | ASTCreateRelPatternNode>;
 }
 
 /**
  * Set clause node in the Rule AST
  */
-export interface SetNode extends Parent {
+export interface ASTSetNode extends Parent {
   type: 'set';
-  children: PropertySettingNode[];
+  children: ASTPropertySettingNode[];
 }
 
 /**
  * Path pattern node in the Rule AST
  */
-export interface PathPatternNode extends Parent {
+export interface ASTPathPatternNode extends Parent {
   type: 'pathPattern';
-  children: [NodePatternNode, ...RelationshipSegmentNode[]];
+  children: [ASTNodePatternNode, ...ASTRelationshipSegmentNode[]];
 }
 
 /**
  * Node pattern node in the Rule AST
  */
-export interface NodePatternNode extends RuleNode {
+export interface ASTNodePatternNode extends ASTRuleNode {
   type: 'nodePattern';
   variable?: string;
   labels: string[];
@@ -77,15 +83,15 @@ export interface NodePatternNode extends RuleNode {
 /**
  * Relationship segment (relationship + node) node in the Rule AST
  */
-export interface RelationshipSegmentNode extends Parent {
+export interface ASTRelationshipSegmentNode extends Parent {
   type: 'relationshipSegment';
-  children: [RelationshipPatternNode, NodePatternNode];
+  children: [ASTRelationshipPatternNode, ASTNodePatternNode];
 }
 
 /**
  * Relationship pattern node in the Rule AST
  */
-export interface RelationshipPatternNode extends RuleNode {
+export interface ASTRelationshipPatternNode extends ASTRuleNode {
   type: 'relationshipPattern';
   variable?: string;
   relType?: string;
@@ -98,7 +104,7 @@ export interface RelationshipPatternNode extends RuleNode {
 /**
  * Create node pattern node in the Rule AST
  */
-export interface CreateNodePatternNode extends RuleNode {
+export interface ASTCreateNodePatternNode extends ASTRuleNode {
   type: 'createNode';
   variable?: string;
   labels: string[];
@@ -108,7 +114,7 @@ export interface CreateNodePatternNode extends RuleNode {
 /**
  * Create relationship pattern node in the Rule AST
  */
-export interface CreateRelPatternNode extends RuleNode {
+export interface ASTCreateRelPatternNode extends ASTRuleNode {
   type: 'createRelationship';
   fromVar: string;
   toVar: string;
@@ -123,28 +129,28 @@ export interface CreateRelPatternNode extends RuleNode {
 /**
  * Property setting node in the Rule AST
  */
-export interface PropertySettingNode extends RuleNode {
+export interface ASTPropertySettingNode extends ASTRuleNode {
   type: 'propertySetting';
   target: string;
   property: string;
-  value: ExpressionNode;
+  value: ASTExpressionNode;
 }
 
 /**
  * Base interface for expression nodes in the Rule AST
  */
-export type ExpressionNode = 
-  | LiteralExpressionNode
-  | VariableExpressionNode
-  | PropertyExpressionNode
-  | ComparisonExpressionNode
-  | LogicalExpressionNode
-  | ExistsExpressionNode;
+export type ASTExpressionNode =
+  | ASTLiteralExpressionNode
+  | ASTVariableExpressionNode
+  | ASTPropertyExpressionNode
+  | ASTComparisonExpressionNode
+  | ASTLogicalExpressionNode
+  | ASTExistsExpressionNode;
 
 /**
  * Literal expression node in the Rule AST
  */
-export interface LiteralExpressionNode extends RuleNode {
+export interface ASTLiteralExpressionNode extends ASTRuleNode {
   type: 'literalExpression';
   value: string | number | boolean | null;
   dataType: 'string' | 'number' | 'boolean' | 'null';
@@ -153,7 +159,7 @@ export interface LiteralExpressionNode extends RuleNode {
 /**
  * Variable expression node in the Rule AST
  */
-export interface VariableExpressionNode extends RuleNode {
+export interface ASTVariableExpressionNode extends ASTRuleNode {
   type: 'variableExpression';
   name: string;
 }
@@ -161,7 +167,7 @@ export interface VariableExpressionNode extends RuleNode {
 /**
  * Property expression node in the Rule AST
  */
-export interface PropertyExpressionNode extends RuleNode {
+export interface ASTPropertyExpressionNode extends ASTRuleNode {
   type: 'propertyExpression';
   object: string;
   property: string;
@@ -170,40 +176,40 @@ export interface PropertyExpressionNode extends RuleNode {
 /**
  * Comparison expression node in the Rule AST
  */
-export interface ComparisonExpressionNode extends Parent {
+export interface ASTComparisonExpressionNode extends Parent {
   type: 'comparisonExpression';
   operator: string;
-  children: [ExpressionNode, ExpressionNode];
+  children: [ASTExpressionNode, ASTExpressionNode];
 }
 
 /**
  * Logical expression node in the Rule AST
  */
-export interface LogicalExpressionNode extends Parent {
+export interface ASTLogicalExpressionNode extends Parent {
   type: 'logicalExpression';
   operator: string;
-  children: ExpressionNode[];
+  children: ASTExpressionNode[];
 }
 
 /**
  * Exists expression node in the Rule AST
  */
-export interface ExistsExpressionNode extends Parent {
+export interface ASTExistsExpressionNode extends Parent {
   type: 'existsExpression';
   positive: boolean;
-  children: [PathPatternNode];
+  children: [ASTPathPatternNode];
 }
 
 /**
  * Create a unist Node representing a RuleRoot
  */
-function createRuleNode(
+function createASTRuleNode(
   name: string,
   description: string,
   priority: number,
   disabled: boolean | undefined,
-  children: Array<MatchNode | WhereNode | CreateNode | SetNode>
-): RuleRoot {
+  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode>
+): ASTRuleRoot {
   return {
     type: 'rule',
     name,
@@ -217,7 +223,7 @@ function createRuleNode(
 /**
  * Create a unist Node representing a MatchNode
  */
-function createMatchNode(children: PathPatternNode[]): MatchNode {
+function createASTMatchNode(children: ASTPathPatternNode[]): ASTMatchNode {
   return {
     type: 'match',
     children
@@ -227,7 +233,7 @@ function createMatchNode(children: PathPatternNode[]): MatchNode {
 /**
  * Create a unist Node representing a WhereNode
  */
-function createWhereNode(condition: ExpressionNode): WhereNode {
+function createASTWhereNode(condition: ASTExpressionNode): ASTWhereNode {
   return {
     type: 'where',
     children: [condition]
@@ -237,7 +243,7 @@ function createWhereNode(condition: ExpressionNode): WhereNode {
 /**
  * Create a unist Node representing a CreateNode
  */
-function createCreateNode(children: Array<CreateNodePatternNode | CreateRelPatternNode>): CreateNode {
+function createASTCreateNode(children: Array<ASTCreateNodePatternNode | ASTCreateRelPatternNode>): ASTCreateNode {
   return {
     type: 'create',
     children
@@ -247,7 +253,7 @@ function createCreateNode(children: Array<CreateNodePatternNode | CreateRelPatte
 /**
  * Create a unist Node representing a SetNode
  */
-function createSetNode(children: PropertySettingNode[]): SetNode {
+function createASTSetNode(children: ASTPropertySettingNode[]): ASTSetNode {
   return {
     type: 'set',
     children
@@ -257,10 +263,10 @@ function createSetNode(children: PropertySettingNode[]): SetNode {
 /**
  * Create a unist Node representing a PathPatternNode
  */
-function createPathPatternNode(
-  startNode: NodePatternNode,
-  segments: RelationshipSegmentNode[]
-): PathPatternNode {
+function createASTPathPatternNode(
+  startNode: ASTNodePatternNode,
+  segments: ASTRelationshipSegmentNode[]
+): ASTPathPatternNode {
   return {
     type: 'pathPattern',
     children: [startNode, ...segments]
@@ -270,11 +276,11 @@ function createPathPatternNode(
 /**
  * Create a unist Node representing a NodePatternNode
  */
-function createNodePatternNode(
+function createASTNodePatternNode(
   variable: string | undefined,
   labels: string[],
   properties: Record<string, any>
-): NodePatternNode {
+): ASTNodePatternNode {
   return {
     type: 'nodePattern',
     variable,
@@ -286,10 +292,10 @@ function createNodePatternNode(
 /**
  * Create a unist Node representing a RelationshipSegmentNode
  */
-function createRelationshipSegmentNode(
-  relationship: RelationshipPatternNode,
-  node: NodePatternNode
-): RelationshipSegmentNode {
+function createASTRelationshipSegmentNode(
+  relationship: ASTRelationshipPatternNode,
+  node: ASTNodePatternNode
+): ASTRelationshipSegmentNode {
   return {
     type: 'relationshipSegment',
     children: [relationship, node]
@@ -299,14 +305,14 @@ function createRelationshipSegmentNode(
 /**
  * Create a unist Node representing a RelationshipPatternNode
  */
-function createRelationshipPatternNode(
+function createASTRelationshipPatternNode(
   variable: string | undefined,
   relType: string | undefined,
   direction: 'outgoing' | 'incoming' | 'both',
   properties: Record<string, any>,
   minHops?: number,
   maxHops?: number
-): RelationshipPatternNode {
+): ASTRelationshipPatternNode {
   return {
     type: 'relationshipPattern',
     variable,
@@ -321,11 +327,11 @@ function createRelationshipPatternNode(
 /**
  * Create a unist Node representing a CreateNodePatternNode
  */
-function createCreateNodePatternNode(
+function createASTCreateNodePatternNode(
   variable: string | undefined,
   labels: string[],
   properties: Record<string, any>
-): CreateNodePatternNode {
+): ASTCreateNodePatternNode {
   return {
     type: 'createNode',
     variable,
@@ -337,7 +343,7 @@ function createCreateNodePatternNode(
 /**
  * Create a unist Node representing a CreateRelPatternNode
  */
-function createCreateRelPatternNode(
+function createASTCreateRelPatternNode(
   fromVar: string,
   toVar: string,
   relationship: {
@@ -346,7 +352,7 @@ function createCreateRelPatternNode(
     direction: 'outgoing' | 'incoming' | 'both';
     properties: Record<string, any>;
   }
-): CreateRelPatternNode {
+): ASTCreateRelPatternNode {
   return {
     type: 'createRelationship',
     fromVar,
@@ -358,11 +364,11 @@ function createCreateRelPatternNode(
 /**
  * Create a unist Node representing a PropertySettingNode
  */
-function createPropertySettingNode(
+function createASTPropertySettingNode(
   target: string,
   property: string,
-  value: ExpressionNode
-): PropertySettingNode {
+  value: ASTExpressionNode
+): ASTPropertySettingNode {
   return {
     type: 'propertySetting',
     target,
@@ -374,10 +380,10 @@ function createPropertySettingNode(
 /**
  * Create a unist Node representing a LiteralExpressionNode
  */
-function createLiteralExpressionNode(
+function createASTLiteralExpressionNode(
   value: string | number | boolean | null,
   dataType: 'string' | 'number' | 'boolean' | 'null'
-): LiteralExpressionNode {
+): ASTLiteralExpressionNode {
   return {
     type: 'literalExpression',
     value,
@@ -388,7 +394,7 @@ function createLiteralExpressionNode(
 /**
  * Create a unist Node representing a VariableExpressionNode
  */
-function createVariableExpressionNode(name: string): VariableExpressionNode {
+function createASTVariableExpressionNode(name: string): ASTVariableExpressionNode {
   return {
     type: 'variableExpression',
     name
@@ -398,10 +404,10 @@ function createVariableExpressionNode(name: string): VariableExpressionNode {
 /**
  * Create a unist Node representing a PropertyExpressionNode
  */
-function createPropertyExpressionNode(
+function createASTPropertyExpressionNode(
   object: string,
   property: string
-): PropertyExpressionNode {
+): ASTPropertyExpressionNode {
   return {
     type: 'propertyExpression',
     object,
@@ -412,11 +418,11 @@ function createPropertyExpressionNode(
 /**
  * Create a unist Node representing a ComparisonExpressionNode
  */
-function createComparisonExpressionNode(
+function createASTComparisonExpressionNode(
   operator: string,
-  left: ExpressionNode,
-  right: ExpressionNode
-): ComparisonExpressionNode {
+  left: ASTExpressionNode,
+  right: ASTExpressionNode
+): ASTComparisonExpressionNode {
   return {
     type: 'comparisonExpression',
     operator,
@@ -427,10 +433,10 @@ function createComparisonExpressionNode(
 /**
  * Create a unist Node representing a LogicalExpressionNode
  */
-function createLogicalExpressionNode(
+function createASTLogicalExpressionNode(
   operator: string,
-  children: ExpressionNode[]
-): LogicalExpressionNode {
+  children: ASTExpressionNode[]
+): ASTLogicalExpressionNode {
   return {
     type: 'logicalExpression',
     operator,
@@ -441,10 +447,10 @@ function createLogicalExpressionNode(
 /**
  * Create a unist Node representing an ExistsExpressionNode
  */
-function createExistsExpressionNode(
+function createASTExistsExpressionNode(
   positive: boolean,
-  pattern: PathPatternNode
-): ExistsExpressionNode {
+  pattern: ASTPathPatternNode
+): ASTExistsExpressionNode {
   return {
     type: 'existsExpression',
     positive,
@@ -462,35 +468,35 @@ function createExistsExpressionNode(
  * @returns The transformed Rule AST
  */
 export function transformToCypherAst(
-  statement: CypherStatement, 
+  statement: CypherStatement,
   ruleName: string,
   description: string,
   priority: number,
   disabled?: boolean
-): RuleRoot {
-  const children: Array<MatchNode | WhereNode | CreateNode | SetNode> = [];
-  
+): ASTRuleRoot {
+  const children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode> = [];
+
   // Add MATCH clause if it exists
   if (statement.match) {
     children.push(transformMatchClause(statement.match));
   }
-  
+
   // Add WHERE clause if it exists
   if (statement.where) {
     children.push(transformWhereClause(statement.where));
   }
-  
+
   // Add CREATE clause if it exists
   if (statement.create) {
     children.push(transformCreateClause(statement.create));
   }
-  
+
   // Add SET clause if it exists
   if (statement.set) {
     children.push(transformSetClause(statement.set));
   }
-  
-  return createRuleNode(ruleName, description, priority, disabled, children);
+
+  return createASTRuleNode(ruleName, description, priority, disabled, children);
 }
 
 /**
@@ -498,9 +504,9 @@ export function transformToCypherAst(
  * @param matchClause The MATCH clause to transform
  * @returns The transformed Match node
  */
-function transformMatchClause(matchClause: MatchClause): MatchNode {
+function transformMatchClause(matchClause: MatchClause): ASTMatchNode {
   const pathPatterns = matchClause.patterns.map(transformPathPattern);
-  return createMatchNode(pathPatterns);
+  return createASTMatchNode(pathPatterns);
 }
 
 /**
@@ -508,9 +514,9 @@ function transformMatchClause(matchClause: MatchClause): MatchNode {
  * @param whereClause The WHERE clause to transform
  * @returns The transformed Where node
  */
-function transformWhereClause(whereClause: WhereClause): WhereNode {
+function transformWhereClause(whereClause: WhereClause): ASTWhereNode {
   const condition = transformExpression(whereClause.condition);
-  return createWhereNode(condition);
+  return createASTWhereNode(condition);
 }
 
 /**
@@ -518,7 +524,7 @@ function transformWhereClause(whereClause: WhereClause): WhereNode {
  * @param createClause The CREATE clause to transform
  * @returns The transformed Create node
  */
-function transformCreateClause(createClause: CreateClause): CreateNode {
+function transformCreateClause(createClause: CreateClause): ASTCreateNode {
   const patterns = createClause.patterns.map(pattern => {
     if ('node' in pattern) {
       return transformCreateNodePattern(pattern.node);
@@ -526,8 +532,8 @@ function transformCreateClause(createClause: CreateClause): CreateNode {
       return transformCreateRelationshipPattern(pattern);
     }
   });
-  
-  return createCreateNode(patterns);
+
+  return createASTCreateNode(patterns);
 }
 
 /**
@@ -535,9 +541,9 @@ function transformCreateClause(createClause: CreateClause): CreateNode {
  * @param setClause The SET clause to transform
  * @returns The transformed Set node
  */
-function transformSetClause(setClause: SetClause): SetNode {
+function transformSetClause(setClause: SetClause): ASTSetNode {
   const settings = setClause.settings.map(transformPropertySetting);
-  return createSetNode(settings);
+  return createASTSetNode(settings);
 }
 
 /**
@@ -545,16 +551,16 @@ function transformSetClause(setClause: SetClause): SetNode {
  * @param pathPattern The path pattern to transform
  * @returns The transformed PathPattern node
  */
-function transformPathPattern(pathPattern: PathPattern): PathPatternNode {
+function transformPathPattern(pathPattern: PathPattern): ASTPathPatternNode {
   const startNode = transformNodePattern(pathPattern.start);
   const segments = pathPattern.segments.map(segment => {
-    return createRelationshipSegmentNode(
+    return createASTRelationshipSegmentNode(
       transformRelationshipPattern(segment.relationship),
       transformNodePattern(segment.node)
     );
   });
-  
-  return createPathPatternNode(startNode, segments);
+
+  return createASTPathPatternNode(startNode, segments);
 }
 
 /**
@@ -562,8 +568,8 @@ function transformPathPattern(pathPattern: PathPattern): PathPatternNode {
  * @param nodePattern The node pattern to transform
  * @returns The transformed NodePattern node
  */
-function transformNodePattern(nodePattern: NodePattern): NodePatternNode {
-  return createNodePatternNode(
+function transformNodePattern(nodePattern: NodePattern): ASTNodePatternNode {
+  return createASTNodePatternNode(
     nodePattern.variable,
     nodePattern.labels,
     nodePattern.properties
@@ -575,8 +581,8 @@ function transformNodePattern(nodePattern: NodePattern): NodePatternNode {
  * @param relationshipPattern The relationship pattern to transform
  * @returns The transformed RelationshipPattern node
  */
-function transformRelationshipPattern(relationshipPattern: RelationshipPattern): RelationshipPatternNode {
-  return createRelationshipPatternNode(
+function transformRelationshipPattern(relationshipPattern: RelationshipPattern): ASTRelationshipPatternNode {
+  return createASTRelationshipPatternNode(
     relationshipPattern.variable,
     relationshipPattern.type,
     relationshipPattern.direction,
@@ -591,8 +597,8 @@ function transformRelationshipPattern(relationshipPattern: RelationshipPattern):
  * @param nodePattern The node pattern to transform
  * @returns The transformed CreateNodePattern node
  */
-function transformCreateNodePattern(nodePattern: NodePattern): CreateNodePatternNode {
-  return createCreateNodePatternNode(
+function transformCreateNodePattern(nodePattern: NodePattern): ASTCreateNodePatternNode {
+  return createASTCreateNodePatternNode(
     nodePattern.variable,
     nodePattern.labels,
     nodePattern.properties
@@ -604,8 +610,8 @@ function transformCreateNodePattern(nodePattern: NodePattern): CreateNodePattern
  * @param createRelationship The CREATE relationship pattern to transform
  * @returns The transformed CreateRelationshipPattern node
  */
-function transformCreateRelationshipPattern(createRelationship: any): CreateRelPatternNode {
-  return createCreateRelPatternNode(
+function transformCreateRelationshipPattern(createRelationship: any): ASTCreateRelPatternNode {
+  return createASTCreateRelPatternNode(
     createRelationship.fromNode.name,
     createRelationship.toNode.name,
     {
@@ -622,8 +628,8 @@ function transformCreateRelationshipPattern(createRelationship: any): CreateRelP
  * @param propertySetting The property setting to transform
  * @returns The transformed PropertySetting node
  */
-function transformPropertySetting(propertySetting: any): PropertySettingNode {
-  return createPropertySettingNode(
+function transformPropertySetting(propertySetting: any): ASTPropertySettingNode {
+  return createASTPropertySettingNode(
     propertySetting.target.name,
     propertySetting.property,
     transformExpression(propertySetting.value)
@@ -635,7 +641,7 @@ function transformPropertySetting(propertySetting: any): PropertySettingNode {
  * @param expression The expression to transform
  * @returns The transformed Expression node
  */
-function transformExpression(expression: Expression): ExpressionNode {
+function transformExpression(expression: Expression): ASTExpressionNode {
   switch (expression.type) {
     case 'literal':
       return transformLiteralExpression(expression as LiteralExpression);
@@ -659,8 +665,8 @@ function transformExpression(expression: Expression): ExpressionNode {
  * @param literalExpression The literal expression to transform
  * @returns The transformed LiteralExpression node
  */
-function transformLiteralExpression(literalExpression: LiteralExpression): LiteralExpressionNode {
-  return createLiteralExpressionNode(
+function transformLiteralExpression(literalExpression: LiteralExpression): ASTLiteralExpressionNode {
+  return createASTLiteralExpressionNode(
     literalExpression.value,
     literalExpression.dataType
   );
@@ -671,8 +677,8 @@ function transformLiteralExpression(literalExpression: LiteralExpression): Liter
  * @param variableExpression The variable expression to transform
  * @returns The transformed VariableExpression node
  */
-function transformVariableExpression(variableExpression: VariableExpression): VariableExpressionNode {
-  return createVariableExpressionNode(variableExpression.name);
+function transformVariableExpression(variableExpression: VariableExpression): ASTVariableExpressionNode {
+  return createASTVariableExpressionNode(variableExpression.name);
 }
 
 /**
@@ -680,8 +686,8 @@ function transformVariableExpression(variableExpression: VariableExpression): Va
  * @param propertyExpression The property expression to transform
  * @returns The transformed PropertyExpression node
  */
-function transformPropertyExpression(propertyExpression: PropertyExpression): PropertyExpressionNode {
-  return createPropertyExpressionNode(
+function transformPropertyExpression(propertyExpression: PropertyExpression): ASTPropertyExpressionNode {
+  return createASTPropertyExpressionNode(
     propertyExpression.object.name,
     propertyExpression.property
   );
@@ -692,11 +698,11 @@ function transformPropertyExpression(propertyExpression: PropertyExpression): Pr
  * @param comparisonExpression The comparison expression to transform
  * @returns The transformed ComparisonExpression node
  */
-function transformComparisonExpression(comparisonExpression: ComparisonExpression): ComparisonExpressionNode {
+function transformComparisonExpression(comparisonExpression: ComparisonExpression): ASTComparisonExpressionNode {
   const left = transformExpression(comparisonExpression.left);
   const right = transformExpression(comparisonExpression.right);
-  
-  return createComparisonExpressionNode(
+
+  return createASTComparisonExpressionNode(
     comparisonExpression.operator,
     left,
     right
@@ -708,10 +714,10 @@ function transformComparisonExpression(comparisonExpression: ComparisonExpressio
  * @param logicalExpression The logical expression to transform
  * @returns The transformed LogicalExpression node
  */
-function transformLogicalExpression(logicalExpression: LogicalExpression): LogicalExpressionNode {
+function transformLogicalExpression(logicalExpression: LogicalExpression): ASTLogicalExpressionNode {
   const operands = logicalExpression.operands.map(transformExpression);
-  
-  return createLogicalExpressionNode(
+
+  return createASTLogicalExpressionNode(
     logicalExpression.operator,
     operands
   );
@@ -722,10 +728,10 @@ function transformLogicalExpression(logicalExpression: LogicalExpression): Logic
  * @param existsExpression The exists expression to transform
  * @returns The transformed ExistsExpression node
  */
-function transformExistsExpression(existsExpression: ExistsExpression): ExistsExpressionNode {
+function transformExistsExpression(existsExpression: ExistsExpression): ASTExistsExpressionNode {
   const pattern = transformPathPattern(existsExpression.pattern);
-  
-  return createExistsExpressionNode(
+
+  return createASTExistsExpressionNode(
     existsExpression.positive,
     pattern
   );
@@ -736,7 +742,7 @@ function transformExistsExpression(existsExpression: ExistsExpression): ExistsEx
  * @param ast The AST to inspect
  * @returns A string representation of the AST
  */
-export function inspectAst(ast: RuleRoot): string {
+export function inspectAst(ast: ASTRuleRoot): string {
   return inspect(ast);
 }
 
@@ -746,77 +752,77 @@ export function inspectAst(ast: RuleRoot): string {
  * @param indent The indentation level (default: 0)
  * @returns The ASCII visualization
  */
-export function visualizeAst(node: RuleNode | Parent, indent: number = 0): string {
+export function visualizeAst(node: ASTRuleNode | Parent, indent: number = 0): string {
   const padding = ' '.repeat(indent * 2);
   let result = `${padding}${node.type}`;
-  
+
   // Add properties based on node type
   switch (node.type) {
     case 'rule':
-      const ruleNode = node as RuleRoot;
+      const ruleNode = node as ASTRuleRoot;
       result += ` (name: "${ruleNode.name}", priority: ${ruleNode.priority})`;
       break;
     case 'nodePattern':
-      const nodePattern = node as NodePatternNode;
+      const nodePattern = node as ASTNodePatternNode;
       result += ` (${nodePattern.variable || ''}:${nodePattern.labels.join(':')})`;
       if (Object.keys(nodePattern.properties).length > 0) {
         result += ` properties: ${JSON.stringify(nodePattern.properties)}`;
       }
       break;
     case 'relationshipPattern':
-      const relPattern = node as RelationshipPatternNode;
+      const relPattern = node as ASTRelationshipPatternNode;
       result += ` [${relPattern.variable || ''}:${relPattern.relType || ''}] dir: ${relPattern.direction}`;
       if (relPattern.minHops !== undefined || relPattern.maxHops !== undefined) {
         result += ` *${relPattern.minHops || ''}..${relPattern.maxHops || ''}`;
       }
       break;
     case 'literalExpression':
-      const litExpr = node as LiteralExpressionNode;
+      const litExpr = node as ASTLiteralExpressionNode;
       result += ` (${litExpr.dataType}: ${litExpr.value})`;
       break;
     case 'variableExpression':
-      const varExpr = node as VariableExpressionNode;
+      const varExpr = node as ASTVariableExpressionNode;
       result += ` (${varExpr.name})`;
       break;
     case 'propertyExpression':
-      const propExpr = node as PropertyExpressionNode;
+      const propExpr = node as ASTPropertyExpressionNode;
       result += ` (${propExpr.object}.${propExpr.property})`;
       break;
     case 'comparisonExpression':
-      const compExpr = node as ComparisonExpressionNode;
+      const compExpr = node as ASTComparisonExpressionNode;
       result += ` (operator: ${compExpr.operator})`;
       break;
     case 'logicalExpression':
-      const logExpr = node as LogicalExpressionNode;
+      const logExpr = node as ASTLogicalExpressionNode;
       result += ` (operator: ${logExpr.operator})`;
       break;
     case 'existsExpression':
-      const existsExpr = node as ExistsExpressionNode;
+      const existsExpr = node as ASTExistsExpressionNode;
       result += ` (${existsExpr.positive ? 'EXISTS' : 'NOT EXISTS'})`;
       break;
     case 'propertySetting':
-      const propSetting = node as PropertySettingNode;
+      const propSetting = node as ASTPropertySettingNode;
       result += ` (${propSetting.target}.${propSetting.property})`;
       break;
     case 'createNode':
-      const createNode = node as CreateNodePatternNode;
+      const createNode = node as ASTCreateNodePatternNode;
       result += ` (${createNode.variable || ''}:${createNode.labels.join(':')})`;
       break;
     case 'createRelationship':
-      const createRel = node as CreateRelPatternNode;
+      const createRel = node as ASTCreateRelPatternNode;
       result += ` (${createRel.fromVar})-[${createRel.relationship.variable || ''}:${createRel.relationship.relType || ''}]->(${createRel.toVar})`;
       break;
   }
-  
+
   result += '\n';
-  
+
   // Recursively visualize children
   if ('children' in node && Array.isArray(node.children)) {
     for (const child of node.children) {
       result += visualizeAst(child, indent + 1);
     }
   }
-  
+
   return result;
 }
 
@@ -825,52 +831,52 @@ export function visualizeAst(node: RuleNode | Parent, indent: number = 0): strin
  * @param ast The AST to validate
  * @returns An array of validation errors, or an empty array if the AST is valid
  */
-export function validateAst(ast: RuleRoot): string[] {
+export function validateAst(ast: ASTRuleRoot): string[] {
   const errors: string[] = [];
-  
+
   // Validate rule metadata
   if (!ast.name) {
     errors.push('Rule must have a name');
   }
-  
+
   if (!ast.description) {
     errors.push('Rule must have a description');
   }
-  
+
   if (typeof ast.priority !== 'number' || isNaN(ast.priority)) {
     errors.push('Rule must have a numeric priority');
   }
-  
+
   // Validate that the rule has at least one clause
   if (!ast.children || ast.children.length === 0) {
     errors.push('Rule must have at least one clause (MATCH, WHERE, CREATE, SET)');
   }
-  
+
   // Validate variable references
   const declaredVariables = new Set<string>();
   const usedVariables = new Set<string>();
-  
+
   // Collect declared variables
   for (const node of ast.children) {
     if (node.type === 'match') {
       collectDeclaredVariables(node, declaredVariables);
     }
   }
-  
+
   // Collect used variables
   for (const node of ast.children) {
     if (node.type === 'where' || node.type === 'create' || node.type === 'set') {
       collectUsedVariables(node, usedVariables);
     }
   }
-  
+
   // Check for undeclared variables
   for (const variable of usedVariables) {
     if (!declaredVariables.has(variable)) {
       errors.push(`Variable '${variable}' is used but not declared in a MATCH clause`);
     }
   }
-  
+
   return errors;
 }
 
@@ -879,21 +885,21 @@ export function validateAst(ast: RuleRoot): string[] {
  * @param node The MATCH node
  * @param variables The set to collect variables into
  */
-function collectDeclaredVariables(node: MatchNode, variables: Set<string>): void {
+function collectDeclaredVariables(node: ASTMatchNode, variables: Set<string>): void {
   for (const pathPattern of node.children) {
     if (pathPattern.children[0].variable) {
       variables.add(pathPattern.children[0].variable);
     }
-    
+
     for (const segment of pathPattern.children.slice(1)) {
-      const relationshipSegment = segment as RelationshipSegmentNode;
-      const relationshipPattern = relationshipSegment.children[0] as RelationshipPatternNode;
-      const nodePattern = relationshipSegment.children[1] as NodePatternNode;
-      
+      const relationshipSegment = segment as ASTRelationshipSegmentNode;
+      const relationshipPattern = relationshipSegment.children[0] as ASTRelationshipPatternNode;
+      const nodePattern = relationshipSegment.children[1] as ASTNodePatternNode;
+
       if (relationshipPattern.variable) {
         variables.add(relationshipPattern.variable);
       }
-      
+
       if (nodePattern.variable) {
         variables.add(nodePattern.variable);
       }
@@ -907,25 +913,25 @@ function collectDeclaredVariables(node: MatchNode, variables: Set<string>): void
  * @param variables The set to collect variables into
  */
 function collectUsedVariables(
-  node: WhereNode | CreateNode | SetNode,
+  node: ASTWhereNode | ASTCreateNode | ASTSetNode,
   variables: Set<string>
 ): void {
   if (node.type === 'where') {
-    const whereNode = node as WhereNode;
+    const whereNode = node as ASTWhereNode;
     collectVariablesInExpression(whereNode.children[0], variables);
   } else if (node.type === 'create') {
-    const createNode = node as CreateNode;
+    const createNode = node as ASTCreateNode;
     for (const pattern of createNode.children) {
       if (pattern.type === 'createRelationship') {
-        const createRel = pattern as CreateRelPatternNode;
+        const createRel = pattern as ASTCreateRelPatternNode;
         variables.add(createRel.fromVar);
         variables.add(createRel.toVar);
       }
     }
   } else if (node.type === 'set') {
-    const setNode = node as SetNode;
+    const setNode = node as ASTSetNode;
     for (const setting of setNode.children) {
-      const propertySetting = setting as PropertySettingNode;
+      const propertySetting = setting as ASTPropertySettingNode;
       variables.add(propertySetting.target);
       collectVariablesInExpression(propertySetting.value, variables);
     }
@@ -937,17 +943,17 @@ function collectUsedVariables(
  * @param node The expression node
  * @param variables The set to collect variables into
  */
-function collectVariablesInExpression(node: ExpressionNode, variables: Set<string>): void {
+function collectVariablesInExpression(node: ASTExpressionNode, variables: Set<string>): void {
   if (node.type === 'variableExpression') {
-    variables.add((node as VariableExpressionNode).name);
+    variables.add((node as ASTVariableExpressionNode).name);
   } else if (node.type === 'propertyExpression') {
-    variables.add((node as PropertyExpressionNode).object);
+    variables.add((node as ASTPropertyExpressionNode).object);
   } else if (node.type === 'comparisonExpression') {
-    const compExpr = node as ComparisonExpressionNode;
+    const compExpr = node as ASTComparisonExpressionNode;
     collectVariablesInExpression(compExpr.children[0], variables);
     collectVariablesInExpression(compExpr.children[1], variables);
   } else if (node.type === 'logicalExpression') {
-    const logExpr = node as LogicalExpressionNode;
+    const logExpr = node as ASTLogicalExpressionNode;
     for (const operand of logExpr.children) {
       collectVariablesInExpression(operand, variables);
     }

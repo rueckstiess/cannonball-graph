@@ -1,9 +1,9 @@
-import { GraphImpl } from '../src/graph/graph';
-import { Graph, Node, Edge, Path } from '../src/graph/types';
-import { NodePattern, RelationshipPattern, PathPattern } from '../src/rules/types';
-import { PatternMatcher, PatternMatcherImpl } from '../src/rules/pattern-matcher';
-import { CypherLexer } from '../src/rules/lexer';
-import { CypherParser } from '../src/rules/rule-parser';
+import { Graph, Node, Edge, Path } from '@/graph';
+
+import {
+  NodePattern, RelationshipPattern, PathPattern, PatternMatcher,
+  PatternMatcherImpl, CypherLexer, CypherParser
+} from '@/lang';
 
 describe('PatternMatcher', () => {
   // Define test data types
@@ -44,7 +44,7 @@ describe('PatternMatcher', () => {
     */
 
 
-    graph = new GraphImpl<TestNodeData, TestEdgeData>();
+    graph = new Graph<TestNodeData, TestEdgeData>();
     matcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
 
     // People
@@ -698,7 +698,7 @@ describe('Path Pattern Matching', () => {
 
   beforeEach(() => {
     // Create a new graph for each test
-    graph = new GraphImpl<TestNodeData, TestEdgeData>();
+    graph = new Graph<TestNodeData, TestEdgeData>();
     matcher = new PatternMatcherImpl<TestNodeData, TestEdgeData>();
 
     // People

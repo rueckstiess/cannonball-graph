@@ -1,13 +1,8 @@
-// __test__/graph-performance.test.ts
-import { GraphImpl } from '../src/graph/graph';
-import { Graph, Node, Edge } from '../src/graph/types';
+import { Graph, Node, Edge } from '@/graph';
 import {
-  Expression, NodePattern, RelationshipPattern, PathPattern,
-  ComparisonOperator, LogicalOperator
-} from '../src/rules/types';
-import { PatternMatcherImpl } from '../src/rules/pattern-matcher';
-import { PatternMatcherWithConditions } from '../src/rules/pattern-matcher-with-conditions';
-import { BindingContextImpl } from '../src/rules/condition-evaluator';
+  Expression, NodePattern, RelationshipPattern, PathPattern, ComparisonOperator,
+  LogicalOperator, PatternMatcherImpl, PatternMatcherWithConditions, BindingContextImpl
+} from '@/lang';
 
 /**
  * Performance test suite for graph operations
@@ -58,7 +53,7 @@ describe('Graph Performance', () => {
     console.log(`Generating test graph with ${NODE_COUNT} nodes and ~${NODE_COUNT * AVG_EDGES_PER_NODE} edges...`);
     const startTime = performance.now();
 
-    const newGraph = new GraphImpl<TestNodeData, TestEdgeData>();
+    const newGraph = new Graph<TestNodeData, TestEdgeData>();
 
     // Generate random nodes
     for (let i = 0; i < NODE_COUNT; i++) {

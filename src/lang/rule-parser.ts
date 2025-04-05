@@ -1,4 +1,257 @@
-import { Lexer, Rule, RuleExtractionOptions, Token, TokenType, CypherStatement, NodePattern, RelationshipPattern, PathPattern, Expression, ComparisonOperator, LogicalOperator, VariableExpression, LiteralExpression, LogicalExpression, ExistsExpression, MatchClause, WhereClause, CreateClause, SetClause, CreateNode, CreateRelationship, PropertySetting, Parser } from "./types";
+import { Lexer, Token, TokenType } from './lexer';
+import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher';
+import { Graph, Node, NodeId, Edge, Path, BFSVisitor } from '@/graph';
+
+/**
+ * Represents a graph transformation rule in Cannonball.
+ * Rules are defined in Markdown code blocks with graphrule type.
+ */
+export interface Rule {
+  /**
+   * Unique identifier for the rule
+   */
+  name: string;
+
+  /**
+   * Human-readable explanation of the rule's purpose
+   */
+  description: string;
+
+  /**
+   * Numeric priority (higher numbers run first)
+   */
+  priority: number;
+
+  /**
+   * Whether the rule is currently disabled
+   */
+  disabled?: boolean;
+
+  /**
+   * The raw rule text containing the Cypher-like query
+   */
+  ruleText: string;
+
+  /**
+   * The original markdown string from which this rule was parsed
+   */
+  markdown: string;
+}
+
+/**
+ * Options for rule extraction
+ */
+export interface RuleExtractionOptions {
+  /**
+   * The type of code block to look for (default: "graphrule")
+   */
+  codeBlockType?: string;
+}
+
+
+
+/**
+ * Types of comparison operators in WHERE conditions
+ */
+export enum ComparisonOperator {
+  EQUALS = '=',
+  NOT_EQUALS = '<>',
+  LESS_THAN = '<',
+  LESS_THAN_OR_EQUALS = '<=',
+  GREATER_THAN = '>',
+  GREATER_THAN_OR_EQUALS = '>=',
+  IN = 'IN',
+  CONTAINS = 'CONTAINS',
+  STARTS_WITH = 'STARTS WITH',
+  ENDS_WITH = 'ENDS WITH',
+  IS_NULL = 'IS NULL',
+  IS_NOT_NULL = 'IS NOT NULL'
+}
+
+/**
+ * Types of logical operators in WHERE conditions
+ */
+export enum LogicalOperator {
+  AND = 'AND',
+  OR = 'OR',
+  NOT = 'NOT',
+  XOR = 'XOR'
+}
+
+/**
+ * Base type for all expressions in the AST
+ */
+export type Expression =
+  | LiteralExpression
+  | VariableExpression
+  | PropertyExpression
+  | ComparisonExpression
+  | LogicalExpression
+  | ExistsExpression;
+
+/**
+ * Represents a literal value (string, number, boolean, null)
+ */
+export interface LiteralExpression {
+  type: 'literal';
+  /** The literal value */
+  value: string | number | boolean | null;
+  /** The data type of the value */
+  dataType: 'string' | 'number' | 'boolean' | 'null';
+}
+
+/**
+ * Represents a variable reference (node or relationship)
+ */
+export interface VariableExpression {
+  type: 'variable';
+  /** The variable name */
+  name: string;
+}
+
+/**
+ * Represents a property access (e.g., node.property)
+ */
+export interface PropertyExpression {
+  type: 'property';
+  /** The object that contains the property */
+  object: VariableExpression;
+  /** The property name */
+  property: string;
+}
+
+/**
+ * Represents a comparison expression (e.g., a.prop = 'value')
+ */
+export interface ComparisonExpression {
+  type: 'comparison';
+  /** Left side of the comparison */
+  left: Expression;
+  /** Comparison operator */
+  operator: ComparisonOperator;
+  /** Right side of the comparison */
+  right: Expression;
+}
+
+/**
+ * Represents a logical expression (AND, OR, NOT, XOR)
+ */
+export interface LogicalExpression {
+  type: 'logical';
+  /** Logical operator */
+  operator: LogicalOperator;
+  /** Operands (expressions) */
+  operands: Expression[];
+}
+
+/**
+ * Represents an EXISTS check 
+ * e.g., EXISTS((a)-[:DEPENDS_ON]->(b))
+ */
+export interface ExistsExpression {
+  type: 'exists';
+  /** Whether this is a positive or negative check (EXISTS vs NOT EXISTS) */
+  positive: boolean;
+  /** The pattern to check for existence */
+  pattern: PathPattern;
+}
+
+/**
+ * Represents the MATCH clause in a Cypher query
+ */
+export interface MatchClause {
+  /** Array of path patterns to match */
+  patterns: PathPattern[];
+}
+
+/**
+ * Represents the WHERE clause in a Cypher query
+ */
+export interface WhereClause {
+  /** The condition expression */
+  condition: Expression;
+}
+
+/**
+ * Represents a property setting in a SET clause
+ * e.g., n.property = value
+ */
+export interface PropertySetting {
+  /** The target object (variable) */
+  target: VariableExpression;
+  /** The property to set */
+  property: string;
+  /** The value expression */
+  value: Expression;
+}
+
+/**
+ * Represents the SET clause in a Cypher query
+ */
+export interface SetClause {
+  /** Array of property settings */
+  settings: PropertySetting[];
+}
+
+/**
+ * Represents a node to be created in a CREATE clause
+ */
+export interface CreateNode {
+  /** The node pattern to create */
+  node: NodePattern;
+}
+
+/**
+ * Represents a relationship to be created in a CREATE clause
+ */
+export interface CreateRelationship {
+  /** The starting node (must be a variable that was matched earlier) */
+  fromNode: VariableExpression;
+  /** The relationship pattern to create */
+  relationship: RelationshipPattern;
+  /** The ending node (must be a variable that was matched earlier) */
+  toNode: VariableExpression;
+}
+
+/**
+ * Represents the CREATE clause in a Cypher query
+ */
+export interface CreateClause {
+  /** Array of nodes and relationships to create */
+  patterns: Array<CreateNode | CreateRelationship>;
+}
+
+/**
+ * Represents a complete Cypher query statement
+ */
+export interface CypherStatement {
+  /** The MATCH clause (optional) */
+  match?: MatchClause;
+  /** The WHERE clause (optional) */
+  where?: WhereClause;
+  /** The CREATE clause (optional) */
+  create?: CreateClause;
+  /** The SET clause (optional) */
+  set?: SetClause;
+}
+
+/**
+ * Interface for the Parser that parses Cypher queries
+ */
+export interface Parser {
+  /**
+   * Parses the token stream to produce a Cypher statement
+   * @returns The parsed Cypher statement
+   */
+  parse(): CypherStatement;
+
+  /**
+   * Returns the list of errors encountered during parsing
+   * @returns Array of error messages
+   */
+  getErrors(): string[];
+}
+
 
 /**
  * Parses a graph rule from a markdown string.
@@ -128,7 +381,7 @@ export class CypherParser implements Parser {
   private lexer: Lexer;
   private currentToken: Token;
   private errors: string[] = [];
-  
+
   /**
    * Creates a new CypherParser
    * @param lexer The lexer to use for tokenization
@@ -136,22 +389,22 @@ export class CypherParser implements Parser {
    */
   constructor(lexer: Lexer, input?: string) {
     this.lexer = lexer;
-    
+
     if (input) {
       this.lexer.tokenize(input);
     }
-    
+
     this.currentToken = this.lexer.next();
     this.previousToken = this.currentToken; // Initialize previousToken
   }
-  
+
   /**
    * Parses the token stream to produce a Cypher statement
    * @returns The parsed Cypher statement
    */
   parse(): CypherStatement {
     const statement: CypherStatement = {};
-    
+
     // Collect clauses until we reach the end of input
     while (!this.isAtEnd()) {
       try {
@@ -171,15 +424,15 @@ export class CypherParser implements Parser {
       } catch (error: any) {
         // Catch any errors thrown during parsing and add to error list
         this.errors.push(error.message);
-        
+
         // Skip to the next meaningful token (like a clause start) to try to recover
         this.synchronize();
       }
     }
-    
+
     return statement;
   }
-  
+
   /**
    * Synchronizes the parser after an error by skipping tokens until a recognizable clause start is found
    * This helps with error recovery
@@ -197,11 +450,11 @@ export class CypherParser implements Parser {
       ) {
         return;
       }
-      
+
       this.advance();
     }
   }
-  
+
   /**
    * Returns the list of errors encountered during parsing
    * @returns Array of error messages
@@ -209,25 +462,25 @@ export class CypherParser implements Parser {
   getErrors(): string[] {
     return this.errors;
   }
-  
+
   /**
    * Parses a MATCH clause
    * @returns The parsed match clause
    */
   private parseMatchClause(): MatchClause {
     const patterns: PathPattern[] = [];
-    
+
     // Parse the first path pattern
     patterns.push(this.parsePathPattern());
-    
+
     // Parse additional patterns separated by commas
     while (this.match(TokenType.COMMA)) {
       patterns.push(this.parsePathPattern());
     }
-    
+
     return { patterns };
   }
-  
+
   /**
    * Parses a path pattern (e.g., (a)-[:REL]->(b))
    * @returns The parsed path pattern
@@ -236,21 +489,21 @@ export class CypherParser implements Parser {
     // Parse the starting node
     const start = this.parseNodePattern();
     const segments: { relationship: RelationshipPattern; node: NodePattern }[] = [];
-    
+
     // Parse segments (relationship + node) until we don't see a relationship
     while (
-      this.check(TokenType.MINUS) || 
-      this.check(TokenType.FORWARD_ARROW) || 
+      this.check(TokenType.MINUS) ||
+      this.check(TokenType.FORWARD_ARROW) ||
       this.check(TokenType.BACKWARD_ARROW)
     ) {
       const relationship = this.parseRelationshipPattern();
       const node = this.parseNodePattern();
       segments.push({ relationship, node });
     }
-    
+
     return { start, segments };
   }
-  
+
   /**
    * Parses a node pattern (e.g., (variable:Label {property: value}))
    * @returns The parsed node pattern
@@ -258,36 +511,36 @@ export class CypherParser implements Parser {
   private parseNodePattern(): NodePattern {
     // Expect an opening parenthesis
     this.consume(TokenType.OPEN_PAREN, "Expected '(' at the start of node pattern");
-    
+
     const node: NodePattern = {
       labels: [],
       properties: {}
     };
-    
+
     // Check if there's a variable name
     if (this.check(TokenType.IDENTIFIER)) {
       node.variable = this.currentToken.value;
       this.advance();
     }
-    
+
     // Parse labels if any (can have multiple)
     while (this.match(TokenType.COLON)) {
       const label = this.consume(TokenType.IDENTIFIER, "Expected label after ':'").value;
       node.labels.push(label);
     }
-    
+
     // Parse properties if any
     if (this.match(TokenType.OPEN_BRACE)) {
       node.properties = this.parsePropertyMap();
       this.consume(TokenType.CLOSE_BRACE, "Expected '}' after property map");
     }
-    
+
     // Expect a closing parenthesis
     this.consume(TokenType.CLOSE_PAREN, "Expected ')' at the end of node pattern");
-    
+
     return node;
   }
-  
+
   /**
    * Parses a relationship pattern (e.g., -[variable:TYPE {property: value}]->)
    * @param startingTokenIndex Optional index to start from. Used for testing isolated relationship patterns.
@@ -305,10 +558,10 @@ export class CypherParser implements Parser {
       // Update current token
       this.currentToken = this.lexer.next();
     }
-    
+
     // Check for the start of the relationship and determine direction
     let direction: 'outgoing' | 'incoming' | 'both' = 'both';
-    
+
     if (this.match(TokenType.BACKWARD_ARROW)) {
       direction = 'incoming';
     } else if (this.match(TokenType.FORWARD_ARROW)) {
@@ -316,12 +569,12 @@ export class CypherParser implements Parser {
     } else {
       this.consume(TokenType.MINUS, "Expected relationship pattern to start with '-', '->', or '<-'");
     }
-    
+
     const relationship: RelationshipPattern = {
       properties: {},
       direction
     };
-    
+
     // Check if we have a relationship detail in square brackets
     if (this.match(TokenType.OPEN_BRACKET)) {
       // Check for variable name
@@ -332,21 +585,21 @@ export class CypherParser implements Parser {
       } else if (this.match(TokenType.COLON)) {
         // No variable name, just a colon
       }
-      
+
       // Parse relationship type
       if (this.check(TokenType.IDENTIFIER)) {
         relationship.type = this.currentToken.value;
         this.advance();
-        
+
         // Check for variable length path (e.g., *1..3)
         if (this.match(TokenType.ASTERISK)) {
           relationship.minHops = 1; // Default
-          
+
           // Check for specific range
           if (this.check(TokenType.NUMBER)) {
             relationship.minHops = Number(this.currentToken.value);
             this.advance();
-            
+
             // Check for max range
             if (this.match(TokenType.DOT) && this.match(TokenType.DOT)) {
               if (this.check(TokenType.NUMBER)) {
@@ -357,16 +610,16 @@ export class CypherParser implements Parser {
           }
         }
       }
-      
+
       // Parse properties
       if (this.match(TokenType.OPEN_BRACE)) {
         relationship.properties = this.parsePropertyMap();
         this.consume(TokenType.CLOSE_BRACE, "Expected '}' after property map");
       }
-      
+
       this.consume(TokenType.CLOSE_BRACKET, "Expected ']' after relationship details");
     }
-    
+
     // Parse the second part of the direction if needed
     if (direction === 'both' && this.match(TokenType.FORWARD_ARROW)) {
       relationship.direction = 'outgoing';
@@ -375,25 +628,25 @@ export class CypherParser implements Parser {
     } else if (direction === 'both') {
       this.consume(TokenType.MINUS, "Expected relationship pattern to end with '-', '->', or '<-'");
     }
-    
+
     return relationship;
   }
-  
+
   /**
    * Parses a property map (e.g., {name: "John", age: 30})
    * @returns Object with property key-value pairs
    */
   private parsePropertyMap(): Record<string, string | number | boolean | null> {
     const properties: Record<string, string | number | boolean | null> = {};
-    
+
     // Parse first property
     if (!this.check(TokenType.CLOSE_BRACE)) {
       // Get property name
       const key = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-      
+
       // Expect colon
       this.consume(TokenType.COLON, "Expected ':' after property name");
-      
+
       // Parse literal value based on token type
       if (this.check(TokenType.STRING)) {
         properties[key] = this.advance().value;
@@ -407,15 +660,15 @@ export class CypherParser implements Parser {
       } else {
         throw this.error(`Expected a literal value after ':' for property ${key}`);
       }
-      
+
       // Parse additional properties
       while (this.match(TokenType.COMMA)) {
         // Get property name
         const key = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-        
+
         // Expect colon
         this.consume(TokenType.COLON, "Expected ':' after property name");
-        
+
         // Parse literal value based on token type
         if (this.check(TokenType.STRING)) {
           properties[key] = this.advance().value;
@@ -431,10 +684,10 @@ export class CypherParser implements Parser {
         }
       }
     }
-    
+
     return properties;
   }
-  
+
   /**
    * Parses a literal value (string, number, boolean, null)
    * @returns The literal value
@@ -443,22 +696,22 @@ export class CypherParser implements Parser {
     if (this.match(TokenType.STRING)) {
       return this.previous().value;
     }
-    
+
     if (this.match(TokenType.NUMBER)) {
       return Number(this.previous().value);
     }
-    
+
     if (this.match(TokenType.BOOLEAN)) {
       return this.previous().value === 'true';
     }
-    
+
     if (this.match(TokenType.NULL)) {
       return null;
     }
-    
+
     throw this.error("Expected a literal value (string, number, boolean, or null)");
   }
-  
+
   /**
    * Parses a WHERE clause
    * @returns The parsed where clause
@@ -467,7 +720,7 @@ export class CypherParser implements Parser {
     const condition = this.parseExpression();
     return { condition };
   }
-  
+
   /**
    * Parses an expression
    * @returns The parsed expression
@@ -475,7 +728,7 @@ export class CypherParser implements Parser {
   private parseExpression(): Expression {
     return this.parseLogicalExpression();
   }
-  
+
   /**
    * Parses a logical expression (AND, OR, NOT, XOR)
    * @returns The parsed logical expression
@@ -486,7 +739,7 @@ export class CypherParser implements Parser {
       if (this.match(TokenType.EXISTS)) {
         return this.parseExistsExpression(false);
       }
-      
+
       const operand = this.parseLogicalExpression();
       return {
         type: 'logical',
@@ -494,27 +747,27 @@ export class CypherParser implements Parser {
         operands: [operand]
       };
     }
-    
+
     // Handle EXISTS
     if (this.match(TokenType.EXISTS)) {
       return this.parseExistsExpression(true);
     }
-    
+
     // Parse the first comparison expression
     let expr = this.parseComparisonExpression();
-    
+
     // Look for AND, OR, XOR operators
     while (
-      this.match(TokenType.AND) || 
-      this.match(TokenType.OR) || 
+      this.match(TokenType.AND) ||
+      this.match(TokenType.OR) ||
       this.match(TokenType.XOR)
     ) {
       const operator = this.tokenTypeToLogicalOperator(this.previous().type);
       const right = this.parseComparisonExpression();
-      
+
       // If we already have a logical expression with the same operator, add to it
       if (
-        expr.type === 'logical' && 
+        expr.type === 'logical' &&
         (expr as LogicalExpression).operator === operator
       ) {
         (expr as LogicalExpression).operands.push(right);
@@ -527,29 +780,29 @@ export class CypherParser implements Parser {
         };
       }
     }
-    
+
     return expr;
   }
-  
+
   /**
    * Parses a comparison expression
    * @returns The parsed comparison expression
    */
   private parseComparisonExpression(): Expression {
     const left = this.parsePrimaryExpression();
-    
+
     // Check for comparison operators
     if (
-      this.match(TokenType.EQUALS) || 
-      this.match(TokenType.NOT_EQUALS) || 
-      this.match(TokenType.LESS_THAN) || 
-      this.match(TokenType.LESS_THAN_OR_EQUALS) || 
-      this.match(TokenType.GREATER_THAN) || 
+      this.match(TokenType.EQUALS) ||
+      this.match(TokenType.NOT_EQUALS) ||
+      this.match(TokenType.LESS_THAN) ||
+      this.match(TokenType.LESS_THAN_OR_EQUALS) ||
+      this.match(TokenType.GREATER_THAN) ||
       this.match(TokenType.GREATER_THAN_OR_EQUALS)
     ) {
       const operator = this.tokenTypeToComparisonOperator(this.previous().type);
       const right = this.parsePrimaryExpression();
-      
+
       return {
         type: 'comparison',
         left,
@@ -557,7 +810,7 @@ export class CypherParser implements Parser {
         right
       };
     }
-    
+
     // Handle special operators like IS NULL, IS NOT NULL, etc.
     if (this.match(TokenType.IS)) {
       if (this.match(TokenType.NULL)) {
@@ -568,7 +821,7 @@ export class CypherParser implements Parser {
           right: { type: 'literal', value: null, dataType: 'null' }
         };
       }
-      
+
       if (this.match(TokenType.NOT) && this.match(TokenType.NULL)) {
         return {
           type: 'comparison',
@@ -577,10 +830,10 @@ export class CypherParser implements Parser {
           right: { type: 'literal', value: null, dataType: 'null' }
         };
       }
-      
+
       throw this.error("Expected 'NULL' or 'NOT NULL' after 'IS'");
     }
-    
+
     // Handle CONTAINS, STARTS WITH, ENDS WITH
     if (this.match(TokenType.CONTAINS)) {
       const right = this.parsePrimaryExpression();
@@ -591,7 +844,7 @@ export class CypherParser implements Parser {
         right
       };
     }
-    
+
     if (this.match(TokenType.STARTS) && this.match(TokenType.WITH)) {
       const right = this.parsePrimaryExpression();
       return {
@@ -601,7 +854,7 @@ export class CypherParser implements Parser {
         right
       };
     }
-    
+
     if (this.match(TokenType.ENDS) && this.match(TokenType.WITH)) {
       const right = this.parsePrimaryExpression();
       return {
@@ -611,7 +864,7 @@ export class CypherParser implements Parser {
         right
       };
     }
-    
+
     // Handle IN operator
     if (this.match(TokenType.IN)) {
       const right = this.parsePrimaryExpression();
@@ -622,10 +875,10 @@ export class CypherParser implements Parser {
         right
       };
     }
-    
+
     return left;
   }
-  
+
   /**
    * Parses a primary expression (variable, property access, literal)
    * @returns The parsed expression
@@ -633,25 +886,25 @@ export class CypherParser implements Parser {
   private parsePrimaryExpression(): Expression {
     // Handle literals
     if (
-      this.check(TokenType.STRING) || 
-      this.check(TokenType.NUMBER) || 
-      this.check(TokenType.BOOLEAN) || 
+      this.check(TokenType.STRING) ||
+      this.check(TokenType.NUMBER) ||
+      this.check(TokenType.BOOLEAN) ||
       this.check(TokenType.NULL)
     ) {
       return this.parseLiteralExpression();
     }
-    
+
     // Handle variable
     if (this.check(TokenType.IDENTIFIER)) {
       // Save the variable name token before advancing
       const variableName = this.currentToken.value;
       this.advance(); // Consume the identifier
-      
+
       const variable: VariableExpression = {
         type: 'variable',
         name: variableName
       };
-      
+
       // Check for property access (dot notation)
       if (this.match(TokenType.DOT)) {
         const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
@@ -661,10 +914,10 @@ export class CypherParser implements Parser {
           property
         };
       }
-      
+
       return variable;
     }
-    
+
     // Handle parenthesized expressions
     if (this.match(TokenType.OPEN_PAREN)) {
       // Check if this is a path pattern for EXISTS expression
@@ -673,16 +926,16 @@ export class CypherParser implements Parser {
         this.currentToken = this.lexer.next();
         throw this.error("Path patterns should be used with EXISTS or in MATCH clauses");
       }
-      
+
       // Otherwise it's a grouped expression
       const expr = this.parseExpression();
       this.consume(TokenType.CLOSE_PAREN, "Expected ')' after expression");
       return expr;
     }
-    
+
     throw this.error("Expected expression");
   }
-  
+
   /**
    * Parses a literal expression
    * @returns The parsed literal expression
@@ -690,7 +943,7 @@ export class CypherParser implements Parser {
   private parseLiteralExpression(): LiteralExpression {
     // Save the current token before advancing
     const token = this.currentToken;
-    
+
     if (this.match(TokenType.STRING)) {
       return {
         type: 'literal',
@@ -698,7 +951,7 @@ export class CypherParser implements Parser {
         dataType: 'string'
       };
     }
-    
+
     if (this.match(TokenType.NUMBER)) {
       return {
         type: 'literal',
@@ -706,7 +959,7 @@ export class CypherParser implements Parser {
         dataType: 'number'
       };
     }
-    
+
     if (this.match(TokenType.BOOLEAN)) {
       return {
         type: 'literal',
@@ -714,7 +967,7 @@ export class CypherParser implements Parser {
         dataType: 'boolean'
       };
     }
-    
+
     if (this.match(TokenType.NULL)) {
       return {
         type: 'literal',
@@ -722,10 +975,10 @@ export class CypherParser implements Parser {
         dataType: 'null'
       };
     }
-    
+
     throw this.error("Expected literal value");
   }
-  
+
   /**
    * Parses an EXISTS expression
    * @param positive Whether this is a positive (EXISTS) or negative (NOT EXISTS) check
@@ -735,40 +988,40 @@ export class CypherParser implements Parser {
     this.consume(TokenType.OPEN_PAREN, "Expected '(' after EXISTS");
     const pattern = this.parsePathPattern();
     this.consume(TokenType.CLOSE_PAREN, "Expected ')' after pattern");
-    
+
     return {
       type: 'exists',
       positive,
       pattern
     };
   }
-  
+
   /**
    * Parses a CREATE clause
    * @returns The parsed CREATE clause
    */
   private parseCreateClause(): CreateClause {
     const patterns: Array<CreateNode | CreateRelationship> = [];
-    
+
     // Parse the first pattern
     if (this.check(TokenType.OPEN_PAREN)) {
       const firstChar = this.currentToken.value;
-      
+
       // Check if this is a node or a path (for relationship creation)
       if (firstChar === '(') {
         // Parse first node or path
         const node = this.parseNodePattern();
-        
+
         // Check if this is a standalone node or the start of a path
         if (
-          this.check(TokenType.MINUS) || 
-          this.check(TokenType.FORWARD_ARROW) || 
+          this.check(TokenType.MINUS) ||
+          this.check(TokenType.FORWARD_ARROW) ||
           this.check(TokenType.BACKWARD_ARROW)
         ) {
           // This is a path - parse the relationship and end node
           const relationship = this.parseRelationshipPattern();
           const endNode = this.parseNodePattern();
-          
+
           // Create a relationship pattern
           patterns.push({
             fromNode: { type: 'variable', name: node.variable! },
@@ -781,26 +1034,26 @@ export class CypherParser implements Parser {
         }
       }
     }
-    
+
     // Parse additional patterns separated by commas
     while (this.match(TokenType.COMMA)) {
       if (this.check(TokenType.OPEN_PAREN)) {
         const firstChar = this.currentToken.value;
-        
+
         if (firstChar === '(') {
           // Parse node or path
           const node = this.parseNodePattern();
-          
+
           // Check if this is a standalone node or the start of a path
           if (
-            this.check(TokenType.MINUS) || 
-            this.check(TokenType.FORWARD_ARROW) || 
+            this.check(TokenType.MINUS) ||
+            this.check(TokenType.FORWARD_ARROW) ||
             this.check(TokenType.BACKWARD_ARROW)
           ) {
             // This is a path
             const relationship = this.parseRelationshipPattern();
             const endNode = this.parseNodePattern();
-            
+
             patterns.push({
               fromNode: { type: 'variable', name: node.variable! },
               relationship,
@@ -813,26 +1066,26 @@ export class CypherParser implements Parser {
         }
       }
     }
-    
+
     return { patterns };
   }
-  
+
   /**
    * Parses a SET clause
    * @returns The parsed SET clause
    */
   private parseSetClause(): SetClause {
     const settings: PropertySetting[] = [];
-    
+
     // Parse the first property setting
     const target = this.parseVariableExpression();
     this.consume(TokenType.DOT, "Expected '.' after variable");
     const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
     this.consume(TokenType.EQUALS, "Expected '=' after property name");
     const value = this.parseExpression();
-    
+
     settings.push({ target, property, value });
-    
+
     // Parse additional settings separated by commas
     while (this.match(TokenType.COMMA)) {
       const target = this.parseVariableExpression();
@@ -840,13 +1093,13 @@ export class CypherParser implements Parser {
       const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
       this.consume(TokenType.EQUALS, "Expected '=' after property name");
       const value = this.parseExpression();
-      
+
       settings.push({ target, property, value });
     }
-    
+
     return { settings };
   }
-  
+
   /**
    * Parses a variable expression
    * @returns The parsed variable expression
@@ -855,7 +1108,7 @@ export class CypherParser implements Parser {
     const name = this.consume(TokenType.IDENTIFIER, "Expected variable name").value;
     return { type: 'variable', name };
   }
-  
+
   /**
    * Checks if the current token matches the expected type, and advances if it does
    * @param type The expected token type
@@ -868,7 +1121,7 @@ export class CypherParser implements Parser {
     }
     return false;
   }
-  
+
   /**
    * Checks if the current token is of the expected type
    * @param type The expected token type
@@ -878,10 +1131,10 @@ export class CypherParser implements Parser {
     if (this.isAtEnd()) return false;
     return this.currentToken.type === type;
   }
-  
+
   // Store the previously consumed token
   private previousToken: Token | null = null;
-  
+
   /**
    * Advances to the next token
    * @returns The previous token
@@ -893,7 +1146,7 @@ export class CypherParser implements Parser {
     }
     return this.previousToken;
   }
-  
+
   /**
    * Returns the previously consumed token
    * @returns The previous token
@@ -914,23 +1167,23 @@ export class CypherParser implements Parser {
     const currentToken = this.currentToken;
     // Save the previous token 
     const savedPreviousToken = this.previousToken;
-    
+
     // Get the next token (this advances the lexer)
     this.advance();
     // Save the next token
     const nextToken = this.currentToken;
-    
+
     // We need to restore the lexer state by rewinding one token
     // First we need to make the lexer go back one position
     (this.lexer as any).currentTokenIndex--;
-    
+
     // Restore our parser's state
     this.currentToken = currentToken;
     this.previousToken = savedPreviousToken;
-    
+
     return nextToken;
   }
-  
+
   /**
    * Consumes the current token if it matches the expected type, otherwise throws an error
    * @param type The expected token type
@@ -941,10 +1194,10 @@ export class CypherParser implements Parser {
     if (this.check(type)) {
       return this.advance();
     }
-    
+
     throw this.error(message);
   }
-  
+
   /**
    * Creates an error with the current token information
    * @param message The error message
@@ -955,7 +1208,7 @@ export class CypherParser implements Parser {
     this.errors.push(errorMsg);
     return new Error(errorMsg);
   }
-  
+
   /**
    * Checks if we've reached the end of the token stream
    * @returns True if we're at the end, false otherwise
@@ -963,7 +1216,7 @@ export class CypherParser implements Parser {
   private isAtEnd(): boolean {
     return this.currentToken.type === TokenType.EOF;
   }
-  
+
   /**
    * Converts a token type to a comparison operator
    * @param type The token type
@@ -987,7 +1240,7 @@ export class CypherParser implements Parser {
         throw new Error(`Token type ${type} is not a comparison operator`);
     }
   }
-  
+
   /**
    * Converts a token type to a logical operator
    * @param type The token type

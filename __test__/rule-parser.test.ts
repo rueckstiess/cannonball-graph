@@ -1,6 +1,6 @@
-import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../src/rules/rule-parser';
-import { CypherLexer } from '../src/rules/lexer';
-import { Rule, TokenType, ComparisonOperator, LogicalOperator, LiteralExpression, ComparisonExpression, LogicalExpression, ExistsExpression } from '../src/rules/types';
+import { parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser } from '../src/lang/rule-parser';
+import { Lexer } from '../src/lang';
+import { Rule, TokenType, ComparisonOperator, LogicalOperator, LiteralExpression, ComparisonExpression, LogicalExpression, ExistsExpression } from '@/lang';
 
 
 
@@ -216,13 +216,13 @@ MATCH (n)
     let parser: CypherParser;
 
     beforeEach(() => {
-      parser = new CypherParser(new CypherLexer());
+      parser = new CypherParser(new Lexer());
     });
 
     describe('error handling', () => {
       it('should capture and return errors', () => {
         const invalidQuery = 'MATCH (a:Person) INVALID_KEYWORD';
-        parser = new CypherParser(new CypherLexer(), invalidQuery);
+        parser = new CypherParser(new Lexer(), invalidQuery);
 
         parser.parse();
 
@@ -233,7 +233,7 @@ MATCH (n)
 
       it('should add errors when parsing invalid input', () => {
         const invalidQuery = 'INVALID_KEYWORD';
-        parser = new CypherParser(new CypherLexer(), invalidQuery);
+        parser = new CypherParser(new Lexer(), invalidQuery);
 
         // The parser should not throw, but add to errors
         parser.parse();
@@ -245,19 +245,19 @@ MATCH (n)
       it('should handle different token types in valid queries', () => {
         // Test MATCH, WHERE, and SET clauses with multiple token types
         const query = 'MATCH (p:Person {name: "John", age: 30, active: true}) ' +
-                     'WHERE p.age > 25 AND p.name <> "Jane" ' +
-                     'SET p.processed = true';
-        
-        parser = new CypherParser(new CypherLexer(), query);
+          'WHERE p.age > 25 AND p.name <> "Jane" ' +
+          'SET p.processed = true';
+
+        parser = new CypherParser(new Lexer(), query);
         const result = parser.parse();
-        
+
         // Verify no parsing errors
         expect(parser.getErrors()).toHaveLength(0);
-        
+
         // Verify MATCH clause (tests parentheses, colons, braces, identifiers, literals)
         expect(result.match).toBeDefined();
         expect(result.match!.patterns).toHaveLength(1);
-        
+
         const node = result.match!.patterns[0].start;
         expect(node.variable).toBe('p');
         expect(node.labels).toContain('Person');
@@ -266,17 +266,17 @@ MATCH (n)
           age: 30,
           active: true
         });
-        
+
         // Verify WHERE clause with logical AND
         expect(result.where).toBeDefined();
         const condition = result.where!.condition;
         expect(condition.type).toBe('logical');
-        
+
         // Verify it's a logical AND expression
         const logicalExpr = condition as LogicalExpression;
         expect(logicalExpr.operator).toBe(LogicalOperator.AND);
         expect(logicalExpr.operands).toHaveLength(2);
-        
+
         // Verify first operand: p.age > 25
         const firstOperand = logicalExpr.operands[0] as ComparisonExpression;
         expect(firstOperand.type).toBe('comparison');
@@ -284,7 +284,7 @@ MATCH (n)
         expect((firstOperand.left as any).object.name).toBe('p');
         expect((firstOperand.left as any).property).toBe('age');
         expect((firstOperand.right as LiteralExpression).value).toBe(25);
-        
+
         // Verify second operand: p.name <> "Jane"
         const secondOperand = logicalExpr.operands[1] as ComparisonExpression;
         expect(secondOperand.type).toBe('comparison');
@@ -292,17 +292,17 @@ MATCH (n)
         expect((secondOperand.left as any).object.name).toBe('p');
         expect((secondOperand.left as any).property).toBe('name');
         expect((secondOperand.right as LiteralExpression).value).toBe('Jane');
-        
+
         // Verify SET clause
         expect(result.set).toBeDefined();
         expect(result.set!.settings).toHaveLength(1);
-        
+
         // Verify the property setting
         const setting = result.set!.settings[0];
         expect(setting.target.type).toBe('variable');
         expect(setting.target.name).toBe('p');
         expect(setting.property).toBe('processed');
-        
+
         // Verify the value expression
         const valueExpr = setting.value as LiteralExpression;
         expect(valueExpr.type).toBe('literal');
@@ -315,7 +315,7 @@ MATCH (n)
       it('should correctly identify node patterns', () => {
         // Test a simple node pattern
         const query = 'MATCH (n:Person)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -327,26 +327,26 @@ MATCH (n)
     describe('error handling for complex queries', () => {
       it('should handle multiple clauses without errors', () => {
         const query = 'MATCH (n:Person) SET n.processed = true';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         // Parse the query
         const result = parser.parse();
-        
+
         // Verify no errors were returned
         expect(parser.getErrors()).toHaveLength(0);
-        
+
         // Verify the MATCH clause structure
         expect(result.match).toBeDefined();
         expect(result.match!.patterns).toHaveLength(1);
         expect(result.match!.patterns[0].start.variable).toBe('n');
         expect(result.match!.patterns[0].start.labels).toContain('Person');
-        
+
         // Verify the SET clause structure
         expect(result.set).toBeDefined();
         expect(result.set!.settings).toHaveLength(1);
         expect(result.set!.settings[0].target.name).toBe('n');
         expect(result.set!.settings[0].property).toBe('processed');
-        
+
         // Verify the property value (should be boolean true)
         const valueExpr = result.set!.settings[0].value as LiteralExpression;
         expect(valueExpr.type).toBe('literal');
@@ -359,7 +359,7 @@ MATCH (n)
       // Testing public API behavior rather than private methods
       it('should parse literals in node patterns', () => {
         const query = 'MATCH (n {name: "hello", age: 123, active: true, parent: null})';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -377,26 +377,26 @@ MATCH (n)
       it('should handle and record errors for invalid literals', () => {
         // Test with a query containing an invalid property value
         const query = 'MATCH (n {prop: invalid})';
-        parser = new CypherParser(new CypherLexer(), query);
-        
+        parser = new CypherParser(new Lexer(), query);
+
         // The parser should handle the error gracefully now
         const result = parser.parse();
-        
+
         // Verify the parse still completed
         expect(result).toBeDefined();
-        
+
         // Verify the error was recorded
         const errors = parser.getErrors();
         expect(errors.length).toBeGreaterThan(0);
-        
+
         // Verify the error message contains the expected text
         const errorMessage = errors[0];
         expect(errorMessage).toContain('Expected a literal value');
-        
+
         // Also test for invalid token handling
-        parser = new CypherParser(new CypherLexer(), 'INVALID_TOKEN');
+        parser = new CypherParser(new Lexer(), 'INVALID_TOKEN');
         parser.parse();
-        
+
         // Verify the error was recorded
         const tokenErrors = parser.getErrors();
         expect(tokenErrors.length).toBeGreaterThan(0);
@@ -406,7 +406,7 @@ MATCH (n)
 
     describe('token type conversion methods', () => {
       it('should convert token types to comparison operators', () => {
-        parser = new CypherParser(new CypherLexer());
+        parser = new CypherParser(new Lexer());
 
         // @ts-ignore - accessing private method for testing
         expect(parser['tokenTypeToComparisonOperator'](TokenType.EQUALS)).toBe(ComparisonOperator.EQUALS);
@@ -426,7 +426,7 @@ MATCH (n)
       });
 
       it('should convert token types to logical operators', () => {
-        parser = new CypherParser(new CypherLexer());
+        parser = new CypherParser(new Lexer());
 
         // @ts-ignore - accessing private method for testing
         expect(parser['tokenTypeToLogicalOperator'](TokenType.AND)).toBe(LogicalOperator.AND);
@@ -447,7 +447,7 @@ MATCH (n)
     describe('property map parsing', () => {
       it('should parse property maps with various data types', () => {
         const query = 'MATCH (n {stringProp: "value", numProp: 123, boolProp: true, nullProp: null})';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
         const properties = result.match?.patterns[0].start.properties;
@@ -461,7 +461,7 @@ MATCH (n)
 
       it('should throw an error for invalid property values', () => {
         const query = 'MATCH (n {prop: invalid})';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         try {
           parser.parse();
@@ -478,22 +478,22 @@ MATCH (n)
     describe('NOT EXISTS expression parsing', () => {
       it('should parse NOT EXISTS expressions', () => {
         const query = 'MATCH (a) WHERE NOT EXISTS((a)-[:KNOWS]->(b))';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
         // Assert basic structure
         expect(result.where).toBeDefined();
         const condition = result.where!.condition;
-        
+
         // Based on the parser implementation, NOT EXISTS should be parsed as
         // an exists expression with positive=false
         expect(condition.type).toBe('exists');
-        
+
         // Type assertion to access ExistsExpression properties
         const existsExpr = condition as ExistsExpression;
         expect(existsExpr.positive).toBe(false);
-        
+
         // Verify the pattern details
         expect(existsExpr.pattern).toBeDefined();
         expect(existsExpr.pattern.start.variable).toBe('a');
@@ -507,23 +507,23 @@ MATCH (n)
     describe('special comparison operators', () => {
       it('should handle NULL expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS NULL';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'prop');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.IS_NULL);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', null);
@@ -533,23 +533,23 @@ MATCH (n)
 
       it('should handle IS NOT NULL expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS NOT NULL';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'prop');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.IS_NOT_NULL);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', null);
@@ -559,38 +559,38 @@ MATCH (n)
 
       it('should handle and record errors for invalid IS expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS INVALID';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         // With error handling, the parser should complete but record errors
         parser.parse();
-        
+
         // Verify that the error was recorded
         const errors = parser.getErrors();
         expect(errors.length).toBeGreaterThan(0);
-        
+
         // Verify that the error contains the expected message
         expect(errors[0]).toContain("Expected 'NULL' or 'NOT NULL' after 'IS'");
       });
 
       it('should parse CONTAINS expressions', () => {
         const query = 'MATCH (n) WHERE n.name CONTAINS "substring"';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'name');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.CONTAINS);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', 'substring');
@@ -600,23 +600,23 @@ MATCH (n)
 
       it('should parse STARTS WITH expressions', () => {
         const query = 'MATCH (n) WHERE n.name STARTS WITH "prefix"';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'name');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.STARTS_WITH);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', 'prefix');
@@ -626,23 +626,23 @@ MATCH (n)
 
       it('should parse ENDS WITH expressions', () => {
         const query = 'MATCH (n) WHERE n.name ENDS WITH "suffix"';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'name');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.ENDS_WITH);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', 'suffix');
@@ -652,23 +652,23 @@ MATCH (n)
 
       it('should parse IN expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IN "value"';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         expect(result.where).toBeDefined();
         const condition = result.where?.condition;
         expect(condition).toHaveProperty('type', 'comparison');
-        
+
         if (condition && condition.type === 'comparison') {
           // Check left side
           expect(condition.left).toHaveProperty('type', 'property');
           expect(condition.left).toHaveProperty('object.name', 'n');
           expect(condition.left).toHaveProperty('property', 'prop');
-          
+
           // Check operator
           expect(condition.operator).toBe(ComparisonOperator.IN);
-          
+
           // Check right side
           expect(condition.right).toHaveProperty('type', 'literal');
           expect(condition.right).toHaveProperty('value', 'value');
@@ -680,17 +680,17 @@ MATCH (n)
     describe('relationship pattern parsing', () => {
       it('should parse relationships', () => {
         const query = 'MATCH (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Assert the match clause exists
         expect(result.match).toBeDefined();
-        
+
         // Assert the patterns array exists and has one element
         expect(result.match?.patterns).toBeDefined();
         expect(result.match?.patterns.length).toBe(1);
-        
+
         // Get the pattern and make direct assertions
         const pattern = result.match!.patterns[0];
         expect(pattern.segments.length).toBe(1);
@@ -700,17 +700,17 @@ MATCH (n)
 
       it('should parse bidirectional relationships', () => {
         const query = 'MATCH (a)-[:KNOWS]-(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Assert the match clause exists
         expect(result.match).toBeDefined();
-        
+
         // Assert the patterns array exists and has one element
         expect(result.match?.patterns).toBeDefined();
         expect(result.match?.patterns.length).toBe(1);
-        
+
         // Get the pattern and make direct assertions
         const pattern = result.match!.patterns[0];
         expect(pattern.segments.length).toBe(1);
@@ -719,17 +719,17 @@ MATCH (n)
 
       it('should parse relationships with variable length paths', () => {
         const query = 'MATCH (a)-[:KNOWS*2..5]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Assert the match clause exists
         expect(result.match).toBeDefined();
-        
+
         // Assert the patterns array exists and has one element
         expect(result.match?.patterns).toBeDefined();
         expect(result.match?.patterns.length).toBe(1);
-        
+
         // Get the pattern and make direct assertions
         const pattern = result.match!.patterns[0];
         expect(pattern.segments.length).toBe(1);
@@ -741,29 +741,29 @@ MATCH (n)
       it('should parse relationships with variable names', () => {
         // Test relationship with explicit variable name 'r'
         const query = 'MATCH (a)-[r:KNOWS]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Verify no parsing errors
         expect(parser.getErrors()).toHaveLength(0);
-        
+
         // Verify match clause exists
         expect(result.match).toBeDefined();
         expect(result.match!.patterns).toHaveLength(1);
-        
+
         // Verify the pattern structure
         const pattern = result.match!.patterns[0];
-        
+
         // Verify start node
         expect(pattern.start.variable).toBe('a');
-        
+
         // Verify relationship with variable name
         expect(pattern.segments).toHaveLength(1);
         expect(pattern.segments[0].relationship.variable).toBe('r');
         expect(pattern.segments[0].relationship.type).toBe('KNOWS');
         expect(pattern.segments[0].relationship.direction).toBe('outgoing');
-        
+
         // Verify end node
         expect(pattern.segments[0].node.variable).toBe('b');
       });
@@ -772,26 +772,26 @@ MATCH (n)
     describe('CREATE clause parsing', () => {
       it('should parse CREATE node patterns', () => {
         const query = 'CREATE (n:Person {name: "John"})';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
         // Assert the create clause exists
         expect(result.create).toBeDefined();
-        
+
         // Assert the patterns array exists and has one element
         expect(result.create?.patterns).toBeDefined();
         expect(result.create?.patterns.length).toBe(1);
 
         // Get the pattern
         const pattern = result.create!.patterns[0];
-        
+
         // Assert it's a CreateNode pattern
         expect('node' in pattern).toBe(true);
-        
+
         // Type guard to allow TypeScript to know this is a CreateNode
         if (!('node' in pattern)) return; // This will never execute due to previous assertion
-        
+
         // Make assertions on the node properties
         expect(pattern.node.variable).toBe('n');
         expect(pattern.node.labels).toContain('Person');
@@ -800,26 +800,26 @@ MATCH (n)
 
       it('should parse CREATE relationship patterns', () => {
         const query = 'MATCH (a), (b) CREATE (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
         // Assert the create clause exists
         expect(result.create).toBeDefined();
-        
+
         // Assert the patterns array exists and has one element
         expect(result.create?.patterns).toBeDefined();
         expect(result.create?.patterns.length).toBe(1);
 
         // Get the pattern
         const pattern = result.create!.patterns[0];
-        
+
         // Assert it's a CreateRelationship pattern
         expect('relationship' in pattern).toBe(true);
-        
+
         // Type guard to allow TypeScript to know this is a CreateRelationship
         if (!('relationship' in pattern)) return; // This will never execute due to previous assertion
-        
+
         // Make assertions on the relationship properties
         expect(pattern.fromNode.name).toBe('a');
         expect(pattern.relationship.type).toBe('KNOWS');
@@ -829,7 +829,7 @@ MATCH (n)
 
       it('should parse multiple CREATE patterns', () => {
         const query = 'CREATE (a:Person), (b:Person), (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -841,7 +841,7 @@ MATCH (n)
     describe('SET clause parsing', () => {
       it('should parse SET property expressions', () => {
         const query = 'MATCH (n) SET n.name = "New Name", n.age = 30';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -862,7 +862,7 @@ MATCH (n)
     describe('EXISTS expression parsing', () => {
       it('should parse EXISTS pattern expressions', () => {
         const query = 'MATCH (a) WHERE EXISTS((a)-[:KNOWS]->(b))';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -883,7 +883,7 @@ MATCH (n)
     describe('Uncovered methods and branches', () => {
       it('should handle multiple node patterns in MATCH clause', () => {
         const query = 'MATCH (a:Person), (b:Project)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -892,19 +892,19 @@ MATCH (n)
 
       it('should parse NOT operator in expressions', () => {
         const query = 'MATCH (a) WHERE NOT a.deleted';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Assert the where clause exists
         expect(result.where).toBeDefined();
         const condition = result.where!.condition;
-        
+
         // Verify it's a logical expression with NOT operator
         expect(condition.type).toBe('logical');
         expect((condition as any).operator).toBe('NOT');
         expect((condition as any).operands.length).toBe(1);
-        
+
         // Verify the operand is a property access
         const operand = (condition as any).operands[0];
         expect(operand.type).toBe('property');
@@ -915,23 +915,23 @@ MATCH (n)
       it('should parse property access in expressions', () => {
         // Just use a simpler query to focus on property access
         const query = 'MATCH (a:Person) WHERE a.name';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
-        
+
         // Assert match clause exists
         expect(result.match).toBeDefined();
         expect(result.match!.patterns.length).toBe(1);
         expect(result.match!.patterns[0].start.variable).toBe('a');
         expect(result.match!.patterns[0].start.labels).toContain('Person');
-        
+
         // Assert where clause with property access exists
         expect(result.where).toBeDefined();
         const condition = result.where!.condition;
-        
+
         // Verify it's a property expression
         expect(condition.type).toBe('property');
-        
+
         // Verify the property access structure
         expect((condition as any).object.type).toBe('variable');
         expect((condition as any).object.name).toBe('a');
@@ -940,57 +940,57 @@ MATCH (n)
 
       it('should handle CREATE clauses with multiple patterns', () => {
         const query = 'CREATE (a:Person), (b:Person), (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
         // Verify the create clause exists with 3 patterns
         expect(result.create).toBeDefined();
         expect(result.create!.patterns.length).toBe(3);
-        
+
         // Verify first pattern is a node with label 'Person'
         const pattern1 = result.create!.patterns[0];
         expect('node' in pattern1).toBe(true);
         if ('node' in pattern1) {
-            expect(pattern1.node.variable).toBe('a');
-            expect(pattern1.node.labels).toContain('Person');
+          expect(pattern1.node.variable).toBe('a');
+          expect(pattern1.node.labels).toContain('Person');
         }
-        
+
         // Verify second pattern is a node with label 'Person'
         const pattern2 = result.create!.patterns[1];
         expect('node' in pattern2).toBe(true);
         if ('node' in pattern2) {
-            expect(pattern2.node.variable).toBe('b');
-            expect(pattern2.node.labels).toContain('Person');
+          expect(pattern2.node.variable).toBe('b');
+          expect(pattern2.node.labels).toContain('Person');
         }
-        
+
         // Verify third pattern is a relationship
         const pattern3 = result.create!.patterns[2];
         expect('relationship' in pattern3).toBe(true);
         if ('relationship' in pattern3) {
-            expect(pattern3.fromNode.name).toBe('a');
-            expect(pattern3.relationship.type).toBe('KNOWS');
-            expect(pattern3.relationship.direction).toBe('outgoing');
-            expect(pattern3.toNode.name).toBe('b');
+          expect(pattern3.fromNode.name).toBe('a');
+          expect(pattern3.relationship.type).toBe('KNOWS');
+          expect(pattern3.relationship.direction).toBe('outgoing');
+          expect(pattern3.toNode.name).toBe('b');
         }
       });
 
       it('should handle MATCH clauses with multiple patterns', () => {
         const query = 'MATCH (a:Person), (b:Person)';
-        parser = new CypherParser(new CypherLexer(), query);
+        parser = new CypherParser(new Lexer(), query);
 
         const result = parser.parse();
 
         // Verify the match clause exists with 2 patterns
         expect(result.match).toBeDefined();
         expect(result.match!.patterns.length).toBe(2);
-        
+
         // Verify first pattern has correct structure
         const pattern1 = result.match!.patterns[0];
         expect(pattern1.start.variable).toBe('a');
         expect(pattern1.start.labels).toContain('Person');
         expect(pattern1.segments.length).toBe(0); // No relationships in this pattern
-        
+
         // Verify second pattern has correct structure
         const pattern2 = result.match!.patterns[1];
         expect(pattern2.start.variable).toBe('b');
@@ -1006,7 +1006,7 @@ describe('CypherParser', () => {
 
   describe('Node Pattern Parsing', () => {
     it('should parse simple node pattern', () => {
-      parser = new CypherParser(new CypherLexer(), '(person)');
+      parser = new CypherParser(new Lexer(), '(person)');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1017,7 +1017,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse node pattern with label', () => {
-      parser = new CypherParser(new CypherLexer(), '(person:Person)');
+      parser = new CypherParser(new Lexer(), '(person:Person)');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1028,7 +1028,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse node pattern with multiple labels', () => {
-      parser = new CypherParser(new CypherLexer(), '(person:Person:Employee)');
+      parser = new CypherParser(new Lexer(), '(person:Person:Employee)');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1039,7 +1039,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse node pattern with properties', () => {
-      parser = new CypherParser(new CypherLexer(), '(person:Person {name: "John", age: 30})');
+      parser = new CypherParser(new Lexer(), '(person:Person {name: "John", age: 30})');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1053,7 +1053,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse anonymous node pattern with label and properties', () => {
-      parser = new CypherParser(new CypherLexer(), '(:Person {name: "John"})');
+      parser = new CypherParser(new Lexer(), '(:Person {name: "John"})');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1068,7 +1068,7 @@ describe('CypherParser', () => {
 
   describe('Relationship Pattern Parsing', () => {
     it('should parse simple outgoing relationship', () => {
-      parser = new CypherParser(new CypherLexer(), '-[:KNOWS]->');
+      parser = new CypherParser(new Lexer(), '-[:KNOWS]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1082,7 +1082,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse simple incoming relationship', () => {
-      parser = new CypherParser(new CypherLexer(), '<-[:KNOWS]-');
+      parser = new CypherParser(new Lexer(), '<-[:KNOWS]-');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1096,7 +1096,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse bidirectional relationship', () => {
-      parser = new CypherParser(new CypherLexer(), '-[:KNOWS]-');
+      parser = new CypherParser(new Lexer(), '-[:KNOWS]-');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1160,7 +1160,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse relationship with variable length path', () => {
-      parser = new CypherParser(new CypherLexer(), '-[:KNOWS*1..3]->');
+      parser = new CypherParser(new Lexer(), '-[:KNOWS*1..3]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1174,7 +1174,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse relationship with unbounded variable length path', () => {
-      parser = new CypherParser(new CypherLexer(), '-[:KNOWS*]->');
+      parser = new CypherParser(new Lexer(), '-[:KNOWS*]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1190,7 +1190,7 @@ describe('CypherParser', () => {
 
   describe('Path Pattern Parsing', () => {
     it('should parse simple path pattern', () => {
-      parser = new CypherParser(new CypherLexer(), '(a:Person)-[:KNOWS]->(b:Person)');
+      parser = new CypherParser(new Lexer(), '(a:Person)-[:KNOWS]->(b:Person)');
       const result = parser['parsePathPattern']();
 
       expect(result).toEqual({
@@ -1221,7 +1221,7 @@ describe('CypherParser', () => {
 
     it('should parse complex path pattern', () => {
       parser = new CypherParser(
-        new CypherLexer(),
+        new Lexer(),
         '(a:Person)-[:KNOWS]->(b:Person)-[:WORKS_AT]->(c:Company)'
       );
       const result = parser['parsePathPattern']();
@@ -1271,7 +1271,7 @@ describe('CypherParser', () => {
   describe('Expression Parsing', () => {
     // Tests for literal values directly exposed methods that are working
     it('should parse string literal', () => {
-      parser = new CypherParser(new CypherLexer(), '"John Doe"');
+      parser = new CypherParser(new Lexer(), '"John Doe"');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1282,7 +1282,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse number literal', () => {
-      parser = new CypherParser(new CypherLexer(), '42');
+      parser = new CypherParser(new Lexer(), '42');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1293,7 +1293,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse boolean literal', () => {
-      parser = new CypherParser(new CypherLexer(), 'true');
+      parser = new CypherParser(new Lexer(), 'true');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1304,7 +1304,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse null literal', () => {
-      parser = new CypherParser(new CypherLexer(), 'NULL');
+      parser = new CypherParser(new Lexer(), 'NULL');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1325,7 +1325,7 @@ describe('CypherParser', () => {
         CREATE (parent)-[:dependsOn {auto: true}]->(child)
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify logical expressions are parsed correctly in WHERE clause
@@ -1341,7 +1341,7 @@ describe('CypherParser', () => {
   describe('Clause Parsing', () => {
     it('should parse MATCH clause', () => {
       parser = new CypherParser(
-        new CypherLexer(),
+        new Lexer(),
         'MATCH (a:Person)-[:KNOWS]->(b:Person)'
       );
       const result = parser.parse();
@@ -1382,7 +1382,7 @@ describe('CypherParser', () => {
 
     it('should parse CREATE clause with node', () => {
       parser = new CypherParser(
-        new CypherLexer(),
+        new Lexer(),
         'CREATE (p:Person {name: "John", age: 30})'
       );
       const result = parser.parse();
@@ -1394,7 +1394,7 @@ describe('CypherParser', () => {
 
     it('should parse CREATE clause with relationship', () => {
       parser = new CypherParser(
-        new CypherLexer(),
+        new Lexer(),
         'MATCH (a:Person), (b:Person) CREATE (a)-[:KNOWS]->(b)'
       );
       const result = parser.parse();
@@ -1407,7 +1407,7 @@ describe('CypherParser', () => {
 
     it('should parse SET clause', () => {
       parser = new CypherParser(
-        new CypherLexer(),
+        new Lexer(),
         'MATCH (p:Person) SET p.age = 31, p.updated = true'
       );
       const result = parser.parse();
@@ -1430,7 +1430,7 @@ describe('CypherParser', () => {
         CREATE (parent)-[:dependsOn {auto: true}]->(child)
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1444,45 +1444,45 @@ describe('CypherParser', () => {
 
     it('should handle errors gracefully', () => {
       // Test with multiple types of errors
-      
+
       // 1. Unknown keyword
       const invalidKeywordQuery = 'MATCH (a:Person) INVALID_KEYWORD SET a.processed = true';
-      parser = new CypherParser(new CypherLexer(), invalidKeywordQuery);
-      
+      parser = new CypherParser(new Lexer(), invalidKeywordQuery);
+
       // Parse should complete without throwing exceptions
       const result1 = parser.parse();
-      
+
       // Verify errors were recorded
       const errors1 = parser.getErrors();
       expect(errors1.length).toBeGreaterThan(0);
       expect(errors1[0]).toContain('Unexpected token: INVALID_KEYWORD');
-      
+
       // Verify the parser was able to continue past the error
       // Valid parts before the error should be parsed
       expect(result1.match).toBeDefined();
       expect(result1.match!.patterns[0].start.variable).toBe('a');
       expect(result1.match!.patterns[0].start.labels).toContain('Person');
-      
+
       // Valid parts after the error should also be parsed (showing error recovery)
       expect(result1.set).toBeDefined();
       expect(result1.set!.settings.length).toBe(1);
       expect(result1.set!.settings[0].property).toBe('processed');
-      
+
       // 2. Syntax error
       const syntaxErrorQuery = 'MATCH (a:Person WHERE a.age > 30';
-      parser = new CypherParser(new CypherLexer(), syntaxErrorQuery);
-      
+      parser = new CypherParser(new Lexer(), syntaxErrorQuery);
+
       // Should not throw despite the missing ')'
       const result2 = parser.parse();
-      
+
       // Verify errors were recorded
       const errors2 = parser.getErrors();
       expect(errors2.length).toBeGreaterThan(0);
-      
+
       // 3. Multiple errors in one query
       const multipleErrorsQuery = 'MATCH (a:Person INVALID_PROP SET a.status = "active" WHERE a.name = ';
-      parser = new CypherParser(new CypherLexer(), multipleErrorsQuery);
-      
+      parser = new CypherParser(new Lexer(), multipleErrorsQuery);
+
       // Should handle multiple errors gracefully
       const result3 = parser.parse();
       const errors3 = parser.getErrors();
@@ -1494,26 +1494,26 @@ describe('CypherParser', () => {
         MATCH (n:Person {name: "John", age: 30, active: true, score: null})
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify no parsing errors
       expect(parser.getErrors()).toHaveLength(0);
-      
+
       // Verify the match clause exists and has one pattern
       expect(result.match).toBeDefined();
       expect(result.match!.patterns).toHaveLength(1);
-      
+
       // Verify node pattern details
       const node = result.match!.patterns[0].start;
-      
+
       // Check variable name
       expect(node.variable).toBe('n');
-      
+
       // Check labels
       expect(node.labels).toHaveLength(1);
       expect(node.labels).toContain('Person');
-      
+
       // Check all properties with their correct types
       expect(node.properties).toEqual({
         name: 'John',             // string
@@ -1521,14 +1521,14 @@ describe('CypherParser', () => {
         active: true,             // boolean
         score: null               // null
       });
-      
+
       // Also test each property individually with type checking
       expect(typeof node.properties.name).toBe('string');
       expect(typeof node.properties.age).toBe('number');
       expect(typeof node.properties.active).toBe('boolean');
       expect(node.properties.score).toBeNull();
     });
-    
+
     // Add a separate test for node patterns with WHERE clauses
     it('should parse node patterns with WHERE conditions', () => {
       const query = `
@@ -1536,32 +1536,32 @@ describe('CypherParser', () => {
         WHERE n.age > 25 AND n.active = true
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
-      
+
       // Verify no parsing errors
       expect(parser.getErrors()).toHaveLength(0);
-      
+
       // Verify MATCH clause
       expect(result.match).toBeDefined();
-      
+
       // Verify WHERE clause structure
       expect(result.where).toBeDefined();
       const condition = result.where!.condition;
       expect(condition.type).toBe('logical');
-      
+
       // It should be an AND condition with two operands
       const logicalExpr = condition as LogicalExpression;
       expect(logicalExpr.operator).toBe(LogicalOperator.AND);
       expect(logicalExpr.operands).toHaveLength(2);
-      
+
       // First operand should be a comparison: n.age > 25
       const firstCondition = logicalExpr.operands[0] as ComparisonExpression;
       expect(firstCondition.type).toBe('comparison');
       expect(firstCondition.operator).toBe(ComparisonOperator.GREATER_THAN);
       expect((firstCondition.left as any).property).toBe('age');
       expect((firstCondition.right as LiteralExpression).value).toBe(25);
-      
+
       // Second operand should be a comparison: n.active = true
       const secondCondition = logicalExpr.operands[1] as ComparisonExpression;
       expect(secondCondition.type).toBe('comparison');
@@ -1576,7 +1576,7 @@ describe('CypherParser', () => {
         MATCH (a:Person)-[:KNOWS]->(b:Person)
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1592,7 +1592,7 @@ describe('CypherParser', () => {
         MATCH (a:Person), (b:Person)
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1607,7 +1607,7 @@ describe('CypherParser', () => {
         SET a.age = 30, a.updated = true, a.status = "active"
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.set).toBeDefined();
@@ -1630,7 +1630,7 @@ describe('CypherParser', () => {
         CREATE (a:Person {name: "John"})
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.create).toBeDefined();
@@ -1643,7 +1643,7 @@ describe('CypherParser', () => {
         CREATE (a:Person {name: "Bob", active: true})
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.create).toBeDefined();
@@ -1667,16 +1667,16 @@ describe('CypherParser', () => {
         SET a.taskCount = 1, task.created = true
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify no parsing errors
       expect(parser.getErrors()).toHaveLength(0);
-      
+
       // Verify MATCH clause
       expect(result.match).toBeDefined();
       expect(result.match!.patterns).toHaveLength(1);
-      
+
       const matchNode = result.match!.patterns[0].start;
       expect(matchNode.variable).toBe('a');
       expect(matchNode.labels).toContain('Person');
@@ -1684,7 +1684,7 @@ describe('CypherParser', () => {
         name: 'John',
         age: 30
       });
-      
+
       // Verify WHERE clause
       expect(result.where).toBeDefined();
       const whereCondition = result.where!.condition as any;
@@ -1692,11 +1692,11 @@ describe('CypherParser', () => {
       expect(whereCondition.operator).toBe(ComparisonOperator.EQUALS);
       expect(whereCondition.left.property).toBe('active');
       expect(whereCondition.right.value).toBe(true);
-      
+
       // Verify CREATE clause
       expect(result.create).toBeDefined();
       expect(result.create!.patterns).toHaveLength(1);
-      
+
       // Using type guard to check if it's a CreateNode pattern
       const createPattern = result.create!.patterns[0];
       if ('node' in createPattern) {
@@ -1704,22 +1704,22 @@ describe('CypherParser', () => {
         expect(createPattern.node.labels).toContain('Task');
         expect(createPattern.node.properties).toHaveProperty('title', 'Meeting');
       }
-      
+
       // Verify SET clause
       expect(result.set).toBeDefined();
       expect(result.set!.settings).toHaveLength(2);
-      
+
       const firstSetting = result.set!.settings[0];
       expect(firstSetting.target.name).toBe('a');
       expect(firstSetting.property).toBe('taskCount');
       expect((firstSetting.value as LiteralExpression).value).toBe(1);
-      
+
       const secondSetting = result.set!.settings[1];
       expect(secondSetting.target.name).toBe('task');
       expect(secondSetting.property).toBe('created');
       expect((secondSetting.value as LiteralExpression).value).toBe(true);
     });
-    
+
     // Test for advanced features planned for future implementation
     xit('should handle advanced expressions in clauses (future feature)', () => {
       // This test is skipped as it tests features not yet implemented
@@ -1728,7 +1728,7 @@ describe('CypherParser', () => {
       // 2. Arithmetic operations (e.g., a + b, a * 2)
       // 3. Function calls (e.g., toUpper(name))
       // 4. List comprehensions and other advanced Cypher features
-      
+
       const query = `
         MATCH (a:Person {name: "John", age: 30})
         WHERE a.active = true
@@ -1736,17 +1736,17 @@ describe('CypherParser', () => {
         SET a.taskCount = a.taskCount + 1
       `;
 
-      parser = new CypherParser(new CypherLexer(), query);
+      parser = new CypherParser(new Lexer(), query);
       const result = parser.parse();
 
       // These assertions will pass once the features are implemented
       expect(parser.getErrors()).toHaveLength(0);
-      
+
       // Verify CREATE clause with property expressions
       expect(result.create).toBeDefined();
       const createPattern = result.create!.patterns[0] as any;
       expect(createPattern.node.properties.assignee).toBeDefined();
-      
+
       // Verify SET clause with arithmetic operation
       expect(result.set).toBeDefined();
       const setting = result.set!.settings[0];

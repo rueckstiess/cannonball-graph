@@ -1,14 +1,13 @@
 // __test__/condition-evaluator.test.ts
-import { GraphImpl } from '../src/graph/graph';
-import { Graph, Node, Edge } from '../src/graph/types';
+import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression,
   ComparisonExpression, LogicalExpression, ExistsExpression,
-  ComparisonOperator, LogicalOperator, PathPattern
-} from '../src/rules/types';
-import { PatternMatcherImpl } from '../src/rules/pattern-matcher';
-// Import implementation (to be created)
-import { ConditionEvaluatorImpl, BindingContextImpl, ConditionEvaluator, BindingContext, EvaluationResult, ConditionEvaluatorOptions } from '../src/rules/condition-evaluator';
+  ComparisonOperator, LogicalOperator, PathPattern, PatternMatcherImpl,
+  ConditionEvaluatorImpl, BindingContextImpl, ConditionEvaluator, BindingContext,
+  EvaluationResult, ConditionEvaluatorOptions
+} from '@/lang';
+
 
 describe('ConditionEvaluator', () => {
   // Define test data types
@@ -35,7 +34,7 @@ describe('ConditionEvaluator', () => {
 
   beforeEach(() => {
     // Create a fresh graph for each test
-    graph = new GraphImpl<TestNodeData, TestEdgeData>();
+    graph = new Graph<TestNodeData, TestEdgeData>();
 
     // Create people nodes
     graph.addNode('alice', { type: 'person', name: 'Alice', age: 30, active: true });

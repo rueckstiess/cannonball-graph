@@ -1,25 +1,25 @@
-import { CypherLexer } from '../src/rules/lexer';
-import { CypherParser } from '../src/rules/rule-parser';
-import { parseRuleFromMarkdown } from '../src/rules/rule-parser';
+import { Lexer } from '@/lang';
+import { CypherParser } from '@/lang';
+import { parseRuleFromMarkdown } from '@/lang';
 import {
   transformToCypherAst,
   visualizeAst,
   validateAst,
-  MatchNode,
-  WhereNode,
-  CreateNode,
-  SetNode,
-  PathPatternNode,
-  NodePatternNode,
-  ComparisonExpressionNode,
-  LiteralExpressionNode,
-  PropertyExpressionNode,
-  LogicalExpressionNode,
-  ExistsExpressionNode,
-  CreateNodePatternNode,
-  CreateRelPatternNode,
-  RuleRoot
-} from '../src/rules/ast-transformer';
+  ASTMatchNode,
+  ASTWhereNode,
+  ASTCreateNode,
+  ASTSetNode,
+  ASTPathPatternNode,
+  ASTNodePatternNode,
+  ASTComparisonExpressionNode,
+  ASTLiteralExpressionNode,
+  ASTPropertyExpressionNode,
+  ASTLogicalExpressionNode,
+  ASTExistsExpressionNode,
+  ASTCreateNodePatternNode,
+  ASTCreateRelPatternNode,
+  ASTRuleRoot
+} from '@/lang';
 
 import { inspect } from 'unist-util-inspect'
 
@@ -28,7 +28,7 @@ describe('AST Transformer', () => {
     it('should transform a simple Cypher statement into an AST', () => {
       const input = 'MATCH (n:Person) WHERE n.age > 30 RETURN n';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -42,40 +42,40 @@ describe('AST Transformer', () => {
       expect(ast.children).toHaveLength(2); // MATCH and WHERE
 
       // Check MATCH clause
-      const matchNode = ast.children[0] as MatchNode;
+      const matchNode = ast.children[0] as ASTMatchNode;
       expect(matchNode.type).toBe('match');
       expect(matchNode.children).toHaveLength(1);
 
       // Check path pattern
-      const pathPattern = matchNode.children[0] as PathPatternNode;
+      const pathPattern = matchNode.children[0] as ASTPathPatternNode;
       expect(pathPattern.type).toBe('pathPattern');
       expect(pathPattern.children).toHaveLength(1); // Only start node, no segments
 
       // Check node pattern
-      const nodePattern = pathPattern.children[0] as NodePatternNode;
+      const nodePattern = pathPattern.children[0] as ASTNodePatternNode;
       expect(nodePattern.type).toBe('nodePattern');
       expect(nodePattern.variable).toBe('n');
       expect(nodePattern.labels).toContain('Person');
 
       // Check WHERE clause
-      const whereNode = ast.children[1] as WhereNode;
+      const whereNode = ast.children[1] as ASTWhereNode;
       expect(whereNode.type).toBe('where');
       expect(whereNode.children).toHaveLength(1);
 
       // Check comparison expression
-      const comparison = whereNode.children[0] as ComparisonExpressionNode;
+      const comparison = whereNode.children[0] as ASTComparisonExpressionNode;
       expect(comparison.type).toBe('comparisonExpression');
       expect(comparison.operator).toBe('>');
       expect(comparison.children).toHaveLength(2);
 
       // Check left side of comparison
-      const left = comparison.children[0] as PropertyExpressionNode;
+      const left = comparison.children[0] as ASTPropertyExpressionNode;
       expect(left.type).toBe('propertyExpression');
       expect(left.object).toBe('n');
       expect(left.property).toBe('age');
 
       // Check right side of comparison
-      const right = comparison.children[1] as LiteralExpressionNode;
+      const right = comparison.children[1] as ASTLiteralExpressionNode;
       expect(right.type).toBe('literalExpression');
       expect(right.value).toBe(30);
       expect(right.dataType).toBe('number');
@@ -89,7 +89,7 @@ describe('AST Transformer', () => {
         SET a.commented = true, b.lastComment = timestamp()
       `;
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -110,7 +110,7 @@ describe('AST Transformer', () => {
       expect(clauseTypes).toContain('set');
 
       // Check MATCH with relationship
-      const matchNode = ast.children.find(node => node.type === 'match') as MatchNode;
+      const matchNode = ast.children.find(node => node.type === 'match') as ASTMatchNode;
       expect(matchNode).toBeDefined();
       const pathPattern = matchNode.children[0];
       expect(pathPattern.children.length).toBe(2); // Start node + 1 segment
@@ -125,24 +125,24 @@ describe('AST Transformer', () => {
       expect((relationship as any).direction).toBe('outgoing');
 
       // Check logical expression in WHERE
-      const whereNode = ast.children.find(node => node.type === 'where') as WhereNode;
+      const whereNode = ast.children.find(node => node.type === 'where') as ASTWhereNode;
       expect(whereNode).toBeDefined();
-      const logicalExpr = whereNode.children[0] as LogicalExpressionNode;
+      const logicalExpr = whereNode.children[0] as ASTLogicalExpressionNode;
       expect(logicalExpr.type).toBe('logicalExpression');
       expect(logicalExpr.operator).toBe('AND');
       expect(logicalExpr.children).toHaveLength(2);
 
       // Check CREATE clause
-      const createNode = ast.children.find(node => node.type === 'create') as CreateNode;
+      const createNode = ast.children.find(node => node.type === 'create') as ASTCreateNode;
       expect(createNode).toBeDefined();
       expect(createNode.children).toHaveLength(1);
       expect(createNode.children[0].type).toBe('createNode');
-      const createNodePattern = createNode.children[0] as CreateNodePatternNode;
+      const createNodePattern = createNode.children[0] as ASTCreateNodePatternNode;
       expect(createNodePattern.labels).toContain('Comment');
       expect(createNodePattern.properties.text).toBe('New comment');
 
       // Check SET clause
-      const setNode = ast.children.find(node => node.type === 'set') as SetNode;
+      const setNode = ast.children.find(node => node.type === 'set') as ASTSetNode;
       expect(setNode).toBeDefined();
       expect(setNode.children).toHaveLength(2);
       expect(setNode.children[0].type).toBe('propertySetting');
@@ -155,16 +155,16 @@ describe('AST Transformer', () => {
     it('should transform a rule with EXISTS pattern', () => {
       const input = 'MATCH (a:Task) WHERE EXISTS((a)-[:DEPENDS_ON]->(b))';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'ExistsRule', 'Rule with EXISTS pattern', 30);
 
       // Check WHERE clause
-      const whereNode = ast.children.find(node => node.type === 'where') as WhereNode;
+      const whereNode = ast.children.find(node => node.type === 'where') as ASTWhereNode;
       expect(whereNode).toBeDefined();
-      const existsExpr = whereNode.children[0] as ExistsExpressionNode;
+      const existsExpr = whereNode.children[0] as ASTExistsExpressionNode;
       expect(existsExpr.type).toBe('existsExpression');
       expect(existsExpr.positive).toBe(true);
 
@@ -173,7 +173,7 @@ describe('AST Transformer', () => {
       expect(pattern.type).toBe('pathPattern');
       expect(pattern.children).toHaveLength(2); // Start node + 1 segment
 
-      const startNode = pattern.children[0] as NodePatternNode;
+      const startNode = pattern.children[0] as ASTNodePatternNode;
       expect(startNode.type).toBe('nodePattern');
       expect(startNode.variable).toBe('a');
 
@@ -184,7 +184,7 @@ describe('AST Transformer', () => {
       expect(relationship.type).toBe('relationshipPattern');
       expect((relationship as any).relType).toBe('DEPENDS_ON');
 
-      const endNode = segment.children[1] as NodePatternNode;
+      const endNode = segment.children[1] as ASTNodePatternNode;
       expect(endNode.type).toBe('nodePattern');
       expect(endNode.variable).toBe('b');
     });
@@ -199,7 +199,7 @@ describe('AST Transformer', () => {
       // Create a mock statement with a MATCH clause
       const input = 'MATCH (a:Task)';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -211,7 +211,7 @@ describe('AST Transformer', () => {
       expect(ast.name).toBe('VarLengthRule');
 
       // Verify MATCH clause exists and is properly formed
-      const matchNode = ast.children[0] as MatchNode;
+      const matchNode = ast.children[0] as ASTMatchNode;
       expect(matchNode).toBeDefined();
       expect(matchNode.type).toBe('match');
 
@@ -238,7 +238,7 @@ describe('AST Transformer', () => {
     it('should generate an ASCII visualization of the AST', () => {
       const input = 'MATCH (a:Person)-[:KNOWS]->(b:Person) WHERE a.age > 30';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -267,7 +267,7 @@ describe('AST Transformer', () => {
     it('should validate a correct AST without errors', () => {
       const input = 'MATCH (a:Person) WHERE a.age > 30 CREATE (b:Task {assignee: a.name})';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -280,7 +280,7 @@ describe('AST Transformer', () => {
     it('should detect missing required metadata', () => {
       const input = 'MATCH (a:Person)';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -303,7 +303,7 @@ describe('AST Transformer', () => {
     it('should detect undeclared variables', () => {
       const input = 'MATCH (a:Person) WHERE b.age > 30';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -317,7 +317,7 @@ describe('AST Transformer', () => {
     it('should detect undeclared variables in CREATE and SET clauses', () => {
       const input = 'MATCH (a:Person) CREATE (a)-[:KNOWS]->(c) SET b.name = "John"';
 
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, input);
       const statement = parser.parse();
 
@@ -339,7 +339,7 @@ describe('AST Transformer', () => {
       const rule = parseRuleFromMarkdown(sampleRule);
 
       // Parse the Cypher statement
-      const lexer = new CypherLexer();
+      const lexer = new Lexer();
       const parser = new CypherParser(lexer, rule.ruleText);
       const statement = parser.parse();
 

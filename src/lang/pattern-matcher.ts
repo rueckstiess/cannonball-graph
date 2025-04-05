@@ -1,5 +1,51 @@
-import { Graph, Node, NodeId, Edge, BFSVisitor, Path } from "../graph/types";
-import { NodePattern, RelationshipPattern, PathPattern } from "./types";
+import { Graph, Node, NodeId, Edge, BFSVisitor, Path } from "@/graph";
+
+/**
+ * Represents a node pattern in a Cypher query
+ * e.g., (variable:Label {property: value})
+ */
+export interface NodePattern {
+  /** Variable name to reference the node (optional) */
+  variable?: string;
+  /** Node labels (optional) */
+  labels: string[];
+  /** Property constraints (optional) */
+  properties: Record<string, string | number | boolean | null>;
+}
+
+/**
+ * Represents a relationship pattern in a Cypher query
+ * e.g., -[variable:TYPE {property: value}]->
+ */
+export interface RelationshipPattern {
+  /** Variable name to reference the relationship (optional) */
+  variable?: string;
+  /** Relationship type (optional) */
+  type?: string;
+  /** Property constraints (optional) */
+  properties: Record<string, string | number | boolean | null>;
+  /** Direction of the relationship: 'outgoing' (->), 'incoming' (<-), or 'both' (-) */
+  direction: 'outgoing' | 'incoming' | 'both';
+  /** Min path length for variable-length relationships (optional) */
+  minHops?: number;
+  /** Max path length for variable-length relationships (optional) */
+  maxHops?: number;
+}
+
+/**
+ * Represents a path pattern in a Cypher query
+ * e.g., (a)-[:CONTAINS]->(b)
+ */
+export interface PathPattern {
+  /** Starting node pattern */
+  start: NodePattern;
+  /** Array of relationships and nodes that form the path */
+  segments: Array<{
+    relationship: RelationshipPattern;
+    node: NodePattern;
+  }>;
+}
+
 
 /**
  * Options for the pattern matcher

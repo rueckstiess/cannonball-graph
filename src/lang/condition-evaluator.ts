@@ -1,10 +1,9 @@
-import { Graph, Node, Edge, Path } from '../graph/types';
+import { Graph, Node, Edge, Path } from '@/graph';
 import {
-  Expression, LiteralExpression, VariableExpression, PropertyExpression,
-  ComparisonExpression, LogicalExpression, ExistsExpression,
-  ComparisonOperator, LogicalOperator, PathPattern
-} from './types';
-import { PatternMatcher, PatternMatcherImpl } from './pattern-matcher';
+  Expression, LiteralExpression, VariableExpression, PropertyExpression, ComparisonExpression,
+  LogicalExpression, ExistsExpression, ComparisonOperator, LogicalOperator
+} from './rule-parser';
+import { PathPattern, PatternMatcher, PatternMatcherImpl } from './pattern-matcher';
 
 
 /**
