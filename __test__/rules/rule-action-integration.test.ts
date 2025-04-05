@@ -591,10 +591,9 @@ CREATE (p)-[r:WORKS_ON]->(proj)
 
     // Rule should execute but create no relationships because one pattern has no matches
     expect(noMatchResults.length).toBe(1);
-    expect(noMatchResults[0].success).toBe(false);
-    expect(noMatchResults[0].matchCount).toBe(1); // Only found the Person node
-    expect(noMatchResults[0].actionResults.length).toBe(1); // No actions executed
-    expect(noMatchResults[0].actionResults[0].error).toContain('Target node proj not found in bindings'); // Error message
+    expect(noMatchResults[0].success).toBe(true);
+    expect(noMatchResults[0].matchCount).toBe(0); // No matches when one pattern has no matches
+    expect(noMatchResults[0].actionResults.length).toBe(0); // No actions executed with no matches
 
     // No edges should be created
     expect(testGraph.getAllEdges().length).toBe(0);

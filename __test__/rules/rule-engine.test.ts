@@ -66,23 +66,23 @@ describe('RuleEngine', () => {
     expect(alice?.data.status).toBe('Active');
   });
   
-  test('executeRules handles multiple rules in priority order', () => {
+  test('executeRules handles multiple rules in execution order (highest priority first)', () => {
     const rules: Rule[] = [
       {
-        name: 'LowPriorityRule',
-        description: 'Low priority rule',
+        name: 'SecondRule',
+        description: 'Rule that executes second (lower priority)',
         priority: 1,
         disabled: false,
-        ruleText: 'MATCH (p:Person) SET p.processed = "low"',
-        markdown: '```graphrule\nname: LowPriorityRule\ndescription: Low priority rule\npriority: 1\nMATCH (p:Person) SET p.processed = "low"\n```'
+        ruleText: 'MATCH (p:Person) SET p.lastUpdatedBy = "SecondRule"',
+        markdown: '```graphrule\nname: SecondRule\ndescription: Rule that executes second (lower priority)\npriority: 1\nMATCH (p:Person) SET p.lastUpdatedBy = "SecondRule"\n```'
       },
       {
-        name: 'HighPriorityRule',
-        description: 'High priority rule',
+        name: 'FirstRule',
+        description: 'Rule that executes first (higher priority)',
         priority: 10,
         disabled: false,
-        ruleText: 'MATCH (p:Person) SET p.processed = "high"',
-        markdown: '```graphrule\nname: HighPriorityRule\ndescription: High priority rule\npriority: 10\nMATCH (p:Person) SET p.processed = "high"\n```'
+        ruleText: 'MATCH (p:Person) SET p.lastUpdatedBy = "FirstRule"',
+        markdown: '```graphrule\nname: FirstRule\ndescription: Rule that executes first (higher priority)\npriority: 10\nMATCH (p:Person) SET p.lastUpdatedBy = "FirstRule"\n```'
       }
     ];
     
@@ -90,11 +90,14 @@ describe('RuleEngine', () => {
     
     expect(results.length).toBe(2);
     
-    // Both person nodes should have processed="high" since the high priority rule ran first
+    // Both person nodes should have lastUpdatedBy="SecondRule" because:
+    // 1. Rules execute in priority order (highest first)
+    // 2. Later executions can overwrite earlier changes
+    // 3. SecondRule executed last and overwrote FirstRule's changes
     const person1 = graph.getNode('person1');
     const person2 = graph.getNode('person2');
-    expect(person1?.data.processed).toBe('high');
-    expect(person2?.data.processed).toBe('high');
+    expect(person1?.data.lastUpdatedBy).toBe('SecondRule');
+    expect(person2?.data.lastUpdatedBy).toBe('SecondRule');
   });
   
   test('executeRulesFromMarkdown extracts and executes rules from markdown', () => {

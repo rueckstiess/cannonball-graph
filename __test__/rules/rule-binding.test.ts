@@ -79,12 +79,12 @@ describe('Rule Engine Binding Tests', () => {
     const result = engine.executeRule(graph, rule);
     
     // We're specifically testing that even when Category nodes don't exist,
-    // the rule engine correctly handles this case
-    expect(result.matchCount).toBeGreaterThan(0); // There are matching Person nodes
+    // the rule engine correctly handles this case with an empty result set
+    expect(result.matchCount).toBe(0); // No combined matches when one pattern has no matches
     
-    // No actions should be executed because of the missing Category nodes
-    expect(result.actionResults.every(r => !r.success)).toBe(true); // Actions fail
-    expect(result.success).toBe(false); // Overall success is false
+    // No actions should be executed because there were no matches
+    expect(result.actionResults.length).toBe(0); // No actions attempted
+    expect(result.success).toBe(true); // Operation completes successfully even with no matches
     
     // No new relationships should be created
     expect(graph.getAllEdges().length).toBe(0);

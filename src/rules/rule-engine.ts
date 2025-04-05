@@ -160,11 +160,18 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         
         // Calculate cross-product of bindings from different patterns
         if (patternBindingsArray.length > 0) {
-          matches = this.combineBindings(patternBindingsArray);
-          
-          // Limit final combined matches if maxMatches is specified
-          if (options?.maxMatches && matches.length > options.maxMatches) {
-            matches = matches.slice(0, options.maxMatches);
+          // Only proceed if ALL patterns have matches
+          // (patternBindingsArray.length should equal the number of patterns)
+          if (patternBindingsArray.length === cypherStatement.match.patterns.length) {
+            matches = this.combineBindings(patternBindingsArray);
+            
+            // Limit final combined matches if maxMatches is specified
+            if (options?.maxMatches && matches.length > options.maxMatches) {
+              matches = matches.slice(0, options.maxMatches);
+            }
+          } else {
+            // If not all patterns have matches, the result should be empty
+            matches = [];
           }
         }
       } else {
