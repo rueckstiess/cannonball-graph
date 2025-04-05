@@ -159,7 +159,7 @@ describe('Rule Action Integration Tests', () => {
   });
 
   // Let's simplify this test for now since it seems to be having trouble with pattern matching
-  test('RuleEngine extracts rules from markdown', () => {
+  test('RuleEngine extracts queries from markdown', () => {
     const engine = createRuleEngine();
 
     // Create a clean graph
@@ -183,14 +183,15 @@ CREATE (n:NewNode {name: "TestNode"})
     `;
 
     // Just test that the rule is extracted from markdown
-    const results = engine.executeRulesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Log details for debugging
-    console.log('Rule execution results:', results);
+    console.log('Query execution results:', results);
 
     // At minimum, the rule should be extracted
     expect(results.length).toBe(1);
-    expect(results[0].rule.name).toBe('TestRule');
+    expect(results[0].success).toBe(true);
+    expect(results[0].actions).toBeDefined();
 
     // The rule should create at least one node
     const nodes = testGraph.getAllNodes();

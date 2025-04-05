@@ -3,6 +3,16 @@ import { Graph, Node, Edge } from '@/graph';
 
 /**
  * Utility functions for working with query results
+ * 
+ * This class supports both the new GraphQueryResult format and the legacy QueryResult format.
+ * For new code, use the GraphQueryResult format returned by executeGraphQuery().
+ * 
+ * @example
+ * ```typescript
+ * const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+ * const names = utils.extractColumn(result, 'p.name');
+ * const objects = utils.toObjectArray(result);
+ * ```
  */
 export class QueryUtils<NodeData = any, EdgeData = any> {
   /**

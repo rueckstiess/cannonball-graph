@@ -56,7 +56,7 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * const engine = createRuleEngine();
  * 
- * // Unified API (recommended)
+ * // RECOMMENDED: Unified API
  * // Execute any graph statement (query, rule, or both)
  * const result = engine.executeGraphQuery(graph, 'MATCH (n:Person) RETURN n.name');
  * 
@@ -80,18 +80,25 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  *   console.log(`Edges created: ${result.actions.affectedEdges.length}`);
  * }
  * 
- * // Legacy API (deprecated)
- * // Execute a single rule
- * const ruleResult = engine.executeRule(graph, rule);
+ * // Execute multiple queries in order (higher priority first)
+ * const queries = [
+ *   { statement: 'MATCH (n:Person) SET n.active = true', priority: 10 },
+ *   { statement: 'MATCH (n:Person) RETURN n.name, n.active', priority: 5 }
+ * ];
+ * const results = engine.executeGraphQueries(graph, queries);
  * 
- * // Execute multiple rules in priority order
- * const ruleResults = engine.executeRules(graph, rules);
+ * // Parse and execute queries from markdown
+ * const markdownResults = engine.executeGraphQueriesFromMarkdown(graph, markdownText);
  * 
- * // Parse and execute rules from markdown
- * const markdownResults = engine.executeRulesFromMarkdown(graph, markdownText);
+ * // See src/examples/unified-query-example.ts for more examples
+ * // See src/examples/unified-query-migration.md for migration guidance
  * 
- * // Execute a query
- * const queryResult = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
+ * // DEPRECATED: Legacy API
+ * // The following methods are deprecated and will be removed in a future version
+ * // const queryResult = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
+ * // const ruleResult = engine.executeRule(graph, rule);
+ * // const ruleResults = engine.executeRules(graph, rules);
+ * // const markdownResults = engine.executeRulesFromMarkdown(graph, markdownText);
  * ```
  */
 export function createRuleEngine<NodeData = any, EdgeData = any>() {

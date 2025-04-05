@@ -183,7 +183,6 @@ export interface QueryResult<NodeData = any, EdgeData = any> {
 }
 
 /**
- * @deprecated Use GraphQueryResult instead
  * Result of rule execution
  */
 export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
@@ -213,9 +212,13 @@ export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
   error?: string;
   
   /**
+   * @deprecated Use GraphQueryResult.query instead
    * Query results (if the rule contains a RETURN clause)
    */
-  queryResults?: QueryResult<NodeData, EdgeData>;
+  queryResults?: {
+    columns: string[];
+    rows: ReturnedValue<NodeData, EdgeData>[][];
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
 import { Rule } from '@/lang/rule-parser';
-import { RuleEngine, createRuleEngine, QueryResult, GraphQueryResult } from '@/rules/rule-engine';
+import { RuleEngine, createRuleEngine, GraphQueryResult } from '@/rules/rule-engine';
 
 describe('Rule Engine Query Functionality', () => {
   let engine: RuleEngine;
@@ -21,27 +21,7 @@ describe('Rule Engine Query Functionality', () => {
     graph.addEdge('person2', 'task2', 'ASSIGNED_TO', { date: '2023-01-15' });
   });
   
-  test('executeQuery handles simple RETURN of variables (legacy API)', () => {
-    const query = 'MATCH (p:Person) RETURN p';
-    const result = engine.executeQuery(graph, query);
-    
-    // Query should execute successfully
-    expect(result.success).toBe(true);
-    expect(result.matchCount).toBe(2); // Two person nodes
-    expect(result.columns).toEqual(['p']);
-    expect(result.rows.length).toBe(2);
-    
-    // Check the returned values
-    expect(result.rows[0][0].type).toBe('node');
-    expect(result.rows[0][0].name).toBe('p');
-    expect(result.rows[0][0].value.data.name).toBe('Alice');
-    
-    expect(result.rows[1][0].type).toBe('node');
-    expect(result.rows[1][0].name).toBe('p');
-    expect(result.rows[1][0].value.data.name).toBe('Bob');
-  });
-  
-  test('executeGraphQuery handles simple RETURN of variables (new unified API)', () => {
+  test('executeGraphQuery handles simple RETURN of variables', () => {
     const query = 'MATCH (p:Person) RETURN p';
     const result = engine.executeGraphQuery(graph, query);
     
@@ -69,61 +49,64 @@ describe('Rule Engine Query Functionality', () => {
     expect(result.query!.rows[1][0].value.data.name).toBe('Bob');
   });
   
-  test('executeQuery handles RETURN of properties', () => {
+  test('executeGraphQuery handles RETURN of properties', () => {
     const query = 'MATCH (p:Person) RETURN p.name, p.age';
-    const result = engine.executeQuery(graph, query);
+    const result = engine.executeGraphQuery(graph, query);
     
     // Query should execute successfully
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(2); // Two person nodes
-    expect(result.columns).toEqual(['p.name', 'p.age']);
-    expect(result.rows.length).toBe(2);
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name', 'p.age']);
+    expect(result.query!.rows.length).toBe(2);
     
     // Check the returned values
-    expect(result.rows[0][0].type).toBe('property');
-    expect(result.rows[0][0].name).toBe('p.name');
-    expect(result.rows[0][0].value).toBe('Alice');
-    expect(result.rows[0][1].type).toBe('property');
-    expect(result.rows[0][1].name).toBe('p.age');
-    expect(result.rows[0][1].value).toBe(30);
+    expect(result.query!.rows[0][0].type).toBe('property');
+    expect(result.query!.rows[0][0].name).toBe('p.name');
+    expect(result.query!.rows[0][0].value).toBe('Alice');
+    expect(result.query!.rows[0][1].type).toBe('property');
+    expect(result.query!.rows[0][1].name).toBe('p.age');
+    expect(result.query!.rows[0][1].value).toBe(30);
     
-    expect(result.rows[1][0].type).toBe('property');
-    expect(result.rows[1][0].name).toBe('p.name');
-    expect(result.rows[1][0].value).toBe('Bob');
-    expect(result.rows[1][1].type).toBe('property');
-    expect(result.rows[1][1].name).toBe('p.age');
-    expect(result.rows[1][1].value).toBe(28);
+    expect(result.query!.rows[1][0].type).toBe('property');
+    expect(result.query!.rows[1][0].name).toBe('p.name');
+    expect(result.query!.rows[1][0].value).toBe('Bob');
+    expect(result.query!.rows[1][1].type).toBe('property');
+    expect(result.query!.rows[1][1].name).toBe('p.age');
+    expect(result.query!.rows[1][1].value).toBe(28);
   });
   
-  test('executeQuery handles RETURN with WHERE conditions', () => {
+  test('executeGraphQuery handles RETURN with WHERE conditions', () => {
     const query = 'MATCH (p:Person) WHERE p.age > 29 RETURN p.name';
-    const result = engine.executeQuery(graph, query);
+    const result = engine.executeGraphQuery(graph, query);
     
     // Query should execute successfully
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(1); // Only Alice is older than 29
-    expect(result.columns).toEqual(['p.name']);
-    expect(result.rows.length).toBe(1);
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name']);
+    expect(result.query!.rows.length).toBe(1);
     
     // Check the returned values
-    expect(result.rows[0][0].type).toBe('property');
-    expect(result.rows[0][0].name).toBe('p.name');
-    expect(result.rows[0][0].value).toBe('Alice');
+    expect(result.query!.rows[0][0].type).toBe('property');
+    expect(result.query!.rows[0][0].name).toBe('p.name');
+    expect(result.query!.rows[0][0].value).toBe('Alice');
   });
   
-  test('executeQuery handles RETURN with multiple MATCH patterns', () => {
+  test('executeGraphQuery handles RETURN with multiple MATCH patterns', () => {
     const query = 'MATCH (p:Person), (t:Task) RETURN p.name, t.title';
-    const result = engine.executeQuery(graph, query);
+    const result = engine.executeGraphQuery(graph, query);
     
     // Query should execute successfully
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(4); // Cross product of 2 people × 2 tasks = 4 combinations
-    expect(result.columns).toEqual(['p.name', 't.title']);
-    expect(result.rows.length).toBe(4);
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name', 't.title']);
+    expect(result.query!.rows.length).toBe(4);
     
     // Create a set of name-title pairs to verify all combinations are returned
     const combinations = new Set<string>();
-    result.rows.forEach(row => {
+    result.query!.rows.forEach(row => {
       combinations.add(`${row[0].value}-${row[1].value}`);
     });
     
@@ -134,19 +117,20 @@ describe('Rule Engine Query Functionality', () => {
     expect(combinations.has('Bob-Task 2')).toBe(true);
   });
   
-  test('executeQuery handles RETURN with relationship patterns', () => {
+  test('executeGraphQuery handles RETURN with relationship patterns', () => {
     const query = 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN p.name, t.title, r';
-    const result = engine.executeQuery(graph, query);
+    const result = engine.executeGraphQuery(graph, query);
     
     // Query should execute successfully
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(2); // Two assignments
-    expect(result.columns).toEqual(['p.name', 't.title', 'r']);
-    expect(result.rows.length).toBe(2);
+    expect(result.query).toBeDefined();
+    expect(result.query!.columns).toEqual(['p.name', 't.title', 'r']);
+    expect(result.query!.rows.length).toBe(2);
     
     // Create a map of name to title using the relationship as a medium
     const assignments = new Map<string, string>();
-    result.rows.forEach(row => {
+    result.query!.rows.forEach(row => {
       assignments.set(row[0].value, row[1].value);
     });
     
@@ -155,13 +139,13 @@ describe('Rule Engine Query Functionality', () => {
     expect(assignments.get('Bob')).toBe('Task 2');
     
     // Check that relationships are correctly returned
-    expect(result.rows[0][2].type).toBe('edge');
-    expect(result.rows[0][2].value.label).toBe('ASSIGNED_TO');
-    expect(result.rows[1][2].type).toBe('edge');
-    expect(result.rows[1][2].value.label).toBe('ASSIGNED_TO');
+    expect(result.query!.rows[0][2].type).toBe('edge');
+    expect(result.query!.rows[0][2].value.label).toBe('ASSIGNED_TO');
+    expect(result.query!.rows[1][2].type).toBe('edge');
+    expect(result.query!.rows[1][2].value.label).toBe('ASSIGNED_TO');
   });
   
-  test('executeRule handles RETURN clauses in rules', () => {
+  test('executeGraphQuery handles rules with RETURN clauses', () => {
     const rule: Rule = {
       name: 'QueryRule',
       description: 'A rule with a RETURN clause',
@@ -171,48 +155,24 @@ describe('Rule Engine Query Functionality', () => {
       markdown: '```graphrule\nname: QueryRule\ndescription: A rule with a RETURN clause\npriority: 1\nMATCH (p:Person) RETURN p.name, p.age\n```'
     };
     
-    const result = engine.executeRule(graph, rule);
+    const result = engine.executeGraphQuery(graph, rule.ruleText);
     
     // Rule should execute successfully
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(2);
     
     // Check that the query results are included
-    expect(result.queryResults).toBeDefined();
-    expect(result.queryResults?.columns).toEqual(['p.name', 'p.age']);
-    expect(result.queryResults?.rows.length).toBe(2);
+    expect(result.query).toBeDefined();
+    expect(result.query?.columns).toEqual(['p.name', 'p.age']);
+    expect(result.query?.rows.length).toBe(2);
     
     // Verify the query results
-    const names = result.queryResults!.rows.map(row => row[0].value);
+    const names = result.query!.rows.map(row => row[0].value);
     expect(names).toContain('Alice');
     expect(names).toContain('Bob');
   });
   
-  test('executeQueryFromMarkdown extracts and executes queries from markdown', () => {
-    const markdown = `
-## Test Query
-
-\`\`\`graphquery
-MATCH (p:Person)
-RETURN p.name, p.age
-\`\`\`
-    `;
-    
-    const result = engine.executeQueryFromMarkdown(graph, markdown);
-    
-    // Query should execute successfully
-    expect(result.success).toBe(true);
-    expect(result.matchCount).toBe(2);
-    expect(result.columns).toEqual(['p.name', 'p.age']);
-    expect(result.rows.length).toBe(2);
-    
-    // Verify the query results
-    const names = result.rows.map(row => row[0].value);
-    expect(names).toContain('Alice');
-    expect(names).toContain('Bob');
-  });
-  
-  test('executeGraphQueryFromMarkdown with the new unified API', () => {
+  test('executeGraphQueryFromMarkdown extracts and executes queries from markdown', () => {
     const markdown = `
 ## Test Query
 
@@ -237,24 +197,25 @@ RETURN p.name, p.age
     expect(names).toContain('Bob');
   });
   
-  test('executeQuery handles errors in queries', () => {
+  
+  test('executeGraphQuery handles errors in queries', () => {
     const invalidQuery = 'INVALID SYNTAX';
-    const result = engine.executeQuery(graph, invalidQuery);
+    const result = engine.executeGraphQuery(graph, invalidQuery);
     
     // Query should fail with an error
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
-    expect(result.rows).toEqual([]);
+    expect(result.query).toBeUndefined();
   });
   
-  test('executeQuery requires a RETURN clause', () => {
+  test('executeGraphQuery handles query without RETURN clause as write-only', () => {
     const queryWithoutReturn = 'MATCH (p:Person)';
-    const result = engine.executeQuery(graph, queryWithoutReturn);
+    const result = engine.executeGraphQuery(graph, queryWithoutReturn);
     
-    // Query should fail with an error about missing RETURN
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('RETURN clause');
-    expect(result.rows).toEqual([]);
+    // In the unified API, a query without RETURN is valid but has no query results
+    expect(result.success).toBe(true);
+    expect(result.query).toBeUndefined();
+    expect(result.stats.readOperations).toBe(false);
   });
   
   test('executeGraphQuery can handle both CREATE and RETURN in one query', () => {

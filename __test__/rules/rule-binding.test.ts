@@ -19,24 +19,18 @@ describe('Rule Engine Binding Tests', () => {
   });
   
   test('RuleEngine combines bindings from comma-separated patterns', () => {
-    // Define a rule with comma-separated patterns
-    const rule: Rule = {
-      name: 'ConnectPeopleToTasks',
-      description: 'Connect all people to all tasks',
-      priority: 5,
-      disabled: false,
-      ruleText: 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)',
-      markdown: '```graphrule\nname: ConnectPeopleToTasks\ndescription: Connect all people to all tasks\npriority: 5\nMATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)\n```'
-    };
+    // Define a query with comma-separated patterns
+    const query = 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)';
     
-    const result = engine.executeRule(graph, rule);
+    const result = engine.executeGraphQuery(graph, query);
     
     // Verify execution succeeded
     expect(result.success).toBe(true);
     
     // With 2 people and 2 tasks, we should have 4 binding combinations (2×2=4)
     expect(result.matchCount).toBe(4);
-    expect(result.actionResults.length).toBe(4);
+    expect(result.actions).toBeDefined();
+    expect(result.actions!.actionResults.length).toBe(4);
     
     // We should have created 4 relationships
     const edges = graph.getAllEdges();
