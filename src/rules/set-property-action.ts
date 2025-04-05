@@ -7,7 +7,7 @@ import { RuleAction, SetPropertyAction as ISetPropertyAction, ActionResult } fro
  */
 export class SetPropertyAction<NodeData = any, EdgeData = any>
   implements ISetPropertyAction<NodeData, EdgeData> {
-  
+
   readonly type = 'SET_PROPERTY';
 
   /**
@@ -21,7 +21,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
     public targetVariable: string,
     public propertyName: string,
     public value: any
-  ) {}
+  ) { }
 
   /**
    * Validates that the action can be executed
@@ -48,11 +48,11 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
 
     // Get the target object
     const target = bindings.get(this.targetVariable);
-    
+
     // Check if target is a node or edge
-    if (!target || 
-        (typeof target !== 'object') || 
-        (!('id' in target) && !('source' in target && 'target' in target))) {
+    if (!target ||
+      (typeof target !== 'object') ||
+      (!('id' in target) && !('source' in target && 'target' in target))) {
       return {
         valid: false,
         error: `Target ${this.targetVariable} is not a valid node or relationship`
@@ -80,30 +80,30 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
 
     try {
       const target = bindings.get(this.targetVariable);
-      
+
       // Determine if target is a node or relationship
       const isNode = 'id' in target && !('source' in target && 'target' in target);
-      
+
       if (isNode) {
         // Handle node property update
         const node = target as Node<NodeData>;
-        
+
         // Copy the existing data
         const updatedData = {
           ...(node.data || {}),
           [this.propertyName]: this.value
         } as NodeData;
-        
+
         // Update the node in the graph
-        const updateSuccess = graph.updateNode(node.id, updatedData);
-        
+        const updateSuccess = graph.updateNodeData(node.id, updatedData);
+
         if (!updateSuccess) {
           return {
             success: false,
             error: `Failed to update node ${node.id}`
           };
         }
-        
+
         // Get the updated node
         const updatedNode = graph.getNode(node.id);
         if (!updatedNode) {
@@ -112,10 +112,10 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
             error: `Node was updated but could not be retrieved`
           };
         }
-        
+
         // Update the binding
         bindings.set(this.targetVariable, updatedNode);
-        
+
         return {
           success: true,
           affectedNodes: [updatedNode]
@@ -123,23 +123,23 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
       } else {
         // Handle relationship property update
         const edge = target as Edge<EdgeData>;
-        
+
         // Copy the existing data
         const updatedData = {
           ...(edge.data || {}),
           [this.propertyName]: this.value
         } as EdgeData;
-        
+
         // Update the edge in the graph
         const updateSuccess = graph.updateEdge(edge.source, edge.target, edge.label, updatedData);
-        
+
         if (!updateSuccess) {
           return {
             success: false,
             error: `Failed to update relationship from ${edge.source} to ${edge.target}`
           };
         }
-        
+
         // Get the updated edge
         const updatedEdge = graph.getEdge(edge.source, edge.target, edge.label);
         if (!updatedEdge) {
@@ -148,10 +148,10 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
             error: `Relationship was updated but could not be retrieved`
           };
         }
-        
+
         // Update the binding
         bindings.set(this.targetVariable, updatedEdge);
-        
+
         return {
           success: true,
           affectedEdges: [updatedEdge]
@@ -180,7 +180,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
     } else {
       formattedValue = String(this.value);
     }
-    
+
     return `SET ${this.targetVariable}.${this.propertyName} = ${formattedValue}`;
   }
 }

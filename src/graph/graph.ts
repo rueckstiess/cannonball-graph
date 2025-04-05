@@ -8,6 +8,8 @@ export type NodeId = string;
 export interface Node<T = any> {
   /** Unique identifier for the node */
   id: NodeId;
+  /** label of the Node */
+  label: string;
   /** Data associated with the node */
   data: T;
 }
@@ -26,6 +28,8 @@ export interface Edge<T = any> {
   /** Data associated with the edge */
   data: T;
 }
+
+export type EdgeDirection = "outgoing" | "incoming" | "both";
 
 /**
  * Represents a path in the graph
@@ -48,7 +52,7 @@ export interface PathOptions {
   /** Filter paths to only include these relationship types */
   relationshipTypes?: string[];
   /** Direction to traverse: outgoing (source->target), incoming (target->source), or both */
-  direction?: "outgoing" | "incoming" | "both";
+  direction?: EdgeDirection;
 }
 
 /**
@@ -58,7 +62,7 @@ export interface BFSOptions {
   /** Maximum depth to traverse */
   maxDepth?: number;
   /** Direction to traverse: outgoing, incoming, or both */
-  direction?: "outgoing" | "incoming" | "both";
+  direction?: EdgeDirection;
   /** Whether to track complete paths (needed for path patterns) */
   trackPaths?: boolean;
   /** Maximum number of results to collect */
@@ -132,9 +136,11 @@ export interface BFSVisitor<NodeData = any, EdgeData = any> {
  * @template EdgeData Type of data associated with edges
  */
 export interface GraphData<NodeData = any, EdgeData = any> {
-  /** Map of node IDs to their data */
-  nodes: Record<NodeId, NodeData>;
-  /** Array of edges with their data */
+  nodes: Array<{
+    id: NodeId;
+    label: string;
+    data: NodeData;
+  }>;
   edges: Array<{
     source: NodeId;
     target: NodeId;
@@ -142,6 +148,7 @@ export interface GraphData<NodeData = any, EdgeData = any> {
     data: EdgeData;
   }>;
 }
+
 
 /**
  * Main Graph interface defining operations on a directed, labeled graph
@@ -154,10 +161,11 @@ export interface Graph<NodeData = any, EdgeData = any> {
   /**
    * Add a node to the graph
    * @param id Unique identifier for the node
+   * @param label Label of the node
    * @param data Data to associate with the node
    * @throws Error if a node with the same ID already exists
    */
-  addNode(id: NodeId, data: NodeData): void;
+  addNode(id: NodeId, label: string, data: NodeData): void;
 
   /**
    * Get a node by its ID
@@ -165,6 +173,13 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @returns The node object or undefined if not found
    */
   getNode(id: NodeId): Node<NodeData> | undefined;
+
+  /** 
+   * Get the label of a node
+   * @param id The node ID to look up
+   * @returns The label of the node or undefined if not found
+   */
+  getNodeLabel(id: NodeId): string;
 
   /**
    * Check if a node exists in the graph
@@ -179,7 +194,15 @@ export interface Graph<NodeData = any, EdgeData = any> {
    * @param data The new data to associate with the node
    * @returns True if the node was updated, false if it doesn't exist
    */
-  updateNode(id: NodeId, data: NodeData): boolean;
+  updateNodeData(id: NodeId, data: NodeData): boolean;
+
+  /**
+   * Change the label of a node
+   * @param id The ID of the node to update
+   * @param label The new label to associate with the node
+   * @returns True if the node was updated, false if it doesn't exist
+   */
+  updateNodeLabel(id: NodeId, label: string): boolean;
 
   /**
    * Remove a node and all its connected edges
@@ -282,7 +305,7 @@ export interface Graph<NodeData = any, EdgeData = any> {
    */
   getNeighbors(
     id: NodeId,
-    direction?: "outgoing" | "incoming" | "both",
+    direction?: EdgeDirection,
   ): Node<NodeData>[];
 
   /**
@@ -293,7 +316,7 @@ export interface Graph<NodeData = any, EdgeData = any> {
    */
   getEdgesForNode(
     id: NodeId,
-    direction?: "outgoing" | "incoming" | "both",
+    direction?: EdgeDirection,
   ): Edge<EdgeData>[];
 
   /**
@@ -358,8 +381,9 @@ export interface Graph<NodeData = any, EdgeData = any> {
  * Each node and edge can have associated data.
  */
 export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, EdgeData> {
-  // Maps node IDs to their data
+  // Maps node IDs to their node data
   private nodes: Map<NodeId, NodeData>;
+  private nodeLabels: Map<NodeId, string>;
 
   // Maps source node ID -> target node ID -> label -> edge data
   // This structure allows efficient edge lookups and traversals
@@ -371,6 +395,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
 
   constructor() {
     this.nodes = new Map<NodeId, NodeData>();
+    this.nodeLabels = new Map<NodeId, string>();
     this.outgoingEdges = new Map<NodeId, Map<NodeId, Map<string, EdgeData>>>();
     this.incomingEdges = new Map<NodeId, Map<NodeId, Map<string, EdgeData>>>();
   }
@@ -381,12 +406,13 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    * Add a node to the graph.
    * @throws Error if node with same ID already exists
    */
-  addNode(id: NodeId, data: NodeData): void {
+  addNode(id: NodeId, label: string, data: NodeData): void {
     if (this.nodes.has(id)) {
       throw new Error(`Node with ID "${id}" already exists`);
     }
 
     this.nodes.set(id, data);
+    this.nodeLabels.set(id, label);
     this.outgoingEdges.set(id, new Map());
     this.incomingEdges.set(id, new Map());
   }
@@ -400,8 +426,20 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     if (data === undefined) {
       return undefined;
     }
+    const label = this.getNodeLabel(id);
+    return { id, label, data };
+  }
 
-    return { id, data };
+  /**
+   * Get the label of a node.
+   * @returns The label or undefined if not found
+   */
+  getNodeLabel(id: NodeId): string {
+    const label = this.nodeLabels.get(id);
+    if (label === undefined) {
+      throw new Error(`Node with ID "${id}" has no label`);
+    }
+    return label;
   }
 
   /**
@@ -415,12 +453,25 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    * Update a node's data.
    * @returns true if the node was updated, false if it doesn't exist
    */
-  updateNode(id: NodeId, data: NodeData): boolean {
+  updateNodeData(id: NodeId, data: NodeData): boolean {
     if (!this.nodes.has(id)) {
       return false;
     }
 
     this.nodes.set(id, data);
+    return true;
+  }
+
+  /**
+   * Update a node's label.
+   * @returns true if the node was updated, false if it doesn't exist
+   */
+  updateNodeLabel(id: NodeId, label: string): boolean {
+    if (!this.nodes.has(id)) {
+      return false;
+    }
+
+    this.nodeLabels.set(id, label);
     return true;
   }
 
@@ -465,6 +516,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
 
     // Remove the node itself
     this.nodes.delete(id);
+    this.nodeLabels.delete(id);
 
     return true;
   }
@@ -476,7 +528,8 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     const result: Node<NodeData>[] = [];
 
     for (const [id, data] of this.nodes.entries()) {
-      result.push({ id, data });
+      const label = this.getNodeLabel(id);
+      result.push({ id, label, data });
     }
 
     return result;
@@ -489,7 +542,8 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     const result: Node<NodeData>[] = [];
 
     for (const [id, data] of this.nodes.entries()) {
-      const node: Node<NodeData> = { id, data };
+      const label = this.getNodeLabel(id);
+      const node: Node<NodeData> = { id, label, data };
       if (predicate(node)) {
         result.push(node);
       }
@@ -740,7 +794,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    */
   getNeighbors(
     id: NodeId,
-    direction: "outgoing" | "incoming" | "both" = "both",
+    direction: EdgeDirection = "both",
   ): Node<NodeData>[] {
     const result: Node<NodeData>[] = [];
     const visited = new Set<NodeId>();
@@ -787,7 +841,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
    */
   getEdgesForNode(
     id: NodeId,
-    direction: "outgoing" | "incoming" | "both" = "both",
+    direction: EdgeDirection = "both",
   ): Edge<EdgeData>[] {
     const result: Edge<EdgeData>[] = [];
 
@@ -938,30 +992,23 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     this.incomingEdges.clear();
   }
 
+
+
   /**
-   * Convert the graph to a serializable object.
+   * Load the graph from a serialized object.
    */
   toJSON(): GraphData<NodeData, EdgeData> {
-    const nodes: Record<NodeId, NodeData> = {};
+    const nodes = Array.from(this.nodes.entries()).map(([id, data]) => {
+      const label = this.getNodeLabel(id);
+      return { id, label, data };
+    });
 
-    for (const [id, data] of this.nodes.entries()) {
-      nodes[id] = data;
-    }
-
-    const edges: Array<{
-      source: NodeId;
-      target: NodeId;
-      label: string;
-      data: EdgeData;
-    }> = [];
-
-    for (const [source, targets] of this.outgoingEdges.entries()) {
-      for (const [target, labels] of targets.entries()) {
-        for (const [label, data] of labels.entries()) {
-          edges.push({ source, target, label, data });
-        }
-      }
-    }
+    const edges = this.getAllEdges().map(({ source, target, label, data }) => ({
+      source,
+      target,
+      label,
+      data
+    }));
 
     return { nodes, edges };
   }
@@ -973,15 +1020,17 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     this.clear();
 
     // Add nodes
-    for (const [id, nodeData] of Object.entries(data.nodes)) {
-      this.addNode(id, nodeData as NodeData);
+    for (const { id, label, data: nodeData } of data.nodes) {
+      this.addNode(id, label, nodeData);
     }
 
     // Add edges
-    for (const edge of data.edges) {
-      this.addEdge(edge.source, edge.target, edge.label, edge.data);
+    for (const { source, target, label, data: edgeData } of data.edges) {
+      this.addEdge(source, target, label, edgeData);
     }
   }
+
+
 
   /**
    * Perform a breadth-first traversal of the graph starting from a node.

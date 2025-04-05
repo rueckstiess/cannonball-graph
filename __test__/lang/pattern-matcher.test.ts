@@ -557,7 +557,7 @@ describe('PatternMatcher', () => {
       expect(beforeNodes).toHaveLength(3);
 
       // Update a node's data
-      graph.updateNode('alice', { type: 'person', name: 'Alice Modified', age: 31, active: true });
+      graph.updateNodeData('alice', { type: 'person', name: 'Alice Modified', age: 31, active: true });
 
       // Get nodes again - we should see the updated data
       const afterNodes = matcher.getNodesByLabel(graph, 'person');

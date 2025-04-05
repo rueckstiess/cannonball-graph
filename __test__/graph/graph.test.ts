@@ -26,14 +26,14 @@ describe('Graph', () => {
 
     it('should update a node', () => {
       graph.addNode('n1', { type: 'person', name: 'Alice' });
-      const result = graph.updateNode('n1', { type: 'person', name: 'Alicia' });
+      const result = graph.updateNodeData('n1', { type: 'person', name: 'Alicia' });
 
       expect(result).toBe(true);
       expect(graph.getNode('n1')?.data.name).toBe('Alicia');
     });
 
     it('should return false when updating non-existent node', () => {
-      const result = graph.updateNode('nonexistent', { type: 'person', name: 'Nobody' });
+      const result = graph.updateNodeData('nonexistent', { type: 'person', name: 'Nobody' });
       expect(result).toBe(false);
     });
 

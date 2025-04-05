@@ -126,7 +126,7 @@ describe.skip('Graph Performance', () => {
 
           // Update link count on source node
           const sourceNode = newGraph.getNode(sourceId)!;
-          newGraph.updateNode(sourceId, {
+          newGraph.updateNodeData(sourceId, {
             ...sourceNode.data,
             links: (sourceNode.data.links || 0) + 1
           });
@@ -142,7 +142,7 @@ describe.skip('Graph Performance', () => {
 
               // Update link count on target node
               const targetNode = newGraph.getNode(targetId)!;
-              newGraph.updateNode(targetId, {
+              newGraph.updateNodeData(targetId, {
                 ...targetNode.data,
                 links: (targetNode.data.links || 0) + 1
               });
