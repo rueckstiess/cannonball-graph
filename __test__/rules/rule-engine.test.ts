@@ -19,7 +19,7 @@ describe('RuleEngine', () => {
     graph.addNode('task2', { title: 'Task 2', priority: 'Low', labels: ['Task'] });
   });
   
-  test('executeGraphQuery handles basic rule execution', () => {
+  test('executeQuery handles basic rule execution', () => {
     const rule: Rule = {
       name: 'TestRule',
       description: 'A test rule',
@@ -29,7 +29,7 @@ describe('RuleEngine', () => {
       markdown: '```graphrule\nname: TestRule\ndescription: A test rule\npriority: 1\nCREATE (n:NewNode {name: "TestNode"})\n```'
     };
     
-    const result = engine.executeGraphQuery(graph, rule.ruleText);
+    const result = engine.executeQuery(graph, rule.ruleText);
     
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(1); // One empty binding context for CREATE-only rules
@@ -46,7 +46,7 @@ describe('RuleEngine', () => {
     expect(newNode?.data.name).toBe('TestNode');
   });
   
-  test('executeGraphQuery handles pattern matching with conditions', () => {
+  test('executeQuery handles pattern matching with conditions', () => {
     const rule: Rule = {
       name: 'TestRule',
       description: 'A test rule with pattern matching',
@@ -56,7 +56,7 @@ describe('RuleEngine', () => {
       markdown: '```graphrule\nname: TestRule\ndescription: A test rule with pattern matching\npriority: 1\nMATCH (p:Person) WHERE p.name = "Alice" SET p.status = "Active"\n```'
     };
     
-    const result = engine.executeGraphQuery(graph, rule.ruleText);
+    const result = engine.executeQuery(graph, rule.ruleText);
     
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(1);
@@ -68,18 +68,18 @@ describe('RuleEngine', () => {
     expect(alice?.data.status).toBe('Active');
   });
   
-  test('executeGraphQuery can execute multiple statements in order', () => {
+  test('executeQuery can execute multiple statements in order', () => {
     // Execute two queries in sequence to test priority ordering
     const firstQuery = 'MATCH (p:Person) SET p.lastUpdatedBy = "FirstRule"';
     const secondQuery = 'MATCH (p:Person) SET p.lastUpdatedBy = "SecondRule"';
     
     // Execute first query
-    const result1 = engine.executeGraphQuery(graph, firstQuery);
+    const result1 = engine.executeQuery(graph, firstQuery);
     expect(result1.success).toBe(true);
     expect(result1.actions).toBeDefined();
     
     // Execute second query
-    const result2 = engine.executeGraphQuery(graph, secondQuery);
+    const result2 = engine.executeQuery(graph, secondQuery);
     expect(result2.success).toBe(true);
     expect(result2.actions).toBeDefined();
     
@@ -91,7 +91,7 @@ describe('RuleEngine', () => {
     expect(person2?.data.lastUpdatedBy).toBe('SecondRule');
   });
   
-  test('executeGraphQueriesFromMarkdown extracts and executes queries from markdown', () => {
+  test('executeQueriesFromMarkdown extracts and executes queries from markdown', () => {
     const markdown = `
 ## Test Rules
 
@@ -104,7 +104,7 @@ CREATE (n:NewNode {name: "FromMarkdown"})
 \`\`\`
     `;
     
-    const results = engine.executeGraphQueriesFromMarkdown(graph, markdown);
+    const results = engine.executeQueriesFromMarkdown(graph, markdown);
     
     expect(results.length).toBe(1);
     expect(results[0].success).toBe(true);
@@ -116,12 +116,12 @@ CREATE (n:NewNode {name: "FromMarkdown"})
     expect(newNode?.data.labels).toContain('NewNode');
   });
   
-  test('executeGraphQuery runs disabled rules directly', () => {
-    // When using executeGraphQuery directly, the disabled flag is not checked
+  test('executeQuery runs disabled rules directly', () => {
+    // When using executeQuery directly, the disabled flag is not checked
     // This is a change in behavior from the old API
     const rule = 'CREATE (n:NewNode {name: "ShouldExist"})';
     
-    const result = engine.executeGraphQuery(graph, rule);
+    const result = engine.executeQuery(graph, rule);
     
     // Rule should execute successfully
     expect(result.success).toBe(true);
@@ -132,21 +132,21 @@ CREATE (n:NewNode {name: "FromMarkdown"})
     expect(newNode?.data.labels).toContain('NewNode');
   });
   
-  test('executeGraphQuery handles errors in query execution', () => {
+  test('executeQuery handles errors in query execution', () => {
     const invalidQuery = 'INVALID SYNTAX';
     
-    const result = engine.executeGraphQuery(graph, invalidQuery);
+    const result = engine.executeQuery(graph, invalidQuery);
     
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   });
   
   // This test specifically targets our fix for comma-separated patterns
-  test('executeGraphQuery correctly handles comma-separated patterns with cross-product bindings', () => {
+  test('executeQuery correctly handles comma-separated patterns with cross-product bindings', () => {
     // Define a query that uses comma-separated patterns: MATCH (p:Person), (t:Task)
     const query = 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)';
     
-    const result = engine.executeGraphQuery(graph, query);
+    const result = engine.executeQuery(graph, query);
     
     // Verify execution succeeded
     expect(result.success).toBe(true);
@@ -183,11 +183,11 @@ CREATE (n:NewNode {name: "FromMarkdown"})
     expect(connections.has('person2->task2')).toBe(true);
   });
   
-  test('executeGraphQuery handles the case where one pattern has no matches', () => {
+  test('executeQuery handles the case where one pattern has no matches', () => {
     // Create a query that references a non-existent label
     const query = 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)';
     
-    const result = engine.executeGraphQuery(graph, query);
+    const result = engine.executeQuery(graph, query);
     
     // Query should execute successfully but with no matches
     expect(result.success).toBe(true);

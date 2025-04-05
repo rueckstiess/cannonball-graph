@@ -32,7 +32,7 @@ describe('Query API', () => {
   });
 
   describe('Unified Query API', () => {
-    test('executeGraphQuery supports both read and write operations', () => {
+    test('executeQuery supports both read and write operations', () => {
       // Simpler query that sets a property and returns values
       const query = `
         MATCH (p:Person)
@@ -41,7 +41,7 @@ describe('Query API', () => {
         RETURN p.name, p.updated
       `;
 
-      const result = engine.executeGraphQuery(graph, query);
+      const result = engine.executeQuery(graph, query);
 
       // Check that the result has both query and action data
       expect(result.success).toBe(true);
@@ -60,7 +60,7 @@ describe('Query API', () => {
     });
 
     test('QueryFormatter works with GraphQueryResult', () => {
-      const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const result = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
 
       // Check the markdown formatting
       const markdown = formatter.toMarkdownTable(result);
@@ -81,7 +81,7 @@ describe('Query API', () => {
     });
 
     test('QueryUtils works with GraphQueryResult', () => {
-      const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const result = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
 
       // Check extractColumn works
       const names = utils.extractColumn(result, 'p.name');
@@ -96,14 +96,14 @@ describe('Query API', () => {
       expect(utils.isEmpty(result)).toBe(false);
 
       // Check getSingleValue works
-      const emptyResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p');
+      const emptyResult = engine.executeQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p');
       expect(utils.isEmpty(emptyResult)).toBe(true);
     });
   });
 
   describe('QueryFormatter', () => {
     test('toMarkdownTable formats query results as markdown', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
       const markdown = formatter.toMarkdownTable(queryResult);
 
       // Check the markdown formatting
@@ -114,7 +114,7 @@ describe('Query API', () => {
     });
 
     test('toTextTable formats query results as text table', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
       const textTable = formatter.toTextTable(queryResult);
 
       // Check the text table formatting
@@ -128,7 +128,7 @@ describe('Query API', () => {
     });
 
     test('toJson formats query results as JSON', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
       const json = formatter.toJson(queryResult);
       const parsed = JSON.parse(json);
 
@@ -142,7 +142,7 @@ describe('Query API', () => {
     });
 
     test('handles empty results gracefully', () => {
-      const emptyResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p.name');
+      const emptyResult = engine.executeQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p.name');
 
       expect(formatter.toMarkdownTable(emptyResult)).toBe('No results');
       expect(formatter.toTextTable(emptyResult)).toBe('No results');
@@ -157,14 +157,14 @@ describe('Query API', () => {
 
   describe('QueryUtils', () => {
     test('extractColumn extracts a specific column of values', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
       const names = utils.extractColumn(queryResult, 'p.name');
 
       expect(names).toEqual(['Alice', 'Bob']);
     });
 
     test('toObjectArray converts query results to object array', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
       const objects = utils.toObjectArray(queryResult);
 
       expect(objects.length).toBe(2);
@@ -175,7 +175,7 @@ describe('Query API', () => {
     });
 
     test('extractNodes extracts nodes from query results', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p');
       const nodes = utils.extractNodes(queryResult);
 
       expect(nodes.length).toBe(2);
@@ -184,7 +184,7 @@ describe('Query API', () => {
     });
 
     test('extractEdges extracts edges from query results', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN r');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN r');
       const edges = utils.extractEdges(queryResult);
 
       expect(edges.length).toBe(2);
@@ -195,7 +195,7 @@ describe('Query API', () => {
     });
 
     test('toSubgraph creates a subgraph from query results', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN p, r, t');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person)-[r:ASSIGNED_TO]->(t:Task) RETURN p, r, t');
       const subgraph = utils.toSubgraph(queryResult);
 
       expect(subgraph.getAllNodes().length).toBe(4); // 2 people + 2 tasks
@@ -203,15 +203,15 @@ describe('Query API', () => {
     });
 
     test('isEmpty checks if query results are empty', () => {
-      const emptyResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p');
-      const nonEmptyResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p');
+      const emptyResult = engine.executeQuery(graph, 'MATCH (p:Person) WHERE p.age > 100 RETURN p');
+      const nonEmptyResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p');
 
       expect(utils.isEmpty(emptyResult)).toBe(true);
       expect(utils.isEmpty(nonEmptyResult)).toBe(false);
     });
 
     test('getSingleValue gets a single value from results', () => {
-      const queryResult = engine.executeGraphQuery(graph, 'MATCH (p:Person) WHERE p.name = "Alice" RETURN p.age');
+      const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) WHERE p.name = "Alice" RETURN p.age');
       const age = utils.getSingleValue(queryResult);
 
       expect(age).toBe(30);

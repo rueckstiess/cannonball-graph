@@ -46,11 +46,11 @@ const DEFAULT_OPTIONS: QueryFormatterOptions = {
  * Formats query results in different output formats
  * 
  * This class supports both the new GraphQueryResult format and the legacy QueryResult format.
- * For new code, use the GraphQueryResult format returned by executeGraphQuery().
+ * For new code, use the GraphQueryResult format returned by executeQuery().
  * 
  * @example
  * ```typescript
- * const result = engine.executeGraphQuery(graph, 'MATCH (p:Person) RETURN p.name');
+ * const result = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name');
  * const markdown = formatter.toMarkdownTable(result);
  * ```
  */

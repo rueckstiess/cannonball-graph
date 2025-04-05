@@ -36,7 +36,7 @@ CREATE (p)-[r:MATCHED {timestamp: "2023-01-15"}]->(p)
   `;
 
   console.log('RULE: Find all Person nodes and create self-reference');
-  const basicMatchResults = engine.executeGraphQueriesFromMarkdown(graph, basicMatchRule);
+  const basicMatchResults = engine.executeQueriesFromMarkdown(graph, basicMatchRule);
   logRuleResults(basicMatchResults);
   logGraphState(graph, 'After basic MATCH');
 
@@ -57,7 +57,7 @@ CREATE (p)-[r:FLAGGED_SENIOR {timestamp: "2023-01-15"}]->(p)
   `;
 
   console.log('RULE: Find Person nodes with seniorLevel=true');
-  const propertyMatchResults = engine.executeGraphQueriesFromMarkdown(graph, propertyMatchRule);
+  const propertyMatchResults = engine.executeQueriesFromMarkdown(graph, propertyMatchRule);
   logRuleResults(propertyMatchResults);
   logGraphState(graph, 'After property MATCH');
 
@@ -79,7 +79,7 @@ CREATE (p)-[r:SENIOR_ENGINEER {timestamp: "2023-01-15"}]->(p)
   `;
 
   console.log('RULE: Find people with age > 30 AND department = "Engineering"');
-  const whereResults = engine.executeGraphQueriesFromMarkdown(graph, whereRule);
+  const whereResults = engine.executeQueriesFromMarkdown(graph, whereRule);
   logRuleResults(whereResults);
   logGraphState(graph, 'After WHERE clause');
 
@@ -101,7 +101,7 @@ CREATE (t)-[r:FLAGGED_CRITICAL {reason: "High priority and due soon"}]->(t)
   `;
 
   console.log('RULE: Find critical tasks with multiple conditions');
-  const advancedWhereResults = engine.executeGraphQueriesFromMarkdown(graph, advancedWhereRule);
+  const advancedWhereResults = engine.executeQueriesFromMarkdown(graph, advancedWhereRule);
   logRuleResults(advancedWhereResults);
   logGraphState(graph, 'After advanced WHERE');
 
@@ -124,7 +124,7 @@ CREATE (p)-[r:MANAGES {since: "2023-01-01"}]->(proj)
   `;
 
   console.log('RULE: Create a new Project node and connect it to Alice');
-  const createNodeResults = engine.executeGraphQueriesFromMarkdown(graph, createNodeRule);
+  const createNodeResults = engine.executeQueriesFromMarkdown(graph, createNodeRule);
   logRuleResults(createNodeResults);
   logGraphState(graph, 'After CREATE node');
 
@@ -146,7 +146,7 @@ CREATE (p)-[r:ASSIGNED_TO {date: "2023-01-15", auto: true}]->(t)
   `;
 
   console.log('RULE: Connect people to tasks in the same department');
-  const createRelResults = engine.executeGraphQueriesFromMarkdown(graph, createRelationshipRule);
+  const createRelResults = engine.executeQueriesFromMarkdown(graph, createRelationshipRule);
   logRuleResults(createRelResults);
   logGraphState(graph, 'After CREATE relationship');
 
@@ -168,7 +168,7 @@ SET t.status = "In Progress", t.lastUpdated = "2023-01-15"
   `;
 
   console.log('RULE: Update task properties when assigned');
-  const setResults = engine.executeGraphQueriesFromMarkdown(graph, setRule);
+  const setResults = engine.executeQueriesFromMarkdown(graph, setRule);
   logRuleResults(setResults);
   logGraphState(graph, 'After SET properties');
 
@@ -190,7 +190,7 @@ CREATE (t1)-[r:BLOCKED_BY {severity: "High"}]->(t2)
   `;
 
   console.log('RULE: Find task dependency relationships');
-  const relPatternResults = engine.executeGraphQueriesFromMarkdown(graph, relationshipPatternRule);
+  const relPatternResults = engine.executeQueriesFromMarkdown(graph, relationshipPatternRule);
   logRuleResults(relPatternResults);
   logGraphState(graph, 'After relationship pattern matching');
 
@@ -212,7 +212,7 @@ SET t.needsApproval = true, t.reminderSent = "2023-01-15"
   `;
 
   console.log('RULE: Check for missing approval relationships');
-  const existsResults = engine.executeGraphQueriesFromMarkdown(graph, existsRule);
+  const existsResults = engine.executeQueriesFromMarkdown(graph, existsRule);
   logRuleResults(existsResults);
   logGraphState(graph, 'After EXISTS check');
 
@@ -239,7 +239,7 @@ SET t.projectized = true, t.priority = "High"
   `;
 
   console.log('RULE: Complex multi-clause project planning rule');
-  const complexResults = engine.executeGraphQueriesFromMarkdown(graph, complexRule);
+  const complexResults = engine.executeQueriesFromMarkdown(graph, complexRule);
   logRuleResults(complexResults);
   logGraphState(graph, 'After complex multi-clause rule');
 
@@ -261,7 +261,7 @@ SET t1.riskLevel = "High", t1.dependencyNote = "Dependent on blocked task"
   `;
 
   console.log('RULE: Find variable-length dependency chains');
-  const varLengthResults = engine.executeGraphQueriesFromMarkdown(graph, variableLengthRule);
+  const varLengthResults = engine.executeQueriesFromMarkdown(graph, variableLengthRule);
   logRuleResults(varLengthResults);
   logGraphState(graph, 'After variable-length path matching');
 
@@ -286,7 +286,7 @@ CREATE (t)-[r2:REQUIRES_COLLAB {departments: "Engineering, Marketing"}]->(t)
   `;
 
   console.log('RULE: Find cross-department task patterns');
-  const multiMatchResults = engine.executeGraphQueriesFromMarkdown(graph, multiMatchRule);
+  const multiMatchResults = engine.executeQueriesFromMarkdown(graph, multiMatchRule);
   logRuleResults(multiMatchResults);
   logGraphState(graph, 'After multiple comma-separated matches');
 

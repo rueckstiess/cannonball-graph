@@ -183,7 +183,7 @@ CREATE (n:NewNode {name: "TestNode"})
     `;
 
     // Just test that the rule is extracted from markdown
-    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Log details for debugging
     console.log('Query execution results:', results);
@@ -393,7 +393,7 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     `;
 
     // Execute the rule
-    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Log results for debugging
     console.log('\nRule execution results for pattern matching binding test:');
@@ -495,7 +495,7 @@ CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
 
     // Execute the rule
     const engine = createRuleEngine();
-    const results = engine.executeGraphQueriesFromMarkdown(testGraph, ruleMarkdown);
+    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
 
     // Verify rule execution result
     expect(results.length).toBe(1);
@@ -566,7 +566,7 @@ CREATE (p)-[r:WORKS_ON]->(proj)
     `;
 
     const engine = createRuleEngine();
-    const noMatchResults = engine.executeGraphQueriesFromMarkdown(testGraph, noMatchRuleMarkdown);
+    const noMatchResults = engine.executeQueriesFromMarkdown(testGraph, noMatchRuleMarkdown);
 
     // Rule should execute but create no relationships because one pattern has no matches
     expect(noMatchResults.length).toBe(1);
@@ -591,7 +591,7 @@ SET p.status = "Active"
 \`\`\`
     `;
 
-    const singlePatternResults = engine.executeGraphQueriesFromMarkdown(testGraph, singlePatternRuleMarkdown);
+    const singlePatternResults = engine.executeQueriesFromMarkdown(testGraph, singlePatternRuleMarkdown);
 
     // Rule should execute and match the single person
     expect(singlePatternResults.length).toBe(1);

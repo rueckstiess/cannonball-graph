@@ -86,7 +86,7 @@ describe('Path Pattern Matching', () => {
         `;
 
       // Execute the query
-      const results = engine.executeGraphQueriesFromMarkdown(graph, ruleMarkdown);
+      const results = engine.executeQueriesFromMarkdown(graph, ruleMarkdown);
 
       // Log results for debugging
       console.log('\nRule execution results for pattern matching binding test:');

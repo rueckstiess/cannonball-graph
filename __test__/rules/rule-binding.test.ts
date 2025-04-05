@@ -22,7 +22,7 @@ describe('Rule Engine Binding Tests', () => {
     // Define a query with comma-separated patterns
     const query = 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)';
     
-    const result = engine.executeGraphQuery(graph, query);
+    const result = engine.executeQuery(graph, query);
     
     // Verify execution succeeded
     expect(result.success).toBe(true);
@@ -70,7 +70,7 @@ describe('Rule Engine Binding Tests', () => {
       markdown: '```graphrule\nname: NoMatchesRule\ndescription: Rule that matches nothing\npriority: 1\nMATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)\n```'
     };
     
-    const result = engine.executeGraphQuery(graph, rule.ruleText);
+    const result = engine.executeQuery(graph, rule.ruleText);
     
     // We're specifically testing that even when Category nodes don't exist,
     // the rule engine correctly handles this case with an empty result set
@@ -95,7 +95,7 @@ describe('Rule Engine Binding Tests', () => {
       markdown: '```graphrule\nname: UpdatePersonRule\ndescription: Update all person nodes\npriority: 1\nMATCH (p:Person) SET p.status = "Active"\n```'
     };
     
-    const result = engine.executeGraphQuery(graph, rule.ruleText);
+    const result = engine.executeQuery(graph, rule.ruleText);
     
     // Verify execution succeeded
     expect(result.success).toBe(true);

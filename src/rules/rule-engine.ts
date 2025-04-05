@@ -191,7 +191,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
    * @param options Execution options
    * @returns Unified result containing both query results and action results if applicable
    */
-  executeGraphQuery(
+  executeQuery(
     graph: Graph<NodeData, EdgeData>,
     statement: string,
     options?: RuleExecutionOptions
@@ -547,7 +547,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
    * @param options Execution options
    * @returns Array of unified query results
    */
-  executeGraphQueries(
+  executeQueries(
     graph: Graph<NodeData, EdgeData>,
     rules: Rule[],
     options?: RuleExecutionOptions
@@ -564,7 +564,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         continue;
       }
       
-      const result = this.executeGraphQuery(graph, rule.ruleText, options);
+      const result = this.executeQuery(graph, rule.ruleText, options);
       results.push(result);
       
       // Log execution for monitoring
@@ -594,13 +594,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
    * @param options Execution options
    * @returns Array of unified query results
    */
-  executeGraphQueriesFromMarkdown(
+  executeQueriesFromMarkdown(
     graph: Graph<NodeData, EdgeData>,
     markdown: string,
     options?: RuleExecutionOptions
   ): GraphQueryResult<NodeData, EdgeData>[] {
     const rules = extractRulesFromMarkdown(markdown);
-    return this.executeGraphQueries(graph, rules, options);
+    return this.executeQueries(graph, rules, options);
   }
   
   
@@ -613,7 +613,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
    * @param options Execution options
    * @returns Unified result containing both query results and action results if applicable
    */
-  executeGraphQueryFromMarkdown(
+  executeQueryFromMarkdown(
     graph: Graph<NodeData, EdgeData>,
     markdown: string,
     codeBlockType: string = "graphquery",
@@ -641,7 +641,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       const statement = match[1].trim();
       
       // Execute the query
-      return this.executeGraphQuery(graph, statement, options);
+      return this.executeQuery(graph, statement, options);
     } catch (error: any) {
       return {
         success: false,

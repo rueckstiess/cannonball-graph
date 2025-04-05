@@ -58,10 +58,10 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * // RECOMMENDED: Unified API
  * // Execute any graph statement (query, rule, or both)
- * const result = engine.executeGraphQuery(graph, 'MATCH (n:Person) RETURN n.name');
+ * const result = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
  * 
  * // Execute a graph statement that both modifies and returns data
- * const result = engine.executeGraphQuery(graph, `
+ * const result = engine.executeQuery(graph, `
  *   MATCH (n:Person)
  *   WHERE n.age > 30
  *   CREATE (t:Task {name: 'New Task', assignedTo: n.name})
@@ -85,10 +85,10 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  *   { statement: 'MATCH (n:Person) SET n.active = true', priority: 10 },
  *   { statement: 'MATCH (n:Person) RETURN n.name, n.active', priority: 5 }
  * ];
- * const results = engine.executeGraphQueries(graph, queries);
+ * const results = engine.executeQueries(graph, queries);
  * 
  * // Parse and execute queries from markdown
- * const markdownResults = engine.executeGraphQueriesFromMarkdown(graph, markdownText);
+ * const markdownResults = engine.executeQueriesFromMarkdown(graph, markdownText);
  * 
  * // See src/examples/unified-query-example.ts for more examples
  * // See src/examples/unified-query-migration.md for migration guidance
