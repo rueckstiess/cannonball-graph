@@ -107,9 +107,12 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       );
       
       // 3. Execute MATCH-WHERE to find pattern matches
-      const matches: BindingContext<NodeData, EdgeData>[] = [];
+      let matches: BindingContext<NodeData, EdgeData>[] = [];
       
       if (cypherStatement.match) {
+        // First, collect bindings for each pattern separately
+        const patternBindingsArray: BindingContext<NodeData, EdgeData>[][] = [];
+        
         for (const pattern of cypherStatement.match.patterns) {
           const pathMatches = this.patternMatcher.findMatchingPathsWithCondition(
             graph,
@@ -117,7 +120,9 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             cypherStatement.where?.condition
           );
           
-          // Convert path matches to binding contexts
+          // Convert path matches to binding contexts for this pattern
+          const patternBindings: BindingContext<NodeData, EdgeData>[] = [];
+          
           for (const path of pathMatches) {
             const bindings = new BindingContext<NodeData, EdgeData>();
             
@@ -139,12 +144,27 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
               }
             }
             
-            matches.push(bindings);
+            patternBindings.push(bindings);
             
             // Limit matches if maxMatches is specified
-            if (options?.maxMatches && matches.length >= options.maxMatches) {
+            if (options?.maxMatches && patternBindings.length >= options.maxMatches) {
               break;
             }
+          }
+          
+          // Add this pattern's bindings to the array
+          if (patternBindings.length > 0) {
+            patternBindingsArray.push(patternBindings);
+          }
+        }
+        
+        // Calculate cross-product of bindings from different patterns
+        if (patternBindingsArray.length > 0) {
+          matches = this.combineBindings(patternBindingsArray);
+          
+          // Limit final combined matches if maxMatches is specified
+          if (options?.maxMatches && matches.length > options.maxMatches) {
+            matches = matches.slice(0, options.maxMatches);
           }
         }
       } else {
@@ -248,6 +268,85 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   ): RuleExecutionResult<NodeData, EdgeData>[] {
     const rules = extractRulesFromMarkdown(markdown);
     return this.executeRules(graph, rules, options);
+  }
+  
+  /**
+   * Combines multiple sets of binding contexts into a cross product of all combinations.
+   * For example, if we have:
+   * - Pattern 1: [p1, p2] (two Person nodes)
+   * - Pattern 2: [t1, t2, t3] (three Task nodes)
+   * This will produce 6 binding contexts combining all Person nodes with all Task nodes.
+   * 
+   * @param bindingSets Array of binding context arrays, one per pattern
+   * @returns Combined binding contexts
+   */
+  private combineBindings(
+    bindingSets: BindingContext<NodeData, EdgeData>[][]
+  ): BindingContext<NodeData, EdgeData>[] {
+    // Handle edge cases
+    if (bindingSets.length === 0) {
+      return [];
+    }
+    
+    if (bindingSets.length === 1) {
+      return bindingSets[0];
+    }
+    
+    // Start with the first set of bindings
+    let result = [...bindingSets[0]];
+    
+    // Iterate through the remaining binding sets and combine with current result
+    for (let i = 1; i < bindingSets.length; i++) {
+      const currentBindings = bindingSets[i];
+      
+      // Create a new result array for the current combination
+      const newResult: BindingContext<NodeData, EdgeData>[] = [];
+      
+      // For each existing binding context in the result
+      for (const existingBindings of result) {
+        // Combine with each binding from the current set
+        for (const currentBinding of currentBindings) {
+          // Create a new binding context to combine both
+          const combinedBindings = new BindingContext<NodeData, EdgeData>();
+          
+          // Copy variables from the existing bindings
+          this.copyBindings(existingBindings, combinedBindings);
+          
+          // Copy variables from the current binding
+          this.copyBindings(currentBinding, combinedBindings);
+          
+          // Add to the new result set
+          newResult.push(combinedBindings);
+        }
+      }
+      
+      // Update the result for the next iteration
+      result = newResult;
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Helper method to copy bindings from one context to another
+   * 
+   * @param source Source binding context
+   * @param target Target binding context
+   */
+  private copyBindings(
+    source: BindingContext<NodeData, EdgeData>,
+    target: BindingContext<NodeData, EdgeData>
+  ): void {
+    // Get all variable names from the source context
+    const variableNames = source.getVariableNames();
+    
+    // Copy each variable to the target context
+    for (const varName of variableNames) {
+      const value = source.get(varName);
+      if (value !== undefined) {
+        target.set(varName, value);
+      }
+    }
   }
 }
 

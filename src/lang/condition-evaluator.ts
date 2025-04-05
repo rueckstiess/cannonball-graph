@@ -91,6 +91,12 @@ export interface BindingContext<NodeData = any, EdgeData = any> {
    * ```
    */
   createChildContext(): BindingContext<NodeData, EdgeData>;
+  
+  /**
+   * Get all variable names bound in this context
+   * @returns Array of variable names
+   */
+  getVariableNames(): string[];
 }
 
 /**
@@ -430,6 +436,23 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
    */
   createChildContext(): BindingContext<NodeData, EdgeData> {
     return new BindingContext<NodeData, EdgeData>(this);
+  }
+  
+  /**
+   * Get all variable names bound in this context
+   * @returns Array of variable names
+   */
+  getVariableNames(): string[] {
+    const ownVariables = Array.from(this.bindings.keys());
+    
+    if (!this.parent) {
+      return ownVariables;
+    }
+    
+    const parentVariables = this.parent.getVariableNames();
+    
+    // Return unique variables (parent variables that aren't shadowed + own variables)
+    return [...new Set([...parentVariables.filter(v => !this.bindings.has(v)), ...ownVariables])];
   }
 }
 
