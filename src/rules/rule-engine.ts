@@ -531,7 +531,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     return (
       value !== null &&
       typeof value === 'object' &&
-      'id' in value &&
       'source' in value &&
       'target' in value &&
       'label' in value &&

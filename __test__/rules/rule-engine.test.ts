@@ -198,4 +198,67 @@ CREATE (n:NewNode {name: "FromMarkdown"})
     // No new relationships should be created
     expect(graph.getAllEdges().length).toBe(0);
   });
+
+  // Tests for private type guard methods
+  describe('Type Guards', () => {
+    const testNode = { id: 'n1', label: 'TestNode', data: { prop: 'value' } };
+    const testNodeWithoutLabel = { id: 'n1', data: { prop: 'value' } };
+    const testEdge = { source: 'n1', target: 'n2', label: 'RELATES_TO', data: { prop: 'value' } };
+    const testEdgeWithoutLabel = { source: 'n1', target: 'n2', data: { prop: 'value' } };
+    const plainObject = { key: 'value' };
+    const nullValue = null;
+    const primitiveValue = 123;
+
+    describe('isNode', () => {
+      test('should return true for a valid node object', () => {
+        expect(engine['isNode'](testNode)).toBe(true);
+      });
+
+      test('should return false for a node object without label', () => {
+        expect(engine['isNode'](testNodeWithoutLabel)).toBe(false);
+      });
+
+      test('should return false for an edge object', () => {
+        expect(engine['isNode'](testEdge)).toBe(false);
+      });
+
+      test('should return false for a plain object', () => {
+        expect(engine['isNode'](plainObject)).toBe(false);
+      });
+
+      test('should return false for null', () => {
+        expect(engine['isNode'](nullValue)).toBe(false);
+      });
+
+      test('should return false for a primitive value', () => {
+        expect(engine['isNode'](primitiveValue)).toBe(false);
+      });
+    });
+
+    describe('isEdge', () => {
+      test('should return true for a valid edge object', () => {
+        expect(engine['isEdge'](testEdge)).toBe(true);
+      });
+
+      test('should return false for an edge object without label', () => {
+        expect(engine['isEdge'](testEdgeWithoutLabel)).toBe(false);
+      });
+
+      test('should return false for a node object', () => {
+        expect(engine['isEdge'](testNode)).toBe(false);
+      });
+
+      test('should return false for a plain object', () => {
+        expect(engine['isEdge'](plainObject)).toBe(false);
+      });
+
+      test('should return false for null', () => {
+        expect(engine['isEdge'](nullValue)).toBe(false);
+      });
+
+      test('should return false for a primitive value', () => {
+        expect(engine['isEdge'](primitiveValue)).toBe(false);
+      });
+    });
+  });
 });
