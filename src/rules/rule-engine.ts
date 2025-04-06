@@ -223,7 +223,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       const hasReadOps = !!cypherStatement.return;
       const hasWriteOps = !!(cypherStatement.create || cypherStatement.set);
 
-      // 2. Find all matches for the statement
+      // 2. Find all matches for the statement using the updated findMatches
       const matches = this.findMatches(graph, cypherStatement, options);
 
       // Initialize the result
@@ -322,7 +322,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
 
   /**
-   * Finds pattern matches for a Cypher statement
+   * Finds pattern matches for a Cypher statement using the updated PatternMatcherWithConditions.
    * 
    * @param graph The graph to search
    * @param cypherStatement The Cypher statement to match
@@ -337,73 +337,27 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     let matches: BindingContext<NodeData, EdgeData>[] = [];
 
     if (cypherStatement.match) {
-      // First, collect bindings for each pattern separately
-      const patternBindingsArray: BindingContext<NodeData, EdgeData>[][] = [];
+      // Directly use executeMatchQuery which handles single/multiple patterns and WHERE clause
+      matches = this.patternMatcher.executeMatchQuery(
+        graph,
+        cypherStatement.match.patterns, // Pass the array of patterns
+        cypherStatement.where // Pass the WHERE clause
+      );
 
-      for (const pattern of cypherStatement.match.patterns) {
-        const pathMatches = this.patternMatcher.findMatchingPathsWithCondition(
-          graph,
-          pattern,
-          cypherStatement.where?.condition
-        );
-
-        // Convert path matches to binding contexts for this pattern
-        const patternBindings: BindingContext<NodeData, EdgeData>[] = [];
-
-        for (const path of pathMatches) {
-          const bindings = new BindingContext<NodeData, EdgeData>();
-
-          // Bind the starting node if it has a variable
-          if (pattern.start.variable) {
-            bindings.set(pattern.start.variable, path.nodes[0]);
-          }
-
-          // Bind segments (relationships and end nodes)
-          for (let i = 0; i < pattern.segments.length; i++) {
-            const segment = pattern.segments[i];
-
-            if (segment.relationship.variable) {
-              bindings.set(segment.relationship.variable, path.edges[i]);
-            }
-
-            if (segment.node.variable) {
-              bindings.set(segment.node.variable, path.nodes[i + 1]);
-            }
-          }
-
-          patternBindings.push(bindings);
-
-          // Limit matches if maxMatches is specified
-          if (options?.maxMatches && patternBindings.length >= options.maxMatches) {
-            break;
-          }
-        }
-
-        // Add this pattern's bindings to the array
-        if (patternBindings.length > 0) {
-          patternBindingsArray.push(patternBindings);
-        }
-      }
-
-      // Calculate cross-product of bindings from different patterns
-      if (patternBindingsArray.length > 0) {
-        // Only proceed if ALL patterns have matches
-        // (patternBindingsArray.length should equal the number of patterns)
-        if (patternBindingsArray.length === cypherStatement.match.patterns.length) {
-          matches = this.combineBindings(patternBindingsArray);
-
-          // Limit final combined matches if maxMatches is specified
-          if (options?.maxMatches && matches.length > options.maxMatches) {
-            matches = matches.slice(0, options.maxMatches);
-          }
-        } else {
-          // If not all patterns have matches, the result should be empty
-          matches = [];
-        }
+      // Limit final matches if maxMatches is specified
+      if (options?.maxMatches && matches.length > options.maxMatches) {
+        matches = matches.slice(0, options.maxMatches);
       }
     } else {
       // If no MATCH clause, create a single empty binding context
+      // This allows WHERE clauses without MATCH (e.g., WHERE 1=1) or CREATE without MATCH
       matches.push(new BindingContext<NodeData, EdgeData>());
+      // Apply WHERE clause if it exists, even without MATCH
+      if (cypherStatement.where?.condition) {
+        matches = matches.filter(binding =>
+          this.patternMatcher.getConditionEvaluator().evaluateCondition(graph, cypherStatement.where!.condition, binding)
+        );
+      }
     }
 
     return matches;
@@ -653,86 +607,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           executionTimeMs: 0
         }
       };
-    }
-  }
-
-
-  /**
-   * Combines multiple sets of binding contexts into a cross product of all combinations.
-   * For example, if we have:
-   * - Pattern 1: [p1, p2] (two Person nodes)
-   * - Pattern 2: [t1, t2, t3] (three Task nodes)
-   * This will produce 6 binding contexts combining all Person nodes with all Task nodes.
-   * 
-   * @param bindingSets Array of binding context arrays, one per pattern
-   * @returns Combined binding contexts
-   */
-  private combineBindings(
-    bindingSets: BindingContext<NodeData, EdgeData>[][]
-  ): BindingContext<NodeData, EdgeData>[] {
-    // Handle edge cases
-    if (bindingSets.length === 0) {
-      return [];
-    }
-
-    if (bindingSets.length === 1) {
-      return bindingSets[0];
-    }
-
-    // Start with the first set of bindings
-    let result = [...bindingSets[0]];
-
-    // Iterate through the remaining binding sets and combine with current result
-    for (let i = 1; i < bindingSets.length; i++) {
-      const currentBindings = bindingSets[i];
-
-      // Create a new result array for the current combination
-      const newResult: BindingContext<NodeData, EdgeData>[] = [];
-
-      // For each existing binding context in the result
-      for (const existingBindings of result) {
-        // Combine with each binding from the current set
-        for (const currentBinding of currentBindings) {
-          // Create a new binding context to combine both
-          const combinedBindings = new BindingContext<NodeData, EdgeData>();
-
-          // Copy variables from the existing bindings
-          this.copyBindings(existingBindings, combinedBindings);
-
-          // Copy variables from the current binding
-          this.copyBindings(currentBinding, combinedBindings);
-
-          // Add to the new result set
-          newResult.push(combinedBindings);
-        }
-      }
-
-      // Update the result for the next iteration
-      result = newResult;
-    }
-
-    return result;
-  }
-
-  /**
-   * Helper method to copy bindings from one context to another
-   * 
-   * @param source Source binding context
-   * @param target Target binding context
-   */
-  private copyBindings(
-    source: BindingContext<NodeData, EdgeData>,
-    target: BindingContext<NodeData, EdgeData>
-  ): void {
-    // Get all variable names from the source context
-    const variableNames = source.getVariableNames();
-
-    // Copy each variable to the target context
-    for (const varName of variableNames) {
-      const value = source.get(varName);
-      if (value !== undefined) {
-        target.set(varName, value);
-      }
     }
   }
 }

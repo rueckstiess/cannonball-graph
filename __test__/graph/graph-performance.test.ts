@@ -1,7 +1,7 @@
 import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, NodePattern, RelationshipPattern, PathPattern, ComparisonOperator,
-  LogicalOperator, PatternMatcher, PatternMatcherWithConditions, BindingContext
+  LogicalOperator, PatternMatcher, PatternMatcherWithConditions, BindingContext, WhereClause
 } from '@/lang';
 
 /**
@@ -12,7 +12,7 @@ import {
  */
 
 // tag with slow test
-describe.skip('Graph Performance', () => {
+describe('Graph Performance', () => {
   // Define types for test data
   type TestNodeData = {
     name?: string;
@@ -558,50 +558,59 @@ describe.skip('Graph Performance', () => {
 
       // Use the combined pattern matcher with conditions
       measureTime(() => {
-        const pattern: NodePattern = {
-          labels: ['task'],
-          properties: {}
+        // Create a PathPattern for the single node
+        const pathPattern: PathPattern = {
+          start: {
+            variable: 'n', // Need a variable for the WHERE clause
+            labels: ['task'],
+            properties: {}
+          },
+          segments: []
         };
 
-        const condition: Expression = {
-          type: 'logical',
-          operator: LogicalOperator.OR,
-          operands: [
-            {
-              type: 'comparison',
-              left: {
-                type: 'property',
-                object: { type: 'variable', name: 'n' },
-                property: 'priority'
+        // Create a WhereClause
+        const whereClause: WhereClause = {
+          condition: {
+            type: 'logical',
+            operator: LogicalOperator.OR,
+            operands: [
+              {
+                type: 'comparison',
+                left: {
+                  type: 'property',
+                  object: { type: 'variable', name: 'n' },
+                  property: 'priority'
+                },
+                operator: ComparisonOperator.LESS_THAN_OR_EQUALS,
+                right: {
+                  type: 'literal',
+                  value: 2,
+                  dataType: 'number'
+                }
               },
-              operator: ComparisonOperator.LESS_THAN_OR_EQUALS,
-              right: {
-                type: 'literal',
-                value: 2,
-                dataType: 'number'
+              {
+                type: 'comparison',
+                left: {
+                  type: 'property',
+                  object: { type: 'variable', name: 'n' },
+                  property: 'completed'
+                },
+                operator: ComparisonOperator.EQUALS,
+                right: {
+                  type: 'literal',
+                  value: true,
+                  dataType: 'boolean'
+                }
               }
-            },
-            {
-              type: 'comparison',
-              left: {
-                type: 'property',
-                object: { type: 'variable', name: 'n' },
-                property: 'completed'
-              },
-              operator: ComparisonOperator.EQUALS,
-              right: {
-                type: 'literal',
-                value: true,
-                dataType: 'boolean'
-              }
-            }
-          ]
+            ]
+          }
         };
 
-        const matches = patternMatcherWithConditions.findMatchingNodesWithCondition(
+        // Use executeMatchQuery
+        const matches = patternMatcherWithConditions.executeMatchQuery(
           graph,
-          pattern,
-          condition
+          [pathPattern], // Pass pattern array
+          whereClause    // Pass where clause
         );
 
         return matches.length;
@@ -645,6 +654,7 @@ describe.skip('Graph Performance', () => {
           const bindings = new BindingContext<TestNodeData, TestEdgeData>();
           bindings.set('n', node);
 
+          // Evaluate the condition directly for this performance test structure
           if (patternMatcherWithConditions.getConditionEvaluator().evaluateCondition(graph, existsExpr, bindings)) {
             matchCount++;
           }
