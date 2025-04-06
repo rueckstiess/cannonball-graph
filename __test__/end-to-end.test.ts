@@ -149,6 +149,36 @@ describe('End-to-End Query Tests', () => {
       expect(result.query?.rows.length).toBe(15);
     });
 
+    test('MATCH with comma-separated patterns', () => {
+      const query = `
+        MATCH (p:person), (t:task)
+        WHERE p.name = "Alice" AND t.name = "Fix bug"
+        RETURN p.name, t.name
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.rows[0][0].value).toBe('Alice');
+      expect(result.query?.rows[0][1].value).toBe('Fix bug');
+    });
+
+    test('MATCH with repeated MATCH keywords', () => {
+      const query = `
+        MATCH (p:person)
+        MATCH (t:task)
+        WHERE p.name = "Alice" AND t.name = "Fix bug"
+        RETURN p.name, t.name
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.rows[0][0].value).toBe('Alice');
+      expect(result.query?.rows[0][1].value).toBe('Fix bug');
+    });
 
     test.skip('Match complex pattern chains', () => {
       const query = `MATCH (p:person)-[:WORKS_AT]->(c:company)<-[:WORKS_AT]-(coworker:person) RETURN p, coworker`;
@@ -561,6 +591,50 @@ describe('End-to-End Query Tests', () => {
       expect(edge?.data.strength).toBe(10);
       expect(edge?.data.updatedAt).toBe('2023-06-15');
     });
+
+    test('SET with comma-separated property assignments', () => {
+      const query = `
+        MATCH (p:person)
+        WHERE p.name = "Charlie"
+        SET p.status = "Away", p.lastSeen = "2023-06-01"
+        RETURN p.status, p.lastSeen
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.rows[0][0].value).toBe('Away');
+      expect(result.query?.rows[0][1].value).toBe('2023-06-01');
+
+      // Verify in the graph
+      const node = graph.getNode('charlie');
+      expect(node?.data.status).toBe('Away');
+      expect(node?.data.lastSeen).toBe('2023-06-01');
+    });
+
+    test('SET with repeated SET keywords', () => {
+      const query = `
+        MATCH (p:person)
+        WHERE p.name = "Eve" 
+        SET p.status = "Online"
+        SET p.lastSeen = "2023-06-15"
+        RETURN p.status, p.lastSeen
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.rows[0][0].value).toBe('Online');
+      expect(result.query?.rows[0][1].value).toBe('2023-06-15');
+
+      // Verify in the graph
+      const node = graph.getNode('eve');
+      expect(node?.data.status).toBe('Online');
+      expect(node?.data.lastSeen).toBe('2023-06-15');
+    });
+
   });
 
   describe('5. RETURN Clause Tests', () => {
@@ -679,6 +753,43 @@ describe('End-to-End Query Tests', () => {
       expect(roles).toContain('Manager');
       expect(companies).toEqual(['TechCorp', 'TechCorp']);
     });
+
+    test('RETURN with comma-separated items', () => {
+      const query = `
+        MATCH (p:person)
+        WHERE p.name = "Alice"
+        RETURN p.name, p.age, p.active
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.columns).toEqual(['p.name', 'p.age', 'p.active']);
+      expect(result.query?.rows[0][0].value).toBe('Alice');
+      expect(result.query?.rows[0][1].value).toBe(30);
+      expect(result.query?.rows[0][2].value).toBe(true);
+    });
+
+    test('RETURN with repeated RETURN keywords', () => {
+      const query = `
+        MATCH (p:person)
+        WHERE p.name = "Alice"
+        RETURN p.name
+        RETURN p.age
+        RETURN p.active
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+      expect(result.query?.columns).toEqual(['p.name', 'p.age', 'p.active']);
+      expect(result.query?.rows[0][0].value).toBe('Alice');
+      expect(result.query?.rows[0][1].value).toBe(30);
+      expect(result.query?.rows[0][2].value).toBe(true);
+    });
+
   });
 
   describe('6. Combined Operations Tests', () => {
@@ -702,11 +813,45 @@ describe('End-to-End Query Tests', () => {
       expect(result.query?.rows[0][2].value).toBe(3); // r.weight
     });
 
-    test('MATCH-CREATE-RETURN', () => {
+    test('MATCH-CREATE-RETURN with comma-separated CREATE clauses', () => {
       const query = `
         MATCH (p:person), (c:category)
         WHERE p.name = "Alice" AND c.name = "Work"
         CREATE (t:task {name: "New task", priority: "High"}), (p)-[r:ASSIGNED]->(t), (t)-[:BELONGS_TO]->(c)
+        RETURN t, r
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      // BUG: Doesn't match anything
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows.length).toBe(1);
+
+      // Check created task
+      const taskId = result.query?.rows[0][0].value.id;
+      const task = graph.getNode(taskId);
+      expect(task?.data.name).toBe('New task');
+      expect(task?.data.priority).toBe('High');
+
+      // Check created relationships
+      const aliceToTask = graph.getEdgesForNode('alice').filter(e => e.target === taskId);
+      expect(aliceToTask.length).toBe(1);
+      expect(aliceToTask[0].label).toBe('ASSIGNED');
+
+      const taskToCat = graph.getEdgesForNode(taskId).filter(e => e.target === 'cat1');
+      expect(taskToCat.length).toBe(1);
+      expect(taskToCat[0].label).toBe('BELONGS_TO');
+    });
+
+
+    test('MATCH-CREATE-RETURN with separate CREATE clauses', () => {
+      const query = `
+        MATCH (p:person), (c:category)
+        WHERE p.name = "Alice" AND c.name = "Work"
+        CREATE (t:task {name: "New task", priority: "High"})
+        CREATE (p)-[r:ASSIGNED]->(t)
+        CREATE (t)-[:BELONGS_TO]->(c)
         RETURN t, r
       `;
       const result = engine.executeQuery(graph, query);

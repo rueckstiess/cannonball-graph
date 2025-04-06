@@ -498,8 +498,8 @@ export class CypherParser implements Parser {
     // Parse the first path pattern
     patterns.push(this.parsePathPattern());
 
-    // Parse additional patterns separated by commas
-    while (this.match(TokenType.COMMA)) {
+    // Parse additional patterns separated by commas OR additional MATCH tokens
+    while (this.match(TokenType.COMMA) || this.match(TokenType.MATCH)) {
       patterns.push(this.parsePathPattern());
     }
 
@@ -1096,8 +1096,8 @@ export class CypherParser implements Parser {
       }
     }
 
-    // Parse additional patterns separated by commas
-    while (this.match(TokenType.COMMA)) {
+    // Parse additional patterns separated by commas OR additional CREATE tokens
+    while (this.match(TokenType.COMMA) || this.match(TokenType.CREATE)) {
       if (this.check(TokenType.OPEN_PAREN)) {
         const firstChar = this.currentToken.value;
 
@@ -1147,8 +1147,8 @@ export class CypherParser implements Parser {
 
     settings.push({ target, property, value });
 
-    // Parse additional settings separated by commas
-    while (this.match(TokenType.COMMA)) {
+    // Parse additional settings separated by commas OR additional SET tokens
+    while (this.match(TokenType.COMMA) || this.match(TokenType.SET)) {
       const target = this.parseVariableExpression();
       this.consume(TokenType.DOT, "Expected '.' after variable");
       const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
@@ -1171,8 +1171,8 @@ export class CypherParser implements Parser {
     // Parse the first return item
     items.push(this.parseReturnItem());
 
-    // Parse additional items separated by commas
-    while (this.match(TokenType.COMMA)) {
+    // Parse additional items separated by commas OR additional RETURN tokens
+    while (this.match(TokenType.COMMA) || this.match(TokenType.RETURN)) {
       items.push(this.parseReturnItem());
     }
 
