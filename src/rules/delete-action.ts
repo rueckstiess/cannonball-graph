@@ -60,8 +60,6 @@ export class DeleteAction<NodeData = any, EdgeData = any>
 
     const affectedNodes: Node<NodeData>[] = []; // Store original nodes before deletion
     const affectedEdges: Edge<EdgeData>[] = []; // Store original edges before deletion
-    const deletedNodeIds: NodeId[] = [];
-    const deletedEdgeKeys: string[] = [];
 
     try {
       for (const varName of this.variableNames) {
@@ -70,58 +68,29 @@ export class DeleteAction<NodeData = any, EdgeData = any>
         // Check if it's a node
         if ('id' in item && !('source' in item)) {
           const node = item as Node<NodeData>;
-          affectedNodes.push({ ...node }); // Store a copy before deletion
 
-          if (this.detach) {
-            // Detach: Remove all incident edges first
+          if (!this.detach) {
+            // Check if the node has any relationships
             const incidentEdges = graph.getEdgesForNode(node.id, 'both');
-            for (const edge of incidentEdges) {
-              const edgeKey = `${edge.source}-${edge.label}-${edge.target}`;
-              if (!deletedEdgeKeys.includes(edgeKey)) { // Avoid double-counting if edge is deleted via its own variable
-                affectedEdges.push({ ...edge }); // Store a copy
-                graph.removeEdge(edge.source, edge.target, edge.label);
-                deletedEdgeKeys.push(edgeKey);
-              }
-            }
-          }
-
-          // Attempt to remove the node
-          const removed = graph.removeNode(node.id);
-          if (!removed) {
-            // Check if removal failed because of remaining edges (and detach wasn't used)
-            if (!this.detach && graph.getEdgesForNode(node.id, 'both').length > 0) {
+            if (incidentEdges.length > 0) {
               return {
                 success: false,
                 error: `Cannot delete node '${varName}' (ID: ${node.id}) because it still has relationships. Use DETACH DELETE to delete relationships first.`
               };
             }
-            // Other potential removal failure
-            return {
-              success: false,
-              error: `Failed to delete node '${varName}' (ID: ${node.id})`
-            };
           }
-          deletedNodeIds.push(node.id);
-          bindings.set(varName, undefined); // Remove from bindings
 
+          // Detach is true or no relationships exist, proceed with deletion
+          affectedNodes.push({ ...node }); // Store a copy before deletion
+          graph.removeNode(node.id);
+          bindings.set(varName, undefined); // Remove from bindings
         }
         // Check if it's an edge
         else if ('source' in item && 'target' in item) {
           const edge = item as Edge<EdgeData>;
-          const edgeKey = `${edge.source}-${edge.label}-${edge.target}`;
-
-          if (!deletedEdgeKeys.includes(edgeKey)) { // Avoid deleting the same edge twice
-            affectedEdges.push({ ...edge }); // Store a copy
-            const removed = graph.removeEdge(edge.source, edge.target, edge.label);
-            if (!removed) {
-              return {
-                success: false,
-                error: `Failed to delete relationship '${varName}' (${edgeKey})`
-              };
-            }
-            deletedEdgeKeys.push(edgeKey);
-            bindings.set(varName, undefined); // Remove from bindings
-          }
+          affectedEdges.push({ ...edge }); // Store a copy
+          graph.removeEdge(edge.source, edge.target, edge.label);
+          bindings.set(varName, undefined); // Remove from bindings
         } else {
           // Should have been caught by validation, but good to have a fallback
           return {

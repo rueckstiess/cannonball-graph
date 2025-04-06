@@ -368,3 +368,95 @@ describe('AST Transformer', () => {
     });
   });
 });
+
+describe('AST Transformer - DELETE Clause', () => {
+  it('should transform a DELETE clause into an ASTDeleteNode', () => {
+    const input = 'MATCH (a:Person) DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'DeleteRule', 'Rule with DELETE clause', 10);
+
+    // Check DELETE clause
+    const deleteNode = ast.children.find(node => node.type === 'delete') as any;
+    expect(deleteNode).toBeDefined();
+    expect(deleteNode.type).toBe('delete');
+    expect(deleteNode.variables).toContain('a');
+    expect(deleteNode.detach).toBe(false);
+  });
+
+  it('should transform a DETACH DELETE clause into an ASTDeleteNode', () => {
+    const input = 'MATCH (a:Person) DETACH DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'DetachDeleteRule', 'Rule with DETACH DELETE clause', 20);
+
+    // Check DETACH DELETE clause
+    const deleteNode = ast.children.find(node => node.type === 'delete') as any;
+    expect(deleteNode).toBeDefined();
+    expect(deleteNode.type).toBe('delete');
+    expect(deleteNode.variables).toContain('a');
+    expect(deleteNode.detach).toBe(true);
+  });
+
+  it('should visualize a DELETE clause in the AST', () => {
+    const input = 'MATCH (a:Person) DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'VisualDeleteRule', 'Visualization test for DELETE', 30);
+    const visualization = visualizeAst(ast);
+
+    // Check visualization output
+    expect(visualization).toContain('delete (a)');
+  });
+
+  it('should visualize a DETACH DELETE clause in the AST', () => {
+    const input = 'MATCH (a:Person) DETACH DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'VisualDetachDeleteRule', 'Visualization test for DETACH DELETE', 40);
+    const visualization = visualizeAst(ast);
+
+    // Check visualization output
+    expect(visualization).toContain('delete (DETACH a)');
+  });
+
+  it('should validate a DELETE clause with declared variables', () => {
+    const input = 'MATCH (a:Person) DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'ValidDeleteRule', 'Valid DELETE clause', 50);
+    const errors = validateAst(ast);
+
+    // No validation errors expected
+    expect(errors).toHaveLength(0);
+  });
+
+  it('should detect undeclared variables in a DELETE clause', () => {
+    const input = 'DELETE a';
+
+    const lexer = new Lexer();
+    const parser = new CypherParser(lexer, input);
+    const statement = parser.parse();
+
+    const ast = transformToCypherAst(statement, 'InvalidDeleteRule', 'Invalid DELETE clause', 60);
+    const errors = validateAst(ast);
+
+    // Validation error expected for undeclared variable
+    expect(errors).toContain("Variable 'a' is used but not declared in a MATCH clause");
+  });
+});
