@@ -184,6 +184,19 @@ describe('End-to-End Query Tests', () => {
       expect(result.matchCount).toBe(1);
     });
 
+    test('WHERE on two variables, return relationship property', () => {
+      const query = `
+        MATCH (p:person)-[r:KNOWS]->(f:person)
+        WHERE p.name = "Alice" AND f.name = "Bob"
+        RETURN r.weight
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows[0][0].value).toBe(5);
+    });
+
     test('WHERE with inequality comparison', () => {
       const query = `MATCH (p:person) WHERE p.age <> 30 RETURN p`;
       const result = engine.executeQuery(graph, query);
@@ -356,7 +369,7 @@ describe('End-to-End Query Tests', () => {
       expect(result.error).toMatch(/Only a single label supported, but got task,priority/)
     });
 
-    test.skip('Create a relationship between existing nodes', () => {
+    test('Create a relationship between existing nodes', () => {
       const query = `
         MATCH (p:person), (t:task)
         WHERE p.name = "Dave" AND t.name = "Deploy app"
@@ -635,11 +648,11 @@ describe('End-to-End Query Tests', () => {
     });
   });
 
-  describe.skip('6. Combined Operations Tests', () => {
+  describe('6. Combined Operations Tests', () => {
     test('MATCH-WHERE-RETURN', () => {
       const query = `
         MATCH (p:person)-[r:KNOWS]->(f:person)
-        WHERE p.age > 30 AND r.weight > 3
+        WHERE p.age > 30 AND r.weight >= 3
         RETURN p.name, f.name, r.weight
       `;
       const result = engine.executeQuery(graph, query);
