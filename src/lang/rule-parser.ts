@@ -631,27 +631,27 @@ export class CypherParser implements Parser {
         // No variable name, just a colon
       }
 
-      // Parse relationship type
-      if (this.check(TokenType.IDENTIFIER)) {
+      // Parse relationship type (allow quoted strings for reserved keywords)
+      if (this.check(TokenType.IDENTIFIER) || this.check(TokenType.STRING)) {
         relationship.type = this.currentToken.value;
         this.advance();
+      }
 
-        // Check for variable length path (e.g., *1..3)
-        if (this.match(TokenType.ASTERISK)) {
-          relationship.minHops = 1; // Default for variable length paths
-          relationship.maxHops = undefined; // Reset to undefined for unbounded paths by default
+      // Check for variable length path (e.g., *1..3)
+      if (this.match(TokenType.ASTERISK)) {
+        relationship.minHops = 1; // Default for variable length paths
+        relationship.maxHops = undefined; // Reset to undefined for unbounded paths by default
 
-          // Check for specific range
-          if (this.check(TokenType.NUMBER)) {
-            relationship.minHops = Number(this.currentToken.value);
-            this.advance();
+        // Check for specific range
+        if (this.check(TokenType.NUMBER)) {
+          relationship.minHops = Number(this.currentToken.value);
+          this.advance();
 
-            // Check for max range
-            if (this.match(TokenType.DOT) && this.match(TokenType.DOT)) {
-              if (this.check(TokenType.NUMBER)) {
-                relationship.maxHops = Number(this.currentToken.value);
-                this.advance();
-              }
+          // Check for max range
+          if (this.match(TokenType.DOT) && this.match(TokenType.DOT)) {
+            if (this.check(TokenType.NUMBER)) {
+              relationship.maxHops = Number(this.currentToken.value);
+              this.advance();
             }
           }
         }

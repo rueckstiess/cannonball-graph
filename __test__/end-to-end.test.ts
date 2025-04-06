@@ -458,14 +458,51 @@ describe('End-to-End Query Tests', () => {
       expect(assignedRel?.data.date).toBe('2023-06-01');
     });
 
-    test.skip('Create multiple nodes and relationships in one query', () => {
+    test('Create multiple nodes and relationships in one query', () => {
       const query = `
         CREATE (p:project {name: "Website Redesign"})
         CREATE (t1:task {name: "Design Mockups"})
         CREATE (t2:task {name: "Frontend Implementation"})
-        CREATE (p)-[:CONTAINS]->(t1)
-        CREATE (p)-[:CONTAINS]->(t2)
-        CREATE (t1)-[:PRECEDES]->(t2)
+        CREATE (p)-[r1:"HAS_TASK"]->(t1)
+        CREATE (p)-[r2:"HAS_TASK"]->(t2)
+        CREATE (t1)-[r3:PRECEDES]->(t2)
+        RETURN p, t1, t2
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      // BUG: Parse errors: Expected ']' after relationship details
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows[0].length).toBe(3); // p, t1, t2 returned
+
+      // Get the created node IDs
+      const projId = result.query?.rows[0][0].value.id;
+      const task1Id = result.query?.rows[0][1].value.id;
+      const task2Id = result.query?.rows[0][2].value.id;
+
+      // Verify relationships were created
+      const projToTask1 = graph.getEdgesForNode(projId).filter(e => e.target === task1Id);
+      const projToTask2 = graph.getEdgesForNode(projId).filter(e => e.target === task2Id);
+      const task1ToTask2 = graph.getEdgesForNode(task1Id).filter(e => e.target === task2Id);
+
+      expect(projToTask1.length).toBe(1);
+      expect(projToTask1[0].label).toBe('HAS_TASK');
+      expect(projToTask2.length).toBe(1);
+      expect(projToTask2[0].label).toBe('HAS_TASK');
+      expect(task1ToTask2.length).toBe(1);
+      expect(task1ToTask2[0].label).toBe('PRECEDES');
+    });
+
+
+    test('Create multiple nodes and relationships in one query (using quoted reserved keyword CONTAINS)', () => {
+      const query = `
+        CREATE (p:project {name: "Website Redesign"})
+        CREATE (t1:task {name: "Design Mockups"})
+        CREATE (t2:task {name: "Frontend Implementation"})
+        CREATE (p)-[r1:"CONTAINS"]->(t1)
+        CREATE (p)-[r2:"CONTAINS"]->(t2)
+        CREATE (t1)-[r3:PRECEDES]->(t2)
         RETURN p, t1, t2
       `;
       const result = engine.executeQuery(graph, query);
@@ -916,9 +953,6 @@ describe('End-to-End Query Tests', () => {
       `;
       const result = engine.executeQuery(graph, query);
 
-      // Bug: Validation failed: Source node t not found in bindings
-      // Does CREATE need to update the binding context?
-
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(2); // Alice and Bob work at TechCorp
       expect(result.query?.rows.length).toBe(2);
@@ -933,7 +967,7 @@ describe('End-to-End Query Tests', () => {
 
       // Get the created tasks (should be 2, one for each person)
       const createdTasks = graph.getAllNodes().filter(n =>
-        n.data.type === 'task' && n.data.name === 'Company Project'
+        n.label === 'task' && n.data.name === 'Company Project'
       );
       expect(createdTasks.length).toBe(2);
 
