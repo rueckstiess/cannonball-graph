@@ -706,9 +706,7 @@ describe('End-to-End Query Tests', () => {
       const query = `
         MATCH (p:person), (c:category)
         WHERE p.name = "Alice" AND c.name = "Work"
-        CREATE (t:task {name: "New task", priority: "High"})
-        CREATE (p)-[r:ASSIGNED]->(t)
-        CREATE (t)-[:BELONGS_TO]->(c)
+        CREATE (t:task {name: "New task", priority: "High"}), (p)-[r:ASSIGNED]->(t), (t)-[:BELONGS_TO]->(c)
         RETURN t, r
       `;
       const result = engine.executeQuery(graph, query);

@@ -224,7 +224,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       const hasWriteOps = !!(cypherStatement.create || cypherStatement.set);
 
       // 2. Find all matches for the statement using the updated findMatches
-      const matches = this.findMatches(graph, cypherStatement, options);
+      let matches = this.findMatches(graph, cypherStatement, options);
 
       // Initialize the result
       const result: GraphQueryResult<NodeData, EdgeData> = {
@@ -252,36 +252,117 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         // Convert AST CREATE/SET clauses to actions
         const actions = this.actionFactory.createActionsFromRuleAst(ast);
 
+        // Group actions by type to process them in the correct order
+        // We need to execute all node creation actions first, then relationship creation actions,
+        // then property setting actions to ensure correct binding context propagation
+        const createNodeActions: RuleAction<NodeData, EdgeData>[] = [];
+        const createRelationshipActions: RuleAction<NodeData, EdgeData>[] = [];
+        const setPropertyActions: RuleAction<NodeData, EdgeData>[] = [];
+
+        actions.forEach(action => {
+          if (action.type === 'CREATE_NODE') {
+            createNodeActions.push(action);
+          } else if (action.type === 'CREATE_RELATIONSHIP') {
+            createRelationshipActions.push(action);
+          } else if (action.type === 'SET_PROPERTY') {
+            setPropertyActions.push(action);
+          }
+        });
+
         // Execute actions for each match
         const actionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
         const allAffectedNodes: Node<NodeData>[] = [];
         const allAffectedEdges: Edge<EdgeData>[] = [];
+        const updatedMatches: BindingContext<NodeData, EdgeData>[] = [];
         let allSuccessful = true;
 
         for (const match of matches) {
-
-          const execResult = this.actionExecutor.executeActions(
-            graph,
-            actions,
-            match,
-            options
-          );
-
-          actionResults.push(execResult);
-
-          if (execResult.affectedNodes) {
-            allAffectedNodes.push(...execResult.affectedNodes);
+          // Create a deep copy of the binding context to track changes
+          const bindingContext = new BindingContext<NodeData, EdgeData>();
+          // Copy all bindings from the original match
+          const variableNames = match.getVariableNames();
+          for (const varName of variableNames) {
+            bindingContext.set(varName, match.get(varName));
           }
 
-          if (execResult.affectedEdges) {
-            allAffectedEdges.push(...execResult.affectedEdges);
+          // Execute CREATE NODE actions first to ensure nodes exist for relationships
+          if (createNodeActions.length > 0) {
+            const nodeResult = this.actionExecutor.executeActions(
+              graph,
+              createNodeActions,
+              bindingContext,
+              options
+            );
+            actionResults.push(nodeResult);
+
+            if (nodeResult.affectedNodes) {
+              allAffectedNodes.push(...nodeResult.affectedNodes);
+            }
+
+            if (!nodeResult.success) {
+              allSuccessful = false;
+              result.success = false;
+              result.error = nodeResult.error || 'Action execution failed';
+              continue; // Skip to next match if node creation failed
+            }
           }
 
-          if (!execResult.success) {
-            allSuccessful = false;
-            result.success = false;
-            result.error = execResult.error || 'Action execution failed';
+          // Next execute CREATE RELATIONSHIP actions, now that all nodes exist
+          if (createRelationshipActions.length > 0) {
+            const relResult = this.actionExecutor.executeActions(
+              graph,
+              createRelationshipActions,
+              bindingContext, // Same binding context with node bindings
+              options
+            );
+            actionResults.push(relResult);
+
+            if (relResult.affectedEdges) {
+              allAffectedEdges.push(...relResult.affectedEdges);
+            }
+
+            if (!relResult.success) {
+              allSuccessful = false;
+              result.success = false;
+              result.error = relResult.error || 'Action execution failed';
+              continue; // Skip to next match if relationship creation failed
+            }
           }
+
+          // Finally execute SET PROPERTY actions
+          if (setPropertyActions.length > 0) {
+            const setResult = this.actionExecutor.executeActions(
+              graph,
+              setPropertyActions,
+              bindingContext, // Same binding context with all prior bindings
+              options
+            );
+            actionResults.push(setResult);
+
+            if (setResult.affectedNodes) {
+              allAffectedNodes.push(...setResult.affectedNodes);
+            }
+            if (setResult.affectedEdges) {
+              allAffectedEdges.push(...setResult.affectedEdges);
+            }
+
+            if (!setResult.success) {
+              allSuccessful = false;
+              result.success = false;
+              result.error = setResult.error || 'Action execution failed';
+              // Continue even if SET fails
+            }
+          }
+
+          // Add the updated binding context to our updated matches
+          updatedMatches.push(bindingContext);
+        }
+
+        // Always use the updated bindings after action execution
+        if (updatedMatches.length > 0) {
+          matches = updatedMatches;
+          // Update the match count to reflect the number of successful action executions
+          result.matchCount = matches.length;
         }
 
         // Add action results to the unified result
