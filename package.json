@@ -1,5 +1,5 @@
 {
-  "name": "cannonball-ts",
+  "name": "cannonball-graph",
   "version": "1.0.0",
   "main": "dist/index.js",
   "type": "module",
@@ -23,8 +23,8 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Thomas Rueckstiess <from+github@tomr.au>",
+  "license": "MIT",
   "description": "",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
