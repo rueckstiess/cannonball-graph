@@ -3,7 +3,7 @@ import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression, ComparisonExpression,
   LogicalExpression, ExistsExpression, ComparisonOperator, LogicalOperator
 } from './rule-parser';
-import { PathPattern, PatternMatcher } from './pattern-matcher';
+import { PathPattern, NodePattern, RelationshipPattern, PatternMatcher } from './pattern-matcher';
 
 
 /**
@@ -91,7 +91,7 @@ export interface BindingContext<NodeData = any, EdgeData = any> {
    * ```
    */
   createChildContext(): BindingContext<NodeData, EdgeData>;
-  
+
   /**
    * Get all variable names bound in this context
    * @returns Array of variable names
@@ -437,20 +437,20 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
   createChildContext(): BindingContext<NodeData, EdgeData> {
     return new BindingContext<NodeData, EdgeData>(this);
   }
-  
+
   /**
    * Get all variable names bound in this context
    * @returns Array of variable names
    */
   getVariableNames(): string[] {
     const ownVariables = Array.from(this.bindings.keys());
-    
+
     if (!this.parent) {
       return ownVariables;
     }
-    
+
     const parentVariables = this.parent.getVariableNames();
-    
+
     // Return unique variables (parent variables that aren't shadowed + own variables)
     return [...new Set([...parentVariables.filter(v => !this.bindings.has(v)), ...ownVariables])];
   }
@@ -771,7 +771,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
   ): boolean {
     // Get the starting node variable from the pattern
     const startVariable = expression.pattern.start.variable;
-    
+
     // If the start variable is bound in the current context, we need to 
     // constrain the pattern to match only paths starting from that specific node
     if (startVariable && bindings.has(startVariable)) {
@@ -779,17 +779,17 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
       if (startNode) {
         // Find paths that start with the given node
         const paths = this.patternMatcher.findMatchingPaths(
-          graph, 
+          graph,
           expression.pattern,
           [startNode.id] // Constrain to specific starting node ID
         );
         return expression.positive ? paths.length > 0 : paths.length === 0;
       }
     }
-    
+
     // If no binding constraints, just find all matching paths
     const paths = this.patternMatcher.findMatchingPaths(graph, expression.pattern);
-    
+
     // For EXISTS, check if any paths match
     // For NOT EXISTS, check if no paths match
     return expression.positive ? paths.length > 0 : paths.length === 0;
@@ -933,4 +933,111 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
 
     return false;
   }
+
+  // --- New Helper Methods for Predicate Pushdown ---
+
+  /**
+   * Analyzes a WHERE clause condition to categorize predicates.
+   * @param condition The root expression of the WHERE clause.
+   * @returns An object containing categorized predicates.
+   */
+  public analyzeWhereClause(condition: Expression): {
+    singleVariablePredicates: Map<string, Expression[]>,
+    multiVariablePredicates: Expression[]
+  } {
+    const singleVariablePredicates = new Map<string, Expression[]>();
+    const multiVariablePredicates: Expression[] = [];
+
+    const processExpression = (expr: Expression) => {
+      // If it's an AND at the top level or nested within another AND, process its operands individually
+      if (expr.type === 'logical' && (expr as LogicalExpression).operator === LogicalOperator.AND) {
+        (expr as LogicalExpression).operands.forEach(processExpression);
+      } else {
+        // For other expressions (comparisons, OR, NOT, EXISTS, etc.), determine variables
+        const vars = this.getVariablesInExpression(expr);
+        if (vars.size === 1) {
+          const varName = Array.from(vars)[0];
+          if (!singleVariablePredicates.has(varName)) {
+            singleVariablePredicates.set(varName, []);
+          }
+          singleVariablePredicates.get(varName)!.push(expr);
+        } else if (vars.size > 1) {
+          multiVariablePredicates.push(expr);
+        }
+        // Ignore expressions with zero variables (e.g., literal comparisons like 1 = 1)
+      }
+    };
+
+    processExpression(condition);
+
+    return { singleVariablePredicates, multiVariablePredicates };
+  }
+
+
+  /**
+   * Recursively finds all unique variable names used within an expression.
+   * @param expression The expression to analyze.
+   * @returns A set of variable names.
+   */
+  private getVariablesInExpression(expression: Expression): Set<string> {
+    const variables = new Set<string>();
+    const stack: Expression[] = [expression]; // Use a stack for iterative traversal
+
+    while (stack.length > 0) {
+      const current = stack.pop()!; // Non-null assertion as stack is checked
+
+      switch (current.type) {
+        case 'variable':
+          variables.add((current as VariableExpression).name);
+          break;
+        case 'property':
+          // Only add the base variable of the property access
+          // Recursively check the object part in case it's nested (though unlikely for simple cases)
+          if ((current as PropertyExpression).object.type === 'variable') {
+            variables.add(((current as PropertyExpression).object as VariableExpression).name);
+          } else {
+            // If the object is another expression, push it to the stack
+            // This handles cases like `(a.prop).subprop` if that were valid syntax
+            stack.push((current as PropertyExpression).object);
+          }
+          break;
+        case 'comparison':
+          // Push both sides onto the stack
+          stack.push((current as ComparisonExpression).left);
+          stack.push((current as ComparisonExpression).right);
+          break;
+        case 'logical':
+          // Push all operands onto the stack
+          (current as LogicalExpression).operands.forEach(op => stack.push(op));
+          break;
+        case 'exists':
+          // Recursively find variables within the EXISTS pattern itself
+          const pattern = (current as ExistsExpression).pattern;
+          if (pattern.start.variable) {
+            variables.add(pattern.start.variable);
+          }
+          pattern.segments.forEach(seg => {
+            if (seg.relationship.variable) {
+              variables.add(seg.relationship.variable);
+            }
+            if (seg.node.variable) {
+              variables.add(seg.node.variable);
+            }
+          });
+          break;
+        case 'literal':
+          // Literals don't contain variables, so do nothing
+          break;
+        default:
+          // Should not happen if all expression types are handled
+          console.warn(`Unhandled expression type in getVariablesInExpression: ${(current as any).type}`);
+          break;
+      }
+    }
+
+    return variables;
+  }
+
+
+
 }

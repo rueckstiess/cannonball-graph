@@ -149,6 +149,7 @@ describe('End-to-End Query Tests', () => {
       expect(result.query?.rows.length).toBe(15);
     });
 
+
     test.skip('Match complex pattern chains', () => {
       const query = `MATCH (p:person)-[:WORKS_AT]->(c:company)<-[:WORKS_AT]-(coworker:person) RETURN p, coworker`;
       const result = engine.executeQuery(graph, query);
@@ -172,6 +173,36 @@ describe('End-to-End Query Tests', () => {
     });
 
 
+    test('WHERE on two variables, return nodes', () => {
+      const query = `
+        MATCH (p:person)-[r:KNOWS]->(f:person)
+        WHERE p.name = "Alice" AND f.name = "Bob"
+        RETURN p, f
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+      expect(result.matchCount).toBe(1);
+      expect(result.query?.rows[0][0].value.data.name).toBe('Alice');
+      expect(result.query?.rows[0][0].type).toBe('node');
+      expect(result.query?.rows[0][1].value.data.name).toBe('Bob');
+      expect(result.query?.rows[0][1].type).toBe('node');
+    });
+
+
+    test('Match with two comma-separated expressions and where clause', () => {
+      const query = `
+        MATCH (p:person), (t:task)
+        WHERE p.name = "Dave" AND t.name = "Deploy app"
+        RETURN p, t
+      `;
+      const result = engine.executeQuery(graph, query);
+
+      expect(result.success).toBe(true);
+    });
+
+
+
     test('WHERE on two variables, return relationship', () => {
       const query = `
         MATCH (p:person)-[r:KNOWS]->(f:person)
@@ -182,6 +213,8 @@ describe('End-to-End Query Tests', () => {
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(1);
+      expect(result.query?.rows[0][0].value.label).toBe('KNOWS');
+      expect(result.query?.rows[0][0].type).toBe('edge');
     });
 
     test('WHERE on two variables, return relationship property', () => {

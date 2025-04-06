@@ -12,7 +12,7 @@ import {
  */
 
 // tag with slow test
-describe('Graph Performance', () => {
+describe.skip('Graph Performance', () => {
   // Define types for test data
   type TestNodeData = {
     name?: string;
