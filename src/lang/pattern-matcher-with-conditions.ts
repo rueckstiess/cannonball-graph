@@ -319,6 +319,12 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
           const neighborNode = (this as any).getNeighborNode(graph, currentNode.id, edge, currentRelPattern.direction); // Access private helper
           if (!neighborNode) continue;
 
+          // --- Check for Cycle ---
+          if (visitedInPath.has(neighborNode.id)) {
+            // don't allow reusing the node in the same path
+            continue;
+          }
+
           // --- Intrinsic Relationship Match ---
           if (!super.matchesRelationshipPattern(edge, currentRelPattern, currentNode, neighborNode)) {
             continue;

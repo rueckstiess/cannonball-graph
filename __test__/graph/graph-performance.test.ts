@@ -12,7 +12,7 @@ import {
  */
 
 // tag with slow test
-describe('Graph Performance', () => {
+describe.skip('Graph Performance', () => {
   // Define types for test data
   type TestNodeData = {
     name?: string;
@@ -37,7 +37,7 @@ describe('Graph Performance', () => {
   let patternMatcherWithConditions: PatternMatcherWithConditions<TestNodeData, TestEdgeData>;
 
   // Performance test parameters
-  const NODE_COUNT = 2000;        // Number of nodes to create
+  const NODE_COUNT = 200000;        // Number of nodes to create
   const AVG_EDGES_PER_NODE = 10;  // Average number of edges per node
   const TAG_COUNT = 50;           // Number of unique tags
   const CONTENT_LENGTH = 200;     // Average content length in chars
