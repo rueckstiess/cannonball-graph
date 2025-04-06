@@ -166,16 +166,22 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
 
   /**
    * Executes a MATCH-WHERE query using predicate pushdown.
+   * Handles both single and multiple comma-separated patterns in MATCH.
    * @param graph The graph to query
-   * @param pathPattern The path pattern to match
+   * @param pathPatterns Array of path patterns from the MATCH clause
    * @param whereClause Optional WHERE clause to filter matches
    * @returns Array of binding contexts representing matches
+   * @throws Error if WHERE clause uses variables not defined in MATCH
    */
   executeMatchQuery(
     graph: Graph<NodeData, EdgeData>,
-    pathPattern: PathPattern,
+    pathPatterns: PathPattern[], // Changed to accept array
     whereClause?: WhereClause
   ): Array<BindingContext<NodeData, EdgeData>> {
+
+    if (!pathPatterns || pathPatterns.length === 0) {
+      return [];
+    }
 
     let singleVariablePredicates = new Map<string, Expression[]>();
     let multiVariablePredicates: Expression[] = [];
@@ -185,42 +191,177 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
       const analysis = this.conditionEvaluator.analyzeWhereClause(whereClause.condition);
       singleVariablePredicates = analysis.singleVariablePredicates;
       multiVariablePredicates = analysis.multiVariablePredicates;
+
+      // --- Add Validation Step ---
+      // 1. Collect variables defined in MATCH patterns
+      const matchVariables = new Set<string>();
+      for (const pattern of pathPatterns) {
+        const patternVars = this.getVariablesInPattern(pattern);
+        patternVars.forEach(v => matchVariables.add(v));
+      }
+
+      // 2. Collect variables used in WHERE clause
+      const whereVariables = new Set<string>();
+      singleVariablePredicates.forEach((_, varName) => whereVariables.add(varName));
+      for (const multiCond of multiVariablePredicates) {
+        // Access private method via 'any' cast or make it public/protected if preferred
+        const condVars = (this.conditionEvaluator as any).getVariablesInExpression(multiCond) as Set<string>;
+        condVars.forEach(v => whereVariables.add(v));
+      }
+
+      // 3. Check for unbound variables
+      for (const whereVar of whereVariables) {
+        if (!matchVariables.has(whereVar)) {
+          // Throw an error if a WHERE variable is not bound by MATCH
+          throw new Error(`Variable '${whereVar}' used in WHERE clause is not defined in MATCH clause.`);
+        }
+      }
+      // --- End Validation Step ---
     }
 
-    // Use the new pushdown path finding method
-    const matchingPaths = this.findPathsWithPushdown(
-      graph,
-      pathPattern,
-      singleVariablePredicates,
-      multiVariablePredicates
-    );
+    // --- Handle Single Pattern Case (Optimization) ---
+    if (pathPatterns.length === 1) {
+      const pattern = pathPatterns[0];
+      const matchingPaths = this.findPathsWithPushdown(
+        graph,
+        pattern,
+        singleVariablePredicates, // Pass all predicates
+        multiVariablePredicates
+      );
+      return this.convertPathsToBindings(matchingPaths, pattern);
+    }
 
-    // Convert final paths to binding contexts
-    const results: Array<BindingContext<NodeData, EdgeData>> = [];
-    for (const path of matchingPaths) {
-      const bindings = new BindingContext<NodeData, EdgeData>();
-      // Bind nodes and edges from the path
-      if (pathPattern.start.variable) {
-        bindings.set(pathPattern.start.variable, path.nodes[0]);
+    // --- Handle Multiple Comma-Separated Patterns ---
+    const patternResults: Array<BindingContext<NodeData, EdgeData>[]> = [];
+
+    for (const pattern of pathPatterns) {
+      // 1. Find variables defined in this specific pattern
+      const patternVars = this.getVariablesInPattern(pattern);
+
+      // 2. Extract single-variable predicates relevant ONLY to this pattern
+      const relevantSinglePredicates = new Map<string, Expression[]>();
+      for (const varName of patternVars) {
+        if (singleVariablePredicates.has(varName)) {
+          relevantSinglePredicates.set(varName, singleVariablePredicates.get(varName)!);
+        }
       }
-      for (let i = 0; i < pathPattern.segments.length; i++) {
-        const segment = pathPattern.segments[i];
-        if (segment.relationship.variable && path.edges[i]) { // Check edge exists
+
+      // 3. Find paths/bindings for this pattern using only its relevant predicates
+      //    Multi-variable predicates are ignored here; they are applied after combining.
+      const matchingPaths = this.findPathsWithPushdown(
+        graph,
+        pattern,
+        relevantSinglePredicates,
+        [] // Pass empty multi-variable predicates here
+      );
+
+      // 4. Convert paths to bindings for this pattern
+      const patternBindings = this.convertPathsToBindings(matchingPaths, pattern);
+      if (patternBindings.length === 0) {
+        // If any pattern yields zero results, the overall result is empty
+        return [];
+      }
+      patternResults.push(patternBindings);
+    }
+
+    // 5. Compute Cartesian product (cross product) of the binding lists
+    let combinedBindings = this.computeCartesianProduct(patternResults);
+
+    // 6. Apply multi-variable predicates to the combined results
+    if (multiVariablePredicates.length > 0) {
+      combinedBindings = combinedBindings.filter(combinedBinding => {
+        return multiVariablePredicates.every(multiCond =>
+          this.conditionEvaluator.evaluateCondition(graph, multiCond, combinedBinding)
+        );
+      });
+    }
+
+    return combinedBindings;
+  }
+
+  /**
+   * Helper to convert paths found for a pattern into binding contexts.
+   * @private
+   */
+  private convertPathsToBindings(
+    paths: Array<Path<NodeData, EdgeData>>,
+    pattern: PathPattern
+  ): Array<BindingContext<NodeData, EdgeData>> {
+    const results: Array<BindingContext<NodeData, EdgeData>> = [];
+    for (const path of paths) {
+      const bindings = new BindingContext<NodeData, EdgeData>();
+      // Bind nodes and edges from the path according to the pattern variables
+      if (pattern.start.variable && path.nodes[0]) {
+        bindings.set(pattern.start.variable, path.nodes[0]);
+      }
+      for (let i = 0; i < pattern.segments.length; i++) {
+        const segment = pattern.segments[i];
+        if (segment.relationship.variable && path.edges[i]) {
           bindings.set(segment.relationship.variable, path.edges[i]);
         }
-        if (segment.node.variable && path.nodes[i + 1]) { // Check node exists
+        if (segment.node.variable && path.nodes[i + 1]) {
           bindings.set(segment.node.variable, path.nodes[i + 1]);
         }
       }
-      // Note: Multi-variable predicates that couldn't be fully evaluated during pushdown
-      // might need a final check here if the analysis/pushdown wasn't exhaustive.
-      // For now, assume pushdown handles most cases.
       results.push(bindings);
     }
-
     return results;
   }
 
+  /**
+   * Helper to get all variable names defined within a path pattern.
+   * @private
+   */
+  private getVariablesInPattern(pattern: PathPattern): Set<string> {
+    const variables = new Set<string>();
+    if (pattern.start.variable) {
+      variables.add(pattern.start.variable);
+    }
+    for (const segment of pattern.segments) {
+      if (segment.relationship.variable) {
+        variables.add(segment.relationship.variable);
+      }
+      if (segment.node.variable) {
+        variables.add(segment.node.variable);
+      }
+    }
+    return variables;
+  }
+
+  /**
+   * Helper to compute the Cartesian product of multiple binding context lists.
+   * @private
+   */
+  private computeCartesianProduct(
+    bindingsLists: Array<BindingContext<NodeData, EdgeData>[]>
+  ): Array<BindingContext<NodeData, EdgeData>> {
+    if (!bindingsLists || bindingsLists.length === 0) {
+      return [];
+    }
+
+    return bindingsLists.reduce(
+      (accumulator, currentList) => {
+        const newAccumulator: Array<BindingContext<NodeData, EdgeData>> = [];
+        for (const accBinding of accumulator) {
+          for (const currentBinding of currentList) {
+            // Combine bindings: Create a new context and merge properties
+            const combined = new BindingContext<NodeData, EdgeData>();
+            // Copy from accumulator binding
+            for (const varName of accBinding.getVariableNames()) {
+              combined.set(varName, accBinding.get(varName));
+            }
+            // Copy from current binding (potentially overwriting is okay if vars are unique per pattern)
+            for (const varName of currentBinding.getVariableNames()) {
+              combined.set(varName, currentBinding.get(varName));
+            }
+            newAccumulator.push(combined);
+          }
+        }
+        return newAccumulator;
+      },
+      [new BindingContext<NodeData, EdgeData>()] // Start with one empty binding context
+    );
+  }
 
   /**
    * Finds paths matching a pattern, applying predicates during traversal (pushdown).
@@ -425,7 +566,6 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     }
     return Array.from(uniquePathsMap.values());
   }
-
 
   /**
    * Access the condition evaluator

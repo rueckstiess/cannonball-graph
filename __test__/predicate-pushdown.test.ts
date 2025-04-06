@@ -22,7 +22,7 @@ const executeQuery = (graph: Graph, query: string): BindingContext[] => {
   // Use PatternMatcherWithConditions which now implements pushdown
   const matcher = new PatternMatcherWithConditions();
   // Assuming the first pattern is the main one for execution
-  const results = matcher.executeMatchQuery(graph, statement.match.patterns[0], statement.where);
+  const results = matcher.executeMatchQuery(graph, statement.match.patterns, statement.where);
 
   return results;
 };
@@ -148,18 +148,17 @@ describe('End-to-End Query Execution', () => {
     expect(daveResult?.get('t')?.id).toBe('t3');
   });
 
-  test('MATCH with unbound variable in WHERE (should not fail)', () => {
+  test('MATCH with unbound variable in WHERE (should throw error)', () => { // Modified description
     // This tests if the evaluator handles unbound variables gracefully during pushdown
     const query = `
       MATCH (p:person)
       WHERE p.name = "Alice" AND t.status = "open" // 't' is not defined in MATCH
       RETURN p
     `;
-    // Depending on implementation, this might error or return 0/empty.
-    // A robust implementation should likely return empty results as 't' cannot be evaluated.
-    // Let's expect 0 results.
-    const results = executeQuery(graph, query);
-    expect(results).toHaveLength(0);
+    // Expect an error because 't' is used in WHERE but not defined in MATCH
+    expect(() => executeQuery(graph, query)).toThrow(
+      "Variable 't' used in WHERE clause is not defined in MATCH clause."
+    );
   });
 
   // Add more tests for complex WHERE clauses, OR, NOT, EXISTS etc. as needed

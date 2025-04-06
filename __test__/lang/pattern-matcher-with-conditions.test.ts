@@ -242,7 +242,7 @@ describe('PatternMatcherWithConditions', () => {
     // Execute the match query
     const results = patternMatcher.executeMatchQuery(
       graph,
-      pathPattern,
+      [pathPattern],
       whereClause
     );
 
@@ -262,7 +262,7 @@ describe('PatternMatcherWithConditions', () => {
     // Test without WHERE clause (should match all paths)
     const allResults = patternMatcher.executeMatchQuery(
       graph,
-      pathPattern
+      [pathPattern]
     );
 
     expect(allResults.length).toBe(3);
