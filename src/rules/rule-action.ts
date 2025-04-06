@@ -136,6 +136,21 @@ export interface SetPropertyAction<NodeData = any, EdgeData = any> extends RuleA
 }
 
 /**
+ * Represents an action that deletes a node or relationship
+ */
+export interface DeleteAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
+  /**
+   * The variable names of the nodes or relationships to delete
+   */
+  variableNames: string[];
+
+  /**
+   * Whether to detach nodes before deleting (DETACH DELETE)
+   */
+  detach: boolean;
+}
+
+/**
  * Orchestrates the execution of multiple actions with transaction-like semantics
  */
 export interface ActionExecutor<NodeData = any, EdgeData = any> {
@@ -233,6 +248,14 @@ export interface ActionFactory<NodeData = any, EdgeData = any> {
    * @returns The corresponding action
    */
   setPropertyActionFromAst(setPropertyAst: any): SetPropertyAction<NodeData, EdgeData>;
+
+  /**
+   * Creates actions from a DELETE AST node
+   * 
+   * @param deleteAst The AST node representing a delete operation
+   * @returns The corresponding action
+   */
+  createDeleteActionFromAst(deleteAst: any): DeleteAction<NodeData, EdgeData>;
 
   /**
    * Creates actions from a rule AST

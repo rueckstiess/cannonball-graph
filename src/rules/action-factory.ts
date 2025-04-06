@@ -2,18 +2,21 @@ import {
   ASTRuleRoot,
   ASTCreateNodePatternNode,
   ASTCreateRelPatternNode,
-  ASTPropertySettingNode
+  ASTPropertySettingNode,
+  ASTDeleteNode // <-- Import ASTDeleteNode
 } from '@/lang/ast-transformer';
 import {
   RuleAction,
   ActionFactory as IActionFactory,
   CreateNodeAction as ICreateNodeAction,
   CreateRelationshipAction as ICreateRelationshipAction,
-  SetPropertyAction as ISetPropertyAction
+  SetPropertyAction as ISetPropertyAction,
+  DeleteAction as IDeleteAction // <-- Import IDeleteAction
 } from './rule-action';
 import { CreateNodeAction } from './create-node-action';
 import { CreateRelationshipAction } from './create-relationship-action';
 import { SetPropertyAction } from './set-property-action';
+import { DeleteAction } from './delete-action'; // <-- Import DeleteAction implementation
 import { ConditionEvaluator } from '@/lang/condition-evaluator';
 
 /**
@@ -90,6 +93,18 @@ export class ActionFactory<NodeData = any, EdgeData = any>
   }
 
   /**
+   * Creates a DeleteAction from an AST node
+   */
+  createDeleteActionFromAst(
+    deleteAst: ASTDeleteNode
+  ): IDeleteAction<NodeData, EdgeData> {
+    return new DeleteAction<NodeData, EdgeData>(
+      deleteAst.variables,
+      deleteAst.detach
+    );
+  }
+
+  /**
    * Creates actions from a rule AST
    */
   createActionsFromRuleAst(
@@ -113,6 +128,9 @@ export class ActionFactory<NodeData = any, EdgeData = any>
         for (const setPattern of node.children) {
           actions.push(this.setPropertyActionFromAst(setPattern));
         }
+      } else if (node.type === 'delete') { // <-- Add handling for delete
+        // Process DELETE clause
+        actions.push(this.createDeleteActionFromAst(node));
       }
       // MATCH and WHERE clauses are handled earlier in the pattern matching phase
     }

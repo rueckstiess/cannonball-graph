@@ -1,4 +1,4 @@
-import { Graph, Node, Edge } from '@/graph';
+import { Graph, Node, Edge, NodeId } from '@/graph'; // <-- Add NodeId
 import {
   Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser,
   CypherStatement, ReturnClause, ReturnItem, PropertyExpression, VariableExpression
@@ -8,7 +8,8 @@ import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
 import {
-  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult
+  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult,
+  DeleteAction as IDeleteAction // <-- Import DeleteAction interface
 } from './rule-action-index';
 
 /**
@@ -74,6 +75,16 @@ export interface ActionResultData<NodeData = any, EdgeData = any> {
    * Edges affected by all actions (created or modified)
    */
   affectedEdges: Edge<EdgeData>[];
+
+  /**
+   * IDs of nodes deleted by all actions
+   */
+  deletedNodeIds?: NodeId[]; // <-- Add deleted node IDs
+
+  /**
+   * Keys (source-label-target) of edges deleted by all actions
+   */
+  deletedEdgeKeys?: string[]; // <-- Add deleted edge keys
 }
 
 /**
@@ -183,7 +194,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   /**
    * Executes a graph query or rule on a graph and returns a unified result
    * 
-   * Handles both read operations (RETURN) and write operations (CREATE/SET),
+   * Handles both read operations (RETURN) and write operations (CREATE/SET/DELETE),
    * or a combination of both.
    * 
    * @param graph The graph to operate on
@@ -221,7 +232,8 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
       // Determine if we have read and/or write operations
       const hasReadOps = !!cypherStatement.return;
-      const hasWriteOps = !!(cypherStatement.create || cypherStatement.set);
+      // Update write ops check to include DELETE
+      const hasWriteOps = !!(cypherStatement.create || cypherStatement.set || cypherStatement.delete);
 
       // 2. Find all matches for the statement using the updated findMatches
       let matches = this.findMatches(graph, cypherStatement, options);
@@ -233,12 +245,12 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         statement,
         stats: {
           readOperations: hasReadOps,
-          writeOperations: hasWriteOps,
+          writeOperations: hasWriteOps, // Updated
           executionTimeMs: 0 // Will update at the end
         }
       };
 
-      // 3. Execute actions if present (CREATE/SET)
+      // 3. Execute actions if present (CREATE/SET/DELETE)
       if (hasWriteOps) {
         // Transform to AST for action creation
         const ast = transformToCypherAst(
@@ -249,15 +261,15 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           false // Not disabled
         );
 
-        // Convert AST CREATE/SET clauses to actions
+        // Convert AST CREATE/SET/DELETE clauses to actions
         const actions = this.actionFactory.createActionsFromRuleAst(ast);
 
         // Group actions by type to process them in the correct order
-        // We need to execute all node creation actions first, then relationship creation actions,
-        // then property setting actions to ensure correct binding context propagation
+        // Order: CREATE_NODE -> CREATE_RELATIONSHIP -> SET_PROPERTY -> DELETE
         const createNodeActions: RuleAction<NodeData, EdgeData>[] = [];
         const createRelationshipActions: RuleAction<NodeData, EdgeData>[] = [];
         const setPropertyActions: RuleAction<NodeData, EdgeData>[] = [];
+        const deleteActions: RuleAction<NodeData, EdgeData>[] = []; // <-- Add delete actions group
 
         actions.forEach(action => {
           if (action.type === 'CREATE_NODE') {
@@ -266,13 +278,17 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             createRelationshipActions.push(action);
           } else if (action.type === 'SET_PROPERTY') {
             setPropertyActions.push(action);
+          } else if (action.type === 'DELETE') { // <-- Group delete actions
+            deleteActions.push(action);
           }
         });
 
         // Execute actions for each match
-        const actionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
+        const allActionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
         const allAffectedNodes: Node<NodeData>[] = [];
         const allAffectedEdges: Edge<EdgeData>[] = [];
+        const allDeletedNodeIds: NodeId[] = []; // <-- Track deleted node IDs
+        const allDeletedEdgeKeys: string[] = []; // <-- Track deleted edge keys
         const updatedMatches: BindingContext<NodeData, EdgeData>[] = [];
         let allSuccessful = true;
 
@@ -285,72 +301,56 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             bindingContext.set(varName, match.get(varName));
           }
 
-          // Execute CREATE NODE actions first to ensure nodes exist for relationships
+          // --- Execute actions in order ---
+
+          // 1. CREATE NODE
           if (createNodeActions.length > 0) {
-            const nodeResult = this.actionExecutor.executeActions(
-              graph,
-              createNodeActions,
-              bindingContext,
-              options
-            );
-            actionResults.push(nodeResult);
-
-            if (nodeResult.affectedNodes) {
-              allAffectedNodes.push(...nodeResult.affectedNodes);
-            }
-
+            const nodeResult = this.actionExecutor.executeActions(graph, createNodeActions, bindingContext, options);
+            allActionResults.push(nodeResult);
+            if (nodeResult.affectedNodes) allAffectedNodes.push(...nodeResult.affectedNodes);
             if (!nodeResult.success) {
-              allSuccessful = false;
-              result.success = false;
-              result.error = nodeResult.error || 'Action execution failed';
-              continue; // Skip to next match if node creation failed
+              allSuccessful = false; result.success = false; result.error = nodeResult.error || 'CREATE NODE failed'; continue;
             }
           }
 
-          // Next execute CREATE RELATIONSHIP actions, now that all nodes exist
+          // 2. CREATE RELATIONSHIP
           if (createRelationshipActions.length > 0) {
-            const relResult = this.actionExecutor.executeActions(
-              graph,
-              createRelationshipActions,
-              bindingContext, // Same binding context with node bindings
-              options
-            );
-            actionResults.push(relResult);
-
-            if (relResult.affectedEdges) {
-              allAffectedEdges.push(...relResult.affectedEdges);
-            }
-
+            const relResult = this.actionExecutor.executeActions(graph, createRelationshipActions, bindingContext, options);
+            allActionResults.push(relResult);
+            if (relResult.affectedEdges) allAffectedEdges.push(...relResult.affectedEdges);
             if (!relResult.success) {
-              allSuccessful = false;
-              result.success = false;
-              result.error = relResult.error || 'Action execution failed';
-              continue; // Skip to next match if relationship creation failed
+              allSuccessful = false; result.success = false; result.error = relResult.error || 'CREATE RELATIONSHIP failed'; continue;
             }
           }
 
-          // Finally execute SET PROPERTY actions
+          // 3. SET PROPERTY
           if (setPropertyActions.length > 0) {
-            const setResult = this.actionExecutor.executeActions(
-              graph,
-              setPropertyActions,
-              bindingContext, // Same binding context with all prior bindings
-              options
-            );
-            actionResults.push(setResult);
-
-            if (setResult.affectedNodes) {
-              allAffectedNodes.push(...setResult.affectedNodes);
-            }
-            if (setResult.affectedEdges) {
-              allAffectedEdges.push(...setResult.affectedEdges);
-            }
-
+            const setResult = this.actionExecutor.executeActions(graph, setPropertyActions, bindingContext, options);
+            allActionResults.push(setResult);
+            // SET might affect nodes or edges
+            if (setResult.affectedNodes) allAffectedNodes.push(...setResult.affectedNodes);
+            if (setResult.affectedEdges) allAffectedEdges.push(...setResult.affectedEdges);
             if (!setResult.success) {
-              allSuccessful = false;
-              result.success = false;
-              result.error = setResult.error || 'Action execution failed';
-              // Continue even if SET fails
+              allSuccessful = false; result.success = false; result.error = setResult.error || 'SET PROPERTY failed'; continue;
+            }
+          }
+
+          // 4. DELETE
+          if (deleteActions.length > 0) {
+            const deleteResult = this.actionExecutor.executeActions(graph, deleteActions, bindingContext, options);
+            allActionResults.push(deleteResult);
+            // DELETE returns the *original* items before deletion in affectedNodes/Edges
+            if (deleteResult.affectedNodes) {
+              deleteResult.affectedNodes.forEach(n => { if (!allDeletedNodeIds.includes(n.id)) allDeletedNodeIds.push(n.id); });
+            }
+            if (deleteResult.affectedEdges) {
+              deleteResult.affectedEdges.forEach(e => {
+                const key = `${e.source}-${e.label}-${e.target}`;
+                if (!allDeletedEdgeKeys.includes(key)) allDeletedEdgeKeys.push(key);
+              });
+            }
+            if (!deleteResult.success) {
+              allSuccessful = false; result.success = false; result.error = deleteResult.error || 'DELETE failed'; continue;
             }
           }
 
@@ -367,9 +367,11 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
         // Add action results to the unified result
         result.actions = {
-          actionResults,
+          actionResults: allActionResults, // Use the collected results
           affectedNodes: allAffectedNodes,
-          affectedEdges: allAffectedEdges
+          affectedEdges: allAffectedEdges,
+          deletedNodeIds: allDeletedNodeIds, // <-- Add deleted IDs
+          deletedEdgeKeys: allDeletedEdgeKeys // <-- Add deleted keys
         };
       }
 

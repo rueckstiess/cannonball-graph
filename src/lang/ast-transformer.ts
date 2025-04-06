@@ -5,7 +5,7 @@ import { inspect } from 'unist-util-inspect';
 import {
   CypherStatement, ComparisonExpression, ExistsExpression, LiteralExpression,
   LogicalExpression, PropertyExpression, VariableExpression, Expression, MatchClause,
-  WhereClause, CreateClause, SetClause
+  WhereClause, CreateClause, SetClause, DeleteClause // <-- Import DeleteClause
 } from './rule-parser';
 
 import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher';
@@ -27,7 +27,8 @@ export interface ASTRuleRoot extends Parent {
   description: string;
   priority: number;
   disabled?: boolean;
-  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode>;
+  // Add ASTDeleteNode to the possible children
+  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode>;
 }
 
 /**
@@ -60,6 +61,15 @@ export interface ASTCreateNode extends Parent {
 export interface ASTSetNode extends Parent {
   type: 'set';
   children: ASTPropertySettingNode[];
+}
+
+/**
+ * Delete clause node in the Rule AST
+ */
+export interface ASTDeleteNode extends ASTRuleNode {
+  type: 'delete';
+  variables: string[];
+  detach: boolean;
 }
 
 /**
@@ -208,7 +218,7 @@ function createASTRuleNode(
   description: string,
   priority: number,
   disabled: boolean | undefined,
-  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode>
+  children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode>
 ): ASTRuleRoot {
   return {
     type: 'rule',
@@ -257,6 +267,17 @@ function createASTSetNode(children: ASTPropertySettingNode[]): ASTSetNode {
   return {
     type: 'set',
     children
+  };
+}
+
+/**
+ * Create a unist Node representing a DeleteNode
+ */
+function createASTDeleteNode(variables: string[], detach: boolean): ASTDeleteNode {
+  return {
+    type: 'delete',
+    variables,
+    detach
   };
 }
 
@@ -474,7 +495,8 @@ export function transformToCypherAst(
   priority: number,
   disabled?: boolean
 ): ASTRuleRoot {
-  const children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode> = [];
+  // Update the type of children array
+  const children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode> = [];
 
   // Add MATCH clause if it exists
   if (statement.match) {
@@ -496,6 +518,12 @@ export function transformToCypherAst(
     children.push(transformSetClause(statement.set));
   }
 
+  // Add DELETE clause if it exists
+  if (statement.delete) {
+    children.push(transformDeleteClause(statement.delete));
+  }
+
+  // Update the return type of createASTRuleNode if necessary (or adjust the function signature)
   return createASTRuleNode(ruleName, description, priority, disabled, children);
 }
 
@@ -544,6 +572,16 @@ function transformCreateClause(createClause: CreateClause): ASTCreateNode {
 function transformSetClause(setClause: SetClause): ASTSetNode {
   const settings = setClause.settings.map(transformPropertySetting);
   return createASTSetNode(settings);
+}
+
+/**
+ * Transforms a DELETE clause into a Delete node
+ * @param deleteClause The DELETE clause to transform
+ * @returns The transformed Delete node
+ */
+function transformDeleteClause(deleteClause: DeleteClause): ASTDeleteNode {
+  const variables = deleteClause.variables.map(v => v.name);
+  return createASTDeleteNode(variables, deleteClause.detach || false);
 }
 
 /**
@@ -812,6 +850,10 @@ export function visualizeAst(node: ASTRuleNode | Parent, indent: number = 0): st
       const createRel = node as ASTCreateRelPatternNode;
       result += ` (${createRel.fromVar})-[${createRel.relationship.variable || ''}:${createRel.relationship.relType || ''}]->(${createRel.toVar})`;
       break;
+    case 'delete': // Add case for delete node
+      const deleteNode = node as ASTDeleteNode;
+      result += ` (${deleteNode.detach ? 'DETACH ' : ''}${deleteNode.variables.join(', ')})`;
+      break;
   }
 
   result += '\n';
@@ -849,7 +891,8 @@ export function validateAst(ast: ASTRuleRoot): string[] {
 
   // Validate that the rule has at least one clause
   if (!ast.children || ast.children.length === 0) {
-    errors.push('Rule must have at least one clause (MATCH, WHERE, CREATE, SET)');
+    // Update error message to include delete
+    errors.push('Rule must have at least one clause (MATCH, WHERE, CREATE, SET, DELETE)');
   }
 
   // Validate variable references
@@ -865,7 +908,8 @@ export function validateAst(ast: ASTRuleRoot): string[] {
 
   // Collect used variables
   for (const node of ast.children) {
-    if (node.type === 'where' || node.type === 'create' || node.type === 'set') {
+    // Update the type check to include ASTDeleteNode
+    if (node.type === 'where' || node.type === 'create' || node.type === 'set' || node.type === 'delete') {
       collectUsedVariables(node, usedVariables);
     }
   }
@@ -908,12 +952,13 @@ function collectDeclaredVariables(node: ASTMatchNode, variables: Set<string>): v
 }
 
 /**
- * Collects all used variables in a WHERE, CREATE, or SET clause
+ * Collects all used variables in a WHERE, CREATE, SET, or DELETE clause
  * @param node The clause node
  * @param variables The set to collect variables into
  */
 function collectUsedVariables(
-  node: ASTWhereNode | ASTCreateNode | ASTSetNode,
+  // Update the type union for the node parameter
+  node: ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode,
   variables: Set<string>
 ): void {
   if (node.type === 'where') {
@@ -934,6 +979,11 @@ function collectUsedVariables(
       const propertySetting = setting as ASTPropertySettingNode;
       variables.add(propertySetting.target);
       collectVariablesInExpression(propertySetting.value, variables);
+    }
+  } else if (node.type === 'delete') { // Add handling for delete node
+    const deleteNode = node as ASTDeleteNode;
+    for (const variable of deleteNode.variables) {
+      variables.add(variable);
     }
   }
 }
