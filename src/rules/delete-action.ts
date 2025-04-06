@@ -78,9 +78,16 @@ export class DeleteAction<NodeData = any, EdgeData = any>
                 error: `Cannot delete node '${varName}' (ID: ${node.id}) because it still has relationships. Use DETACH DELETE to delete relationships first.`
               };
             }
+          } else {
+            // Detach: Remove all incident edges first
+            const incidentEdges = graph.getEdgesForNode(node.id, 'both');
+            for (const edge of incidentEdges) {
+              affectedEdges.push({ ...edge }); // Track the edge before deletion
+              graph.removeEdge(edge.source, edge.target, edge.label);
+            }
           }
 
-          // Detach is true or no relationships exist, proceed with deletion
+          // Proceed with node deletion
           affectedNodes.push({ ...node }); // Store a copy before deletion
           graph.removeNode(node.id);
           bindings.set(varName, undefined); // Remove from bindings

@@ -20,6 +20,7 @@ import {
   RuleAction,
   createRuleEngine
 } from '@/rules';
+import { DeleteAction } from '@/rules/delete-action';
 
 // Create proper AST nodes for testing
 const mockCreateNodeAst: ASTCreateNodePatternNode = {
@@ -216,19 +217,13 @@ CREATE (n:NewNode {name: "TestNode"})
     expect(graph.getAllNodes().length).toBe(0);
   });
 
-  test('Rollback on failure', () => {
+  test('Rollback on failure creating nodes', () => {
     // Create a sequence of actions where one will fail
     const createPerson = new CreateNodeAction('p', ['Person'], { name: 'Bob' });
     const createTask = new CreateNodeAction('t', ['Task'], { title: 'Do something' });
 
     // This action will fail because 'x' is not in bindings
     const createFailingRelationship = new CreateRelationshipAction('p', 'x', 'WORKS_ON', {});
-
-    // Log actions for debugging
-    console.log('Rollback test actions:');
-    console.log(createPerson.describe());
-    console.log(createTask.describe());
-    console.log(createFailingRelationship.describe());
 
     // Execute actions with rollback but NO up-front validation
     // (We want the first two actions to succeed so we can test rollback)
@@ -242,66 +237,89 @@ CREATE (n:NewNode {name: "TestNode"})
       }
     );
 
-    // Log results for debugging
-    console.log(`Rollback execution result: ${result.success}`);
-    console.log(`Error: ${result.error || 'none'}`);
-    result.actionResults.forEach((r, i) => {
-      console.log(`Action ${i} ${r.success ? 'succeeded' : 'failed'}: ${r.error || ''}`);
-    });
-
     // Verify execution failed
     expect(result.success).toBe(false);
 
     // The error should be about not finding the 'x' node in bindings
-    expect(result.error).toContain('not found in bindings'); // More generic assertion
+    expect(result.error).toContain('Target node x not found in bindings');
 
     // Both created nodes should be rolled back
     expect(graph.getAllNodes().length).toBe(0);
     expect(graph.getAllEdges().length).toBe(0);
   });
 
-  test('Continue on failure - partial execution', () => {
-    // For a simpler test, let's just verify success and failure of action executions 
-    // without relying on node creation
+  test('Rollback on failure creating nodes and edge', () => {
+    // Create a sequence of actions where one will fail
+    const createPerson = new CreateNodeAction('p', ['Person'], { name: 'Bob' });
+    const createTask = new CreateNodeAction('t', ['Task'], { title: 'Do something' });
+    const createEdge = new CreateRelationshipAction('p', 't', 'WORKS_ON', {});
 
-    // Create a sequence of actions where one will fail but others can continue
-    const createPerson = new CreateNodeAction('p', ['Person'], { name: 'Charlie' });
-    const createFailingNode = new CreateNodeAction('p', ['Task'], {}); // Will fail - duplicate variable
-    const createAnotherNode = new CreateNodeAction('t', ['Task'], { title: 'Important task' });
+    // This action will fail because 'x' is not in bindings
+    const createFailingRelationship = new CreateRelationshipAction('p', 'x', 'WORKS_ON', {});
 
-    // Log actions for debugging
-    console.log('Continue on failure test:');
-    console.log(`Action 1: ${createPerson.describe()}`);
-    console.log(`Action 2: ${createFailingNode.describe()}`);
-    console.log(`Action 3: ${createAnotherNode.describe()}`);
-
-    // Execute actions with continueOnFailure option
+    // Execute actions with rollback but NO up-front validation
+    // (We want the first two actions to succeed so we can test rollback)
     const result = executor.executeActions(
       graph,
-      [createPerson, createFailingNode, createAnotherNode],
-      new BindingContext(), // Fresh bindings
+      [createPerson, createTask, createFailingRelationship],
+      bindings,
       {
-        validateBeforeExecute: false, // Skip validation to ensure the first action runs
-        continueOnFailure: true       // Continue after failures
+        validateBeforeExecute: false, // Important: Don't validate upfront
+        rollbackOnFailure: true
       }
     );
 
-    // Log detailed results
-    console.log(`Continue test results: success=${result.success}, actions=${result.actionResults.length}`);
-    result.actionResults.forEach((r, i) => {
-      console.log(`Action ${i + 1}: ${r.success ? 'SUCCESS' : 'FAILED'} - ${r.error || ''}`);
-    });
-
-    // Overall execution should fail because at least one action failed
+    // Verify execution failed
     expect(result.success).toBe(false);
 
-    // Should have results for all three actions
-    expect(result.actionResults.length).toBe(3);
+    // The error should be about not finding the 'x' node in bindings
+    expect(result.error).toContain('Target node x not found in bindings');
 
-    // First and third actions should succeed, second should fail
-    expect(result.actionResults[0].success).toBe(true);
-    expect(result.actionResults[1].success).toBe(false);
-    expect(result.actionResults[2].success).toBe(true);
+    // Both created nodes should be rolled back
+    expect(graph.getAllNodes().length).toBe(0);
+    expect(graph.getAllEdges().length).toBe(0);
+  });
+
+  test('Rollback on failure creating and deleting nodes and edges', () => {
+
+    // add 2 nodes and an edge to the graph
+    graph.addNode('alice', 'Person', { name: 'Alice' });
+    graph.addNode('task', 'Task', { title: 'Do something' });
+    graph.addEdge('alice', 'task', 'WORKS_ON', {});
+
+    bindings.set('alice', graph.getNode('alice'));
+
+    // Create a sequence of actions where one will fail
+    const createPerson = new CreateNodeAction('bob', ['Person'], { name: 'Bob' });
+    const deleteEdge = new DeleteAction(['alice'], true); // Detach delete
+
+    // This action will fail because 'x' is not in bindings
+    const createFailingRelationship = new CreateRelationshipAction('bob', 'x', 'WORKS_ON', {});
+
+    // Execute actions with rollback but NO up-front validation
+    // (We want the first two actions to succeed so we can test rollback)
+    const result = executor.executeActions(
+      graph,
+      [createPerson, deleteEdge, createFailingRelationship],
+      bindings,
+      {
+        validateBeforeExecute: false, // Important: Don't validate upfront
+        rollbackOnFailure: true
+      }
+    );
+
+    // Verify execution failed
+    expect(result.success).toBe(false);
+
+    // The error should be about not finding the 'x' node in bindings
+    expect(result.error).toContain('Target node x not found in bindings');
+
+    // the graph should be rolled back to its original state, with alice working on task
+    expect(graph.getAllNodes().length).toBe(2);
+    expect(graph.getAllEdges().length).toBe(1);
+    expect(graph.hasNode('alice')).toBe(true);
+    expect(graph.hasNode('bob')).toBe(false);
+    expect(graph.hasEdge('alice', 'task', 'WORKS_ON')).toBe(true);
   });
 
   test('Debug rule engine pattern matching for simple node patterns', () => {

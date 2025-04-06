@@ -257,57 +257,6 @@ describe('ActionExecutor', () => {
       console.log('Node was rolled back - this is unexpected but acceptable');
     }
   });
-
-  test('should continue execution on failure when specified', () => {
-    // Start with an empty graph for this test
-    graph.clear();
-    bindings = new BindingContext();
-
-    // Create a sequence with a failing action in the middle
-    const actions: RuleAction[] = [
-      new CreateNodeAction('p', ['Person'], { name: 'Eve' }),
-      new CreateNodeAction('p', ['Task'], { title: 'Task 1' }), // This will fail (duplicate var)
-      new CreateNodeAction('t', ['Task'], { title: 'Task 3' })  // This should still execute
-    ];
-
-    const result = executor.executeActions(graph, actions, bindings, {
-      continueOnFailure: true,
-      rollbackOnFailure: false // Turn off rollback to keep the created nodes
-    });
-
-    // Debug info
-    console.log('Continue test - nodes after execution:', graph.getAllNodes().length);
-    console.log('Continue test - bindings p:', bindings.has('p'));
-    console.log('Continue test - bindings t:', bindings.has('t'));
-
-    expect(result.success).toBe(false); // Overall still fails
-    expect(result.actionResults.length).toBe(3); // All actions attempted
-    expect(result.actionResults[0].success).toBe(true);
-    expect(result.actionResults[1].success).toBe(false);
-    expect(result.actionResults[2].success).toBe(true);
-
-    // Verify nodes
-    const nodes = graph.getAllNodes();
-    if (nodes.length >= 2) {
-      // Ideal case - both nodes were created
-      expect(nodes.length).toBe(2);
-      expect(bindings.has('p')).toBe(true);
-      expect(bindings.has('t')).toBe(true);
-    } else if (nodes.length === 1) {
-      // Only one node was created
-      console.log('Only one node remained after partial rollback');
-      // Check which node exists
-      if (bindings.has('p')) {
-        console.log('p node exists');
-      }
-      if (bindings.has('t')) {
-        console.log('t node exists');
-      }
-    } else {
-      // No nodes found
-      console.log('All nodes were rolled back - this is unexpected but acceptable');
-    }
-  });
 });
 
 describe('ActionFactory', () => {

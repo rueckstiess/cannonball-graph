@@ -370,8 +370,8 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           actionResults: allActionResults, // Use the collected results
           affectedNodes: allAffectedNodes,
           affectedEdges: allAffectedEdges,
-          deletedNodeIds: allDeletedNodeIds, // <-- Add deleted IDs
-          deletedEdgeKeys: allDeletedEdgeKeys // <-- Add deleted keys
+          deletedNodeIds: allDeletedNodeIds,
+          deletedEdgeKeys: allDeletedEdgeKeys
         };
       }
 
