@@ -10,7 +10,8 @@ import {
   LogicalExpression,
   ExistsExpression,
   VariableExpression,
-  PropertyExpression
+  PropertyExpression,
+  DeleteClause
 } from '@/lang';
 
 
@@ -861,6 +862,146 @@ MATCH (n)
         expect((settings?.[1].value as any).value).toBe(30);
       });
     });
+
+
+    describe('DELETE Clause', () => {
+      it('should parse a simple DELETE clause', () => {
+        const query = 'DELETE n';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBeFalsy();
+        expect(deleteClause.variables.length).toBe(1);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+      });
+
+      it('should parse a DELETE clause with multiple variables', () => {
+        const query = 'DELETE n, r, m';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBeFalsy();
+        expect(deleteClause.variables.length).toBe(3);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+        expect((deleteClause.variables[1] as VariableExpression).name).toBe('r');
+        expect((deleteClause.variables[2] as VariableExpression).name).toBe('m');
+      });
+
+      it('should parse a simple DETACH DELETE clause', () => {
+        const query = 'DETACH DELETE n';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBe(true);
+        expect(deleteClause.variables.length).toBe(1);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+      });
+
+      it('should parse a DETACH DELETE clause with multiple variables', () => {
+        const query = 'DETACH DELETE n, m';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBe(true);
+        expect(deleteClause.variables.length).toBe(2);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+        expect((deleteClause.variables[1] as VariableExpression).name).toBe('m');
+      });
+
+      it('should parse MATCH followed by DELETE', () => {
+        const query = 'MATCH (n:Person) DELETE n';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.match).toBeDefined();
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBeFalsy();
+        expect(deleteClause.variables.length).toBe(1);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+      });
+
+      it('should parse MATCH followed by DETACH DELETE', () => {
+        const query = 'MATCH (n:Person) DETACH DELETE n';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        const statement = parser.parse();
+
+        expect(parser.getErrors()).toEqual([]);
+        expect(statement.match).toBeDefined();
+        expect(statement.delete).toBeDefined();
+        const deleteClause = statement.delete as DeleteClause;
+        expect(deleteClause.detach).toBe(true);
+        expect(deleteClause.variables.length).toBe(1);
+        expect((deleteClause.variables[0] as VariableExpression).name).toBe('n');
+      });
+
+      // Error cases
+      it('should report error for DETACH without DELETE', () => {
+        const query = 'DETACH n';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+        expect(parser.getErrors()[0]).toContain("Expected DELETE after DETACH");
+      });
+
+      it('should report error for DETACH with MATCH', () => {
+        const query = 'DETACH MATCH (n)';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+        expect(parser.getErrors()[0]).toContain("DETACH cannot be used with MATCH");
+      });
+
+      it('should report error for DETACH with CREATE', () => {
+        const query = 'DETACH CREATE (n)';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+        expect(parser.getErrors()[0]).toContain("DETACH cannot be used with CREATE");
+      });
+
+      it('should report error for DELETE without variable', () => {
+        const query = 'DELETE';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+        // Error message might vary slightly depending on exact error handling in consume/parseVariableExpression
+        expect(parser.getErrors()[0]).toContain("Expected variable name");
+      });
+
+      it('should report error for DELETE with trailing comma', () => {
+        const query = 'DELETE n,';
+        const lexer = new Lexer();
+        const parser = new CypherParser(lexer, query);
+        parser.parse();
+        expect(parser.getErrors().length).toBeGreaterThan(0);
+        expect(parser.getErrors()[0]).toContain("Expected variable name");
+      });
+    });
+
 
     describe('EXISTS expression parsing', () => {
       it('should parse EXISTS pattern expressions', () => {

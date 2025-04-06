@@ -222,6 +222,16 @@ export interface CreateClause {
 }
 
 /**
+ * Represents the DELETE clause in a Cypher query
+ */
+export interface DeleteClause {
+  /** Array of variables (nodes or relationships) to delete */
+  variables: VariableExpression[];
+  /** Whether to detach nodes before deleting (DETACH DELETE) */
+  detach?: boolean;
+}
+
+/**
  * Represents the variables to return from a query
  */
 export interface ReturnItem {
@@ -251,6 +261,8 @@ export interface CypherStatement {
   create?: CreateClause;
   /** The SET clause (optional) */
   set?: SetClause;
+  /** The DELETE clause (optional) */
+  delete?: DeleteClause;
   /** The RETURN clause (optional) */
   return?: ReturnClause;
 }
@@ -430,17 +442,35 @@ export class CypherParser implements Parser {
     // Collect clauses until we reach the end of input
     while (!this.isAtEnd()) {
       try {
+        let detach = false;
+        // Check for DETACH first
+        if (this.match(TokenType.DETACH)) {
+          detach = true;
+        }
+
         if (this.match(TokenType.MATCH)) {
+          if (detach) throw this.error("DETACH cannot be used with MATCH");
           statement.match = this.parseMatchClause();
         } else if (this.match(TokenType.WHERE)) {
+          if (detach) throw this.error("DETACH cannot be used with WHERE");
           statement.where = this.parseWhereClause();
         } else if (this.match(TokenType.CREATE)) {
+          if (detach) throw this.error("DETACH cannot be used with CREATE");
           statement.create = this.parseCreateClause();
         } else if (this.match(TokenType.SET)) {
+          if (detach) throw this.error("DETACH cannot be used with SET");
           statement.set = this.parseSetClause();
+        } else if (this.match(TokenType.DELETE)) {
+          // Pass the detach flag to the delete clause parser
+          statement.delete = this.parseDeleteClause(detach);
         } else if (this.match(TokenType.RETURN)) {
+          if (detach) throw this.error("DETACH cannot be used with RETURN");
           statement.return = this.parseReturnClause();
-        } else {
+        } else if (detach) {
+          // If we matched DETACH but no DELETE followed
+          throw this.error("Expected DELETE after DETACH");
+        }
+        else {
           // Unrecognized token, record error and skip
           this.errors.push(`Unexpected token: ${this.currentToken.value} at line ${this.currentToken.line}, column ${this.currentToken.column}`);
           this.advance();
@@ -471,6 +501,8 @@ export class CypherParser implements Parser {
         this.check(TokenType.WHERE) ||
         this.check(TokenType.CREATE) ||
         this.check(TokenType.SET) ||
+        this.check(TokenType.DELETE) || // Add DELETE
+        this.check(TokenType.DETACH) || // Add DETACH
         this.check(TokenType.RETURN)
       ) {
         return;
@@ -1159,6 +1191,25 @@ export class CypherParser implements Parser {
     }
 
     return { settings };
+  }
+
+  /**
+   * Parses a DELETE clause
+   * @param detach Whether DETACH was specified before DELETE
+   * @returns The parsed DELETE clause
+   */
+  private parseDeleteClause(detach: boolean): DeleteClause {
+    const variables: VariableExpression[] = [];
+
+    // Parse the first variable to delete
+    variables.push(this.parseVariableExpression());
+
+    // Parse additional variables separated by commas
+    while (this.match(TokenType.COMMA) || this.match(TokenType.DELETE)) {
+      variables.push(this.parseVariableExpression());
+    }
+
+    return { variables, detach };
   }
 
   /**

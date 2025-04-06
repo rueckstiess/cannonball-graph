@@ -9,6 +9,7 @@ export enum TokenType {
   SET = 'SET',
   UNSET = 'UNSET',
   DELETE = 'DELETE',
+  DETACH = 'DETACH', // Add DETACH here
   EXISTS = 'EXISTS',
   NOT = 'NOT',
   AND = 'AND',
@@ -166,6 +167,7 @@ const KEYWORDS: Record<string, TokenType> = {
   SET: TokenType.SET,
   UNSET: TokenType.UNSET,
   DELETE: TokenType.DELETE,
+  DETACH: TokenType.DETACH, // Add DETACH mapping here
   EXISTS: TokenType.EXISTS,
   NOT: TokenType.NOT,
   AND: TokenType.AND,

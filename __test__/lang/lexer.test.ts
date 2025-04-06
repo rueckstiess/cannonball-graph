@@ -16,15 +16,15 @@ describe('Lexer', () => {
     });
 
     it('should tokenize keywords', () => {
-      const input = 'MATCH WHERE CREATE SET REMOVE DELETE EXISTS NOT AND OR XOR NULL IN CONTAINS STARTS ENDS WITH IS RETURN';
+      const input = 'MATCH WHERE CREATE SET UNSET DELETE EXISTS NOT AND OR XOR NULL IN CONTAINS STARTS ENDS WITH IS RETURN DETACH';
       const tokens = lexer.tokenize(input);
 
-      expect(tokens.length).toBe(20); // 19 keywords + EOF
+      expect(tokens.length).toBe(21); // 20 keywords + EOF
       expect(tokens[0].type).toBe(TokenType.MATCH);
       expect(tokens[1].type).toBe(TokenType.WHERE);
       expect(tokens[2].type).toBe(TokenType.CREATE);
       expect(tokens[3].type).toBe(TokenType.SET);
-      expect(tokens[4].type).toBe(TokenType.REMOVE);
+      expect(tokens[4].type).toBe(TokenType.UNSET);
       expect(tokens[5].type).toBe(TokenType.DELETE);
       expect(tokens[6].type).toBe(TokenType.EXISTS);
       expect(tokens[7].type).toBe(TokenType.NOT);
@@ -39,7 +39,8 @@ describe('Lexer', () => {
       expect(tokens[16].type).toBe(TokenType.WITH);
       expect(tokens[17].type).toBe(TokenType.IS);
       expect(tokens[18].type).toBe(TokenType.RETURN);
-      expect(tokens[19].type).toBe(TokenType.EOF);
+      expect(tokens[19].type).toBe(TokenType.DETACH);
+      expect(tokens[20].type).toBe(TokenType.EOF);
     });
 
     it('should tokenize keywords case-insensitively by default', () => {
@@ -299,11 +300,11 @@ describe('Lexer', () => {
 
       expect(tokens[0].type).toBe(TokenType.WHERE);
     });
-    
+
     it('should tokenize RETURN clauses', () => {
       const input = 'RETURN a, b.name';
       const tokens = lexer.tokenize(input);
-      
+
       expect(tokens.length).toBe(7); // RETURN + a + COMMA + b + DOT + name + EOF
       expect(tokens[0].type).toBe(TokenType.RETURN);
       expect(tokens[1].type).toBe(TokenType.IDENTIFIER);
@@ -316,20 +317,20 @@ describe('Lexer', () => {
       expect(tokens[5].value).toBe('name');
       expect(tokens[6].type).toBe(TokenType.EOF);
     });
-    
+
     it('should tokenize complete queries with RETURN', () => {
       const input = 'MATCH (p:Person) WHERE p.age > 30 RETURN p.name, p.age';
       const tokens = lexer.tokenize(input);
-      
+
       // Check just the main clauses to verify RETURN works in context
       expect(tokens[0].type).toBe(TokenType.MATCH);
       // ... middle tokens
-      
+
       // Find the RETURN token
       const returnIndex = tokens.findIndex(token => token.type === TokenType.RETURN);
       expect(returnIndex).toBeGreaterThan(0); // Ensure RETURN was found
       expect(tokens[returnIndex].type).toBe(TokenType.RETURN);
-      
+
       // Verify tokens after RETURN are what we expect
       expect(tokens[returnIndex + 1].type).toBe(TokenType.IDENTIFIER); // p
       expect(tokens[returnIndex + 2].type).toBe(TokenType.DOT); // .
@@ -368,6 +369,43 @@ describe('Lexer', () => {
       expect(tokens[0].type).toBe(TokenType.CREATE);
       // ... rest of the tokens
     });
+
+    it('should tokenize DELETE keyword', () => {
+      const lexer = new Lexer();
+      const tokens = lexer.tokenize('DELETE');
+      expect(tokens.length).toBe(2); // DELETE, EOF
+      expect(tokens[0].type).toBe(TokenType.DELETE);
+      expect(tokens[0].value).toBe('DELETE');
+    });
+
+    it('should tokenize DETACH keyword', () => {
+      const lexer = new Lexer();
+      const tokens = lexer.tokenize('DETACH');
+      expect(tokens.length).toBe(2); // DETACH, EOF
+      expect(tokens[0].type).toBe(TokenType.DETACH);
+      expect(tokens[0].value).toBe('DETACH');
+    });
+
+    it('should tokenize DETACH DELETE sequence', () => {
+      const lexer = new Lexer();
+      const tokens = lexer.tokenize('DETACH DELETE n');
+      expect(tokens.length).toBe(4); // DETACH, DELETE, IDENTIFIER, EOF
+      expect(tokens[0].type).toBe(TokenType.DETACH);
+      expect(tokens[1].type).toBe(TokenType.DELETE);
+      expect(tokens[2].type).toBe(TokenType.IDENTIFIER);
+      expect(tokens[2].value).toBe('n');
+    });
+
+    it('should tokenize keywords case-insensitively by default', () => {
+      const lexer = new Lexer();
+      const tokens = lexer.tokenize('detach delete');
+      expect(tokens.length).toBe(3); // DETACH, DELETE, EOF
+      expect(tokens[0].type).toBe(TokenType.DETACH);
+      expect(tokens[0].value).toBe('detach'); // Value retains original casing
+      expect(tokens[1].type).toBe(TokenType.DELETE);
+      expect(tokens[1].value).toBe('delete');
+    });
+
 
     it('should tokenize a complete Cypher-like rule', () => {
       const input = `MATCH (parent:listItem {isTask: true})
