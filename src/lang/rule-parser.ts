@@ -521,20 +521,34 @@ export class CypherParser implements Parser {
   }
 
   /**
+   * Generic parser for comma-separated lists or items separated by repeating keywords
+   * @param parseItem Function to parse a single item
+   * @param separatorTypes Token types that can separate items (e.g., COMMA or clause keywords)
+   * @returns Array of parsed items
+   */
+  private parseList<T>(parseItem: () => T, separatorTypes: TokenType[]): T[] {
+    const items: T[] = [];
+
+    // Parse the first item
+    items.push(parseItem());
+
+    // Parse additional items separated by specified tokens
+    while (separatorTypes.some(type => this.match(type))) {
+      items.push(parseItem());
+    }
+
+    return items;
+  }
+
+  /**
    * Parses a MATCH clause
    * @returns The parsed match clause
    */
   private parseMatchClause(): MatchClause {
-    const patterns: PathPattern[] = [];
-
-    // Parse the first path pattern
-    patterns.push(this.parsePathPattern());
-
-    // Parse additional patterns separated by commas OR additional MATCH tokens
-    while (this.match(TokenType.COMMA) || this.match(TokenType.MATCH)) {
-      patterns.push(this.parsePathPattern());
-    }
-
+    const patterns = this.parseList(
+      () => this.parsePathPattern(),
+      [TokenType.COMMA, TokenType.MATCH]
+    );
     return { patterns };
   }
 
@@ -581,16 +595,8 @@ export class CypherParser implements Parser {
       this.advance();
     }
 
-    // Parse labels if any (can have multiple)
-    while (this.match(TokenType.COLON)) {
-      const label = this.consume(TokenType.IDENTIFIER, "Expected label after ':'").value;
-      node.labels.push(label);
-    }
-
-    // Currently we only support matching on a single label
-    if (node.labels.length > 1) {
-      throw Error(`Only a single label supported, but got ${node.labels}`)
-    }
+    // Use helper method for parsing labels
+    this.parseLabels(node);
 
     // Parse properties if any
     if (this.match(TokenType.OPEN_BRACE)) {
@@ -605,124 +611,171 @@ export class CypherParser implements Parser {
   }
 
   /**
+   * Helper method to parse labels for a node
+   * @param node The node object to add labels to
+   */
+  private parseLabels(node: NodePattern): void {
+    while (this.match(TokenType.COLON)) {
+      const label = this.consume(TokenType.IDENTIFIER, "Expected label after ':'").value;
+      node.labels.push(label);
+    }
+
+    // Currently we only support matching on a single label
+    if (node.labels.length > 1) {
+      throw Error(`Only a single label supported, but got ${node.labels}`);
+    }
+  }
+
+  /**
    * Parses a relationship pattern (e.g., -[variable:TYPE {property: value}]->)
    * @param startingTokenIndex Optional index to start from. Used for testing isolated relationship patterns.
    * @returns The parsed relationship pattern
    */
   private parseRelationshipPattern(startingTokenIndex?: number): RelationshipPattern {
-    // If given a starting index, reset the lexer to that position
+    // Reset lexer if needed
     if (startingTokenIndex !== undefined) {
-      // Reset to beginning
-      this.lexer.reset();
-      // Advance to the starting position
-      for (let i = 0; i < startingTokenIndex; i++) {
-        this.lexer.next();
-      }
-      // Update current token
-      this.currentToken = this.lexer.next();
+      this.resetLexerToIndex(startingTokenIndex);
     }
 
-    // Check for the start of the relationship and determine direction
-    let direction: 'outgoing' | 'incoming' | 'both' = 'both';
+    // Parse the direction and initial part of the relationship
+    const { direction: initialDirection } = this.parseRelationshipDirection();
 
-    // First check for backward arrow '<-' which is a special case
-    if (this.check(TokenType.BACKWARD_ARROW)) {
-      this.advance(); // Consume the '<-'
-      direction = 'incoming';
-    }
-    // Then check for forward arrow '->'
-    else if (this.check(TokenType.FORWARD_ARROW)) {
-      this.advance(); // Consume the '->'
-      direction = 'outgoing';
-    }
-    // Otherwise expect a simple '-'
-    else if (this.check(TokenType.MINUS)) {
-      this.advance(); // Consume the '-'
-    }
-    // If none of the above, it's an error
-    else {
-      throw this.error("Expected relationship pattern to start with '-', '->', or '<-'");
-    }
+    // Initialize relationship with default values
+    const relationship = this.initializeRelationship(initialDirection);
 
-    // Initialize relationship with default values for fixed-length relationships
-    const relationship: RelationshipPattern = {
-      properties: {},
-      direction,
-      minHops: 1,  // Default to 1 for fixed-length relationships
-      maxHops: 1   // Default to 1 for fixed-length relationships
-    };
-
-    // Check if we have a relationship detail in square brackets
+    // Parse relationship details if present
     if (this.match(TokenType.OPEN_BRACKET)) {
-      // Check for variable name
-      if (this.check(TokenType.IDENTIFIER) && this.peekNext().type === TokenType.COLON) {
-        relationship.variable = this.currentToken.value;
-        this.advance(); // Consume the variable name
-        this.advance(); // Skip the colon
-      } else if (this.match(TokenType.COLON)) {
-        // No variable name, just a colon
-      }
-
-      // Parse relationship type (allow quoted strings for reserved keywords)
-      if (this.check(TokenType.IDENTIFIER) || this.check(TokenType.STRING)) {
-        relationship.type = this.currentToken.value;
-        this.advance();
-      }
-
-      // Check for variable length path (e.g., *1..3)
-      if (this.match(TokenType.ASTERISK)) {
-        relationship.minHops = 1; // Default for variable length paths
-        relationship.maxHops = undefined; // Reset to undefined for unbounded paths by default
-
-        // Check for specific range
-        if (this.check(TokenType.NUMBER)) {
-          relationship.minHops = Number(this.currentToken.value);
-          this.advance();
-
-          // Check for max range
-          if (this.match(TokenType.DOT) && this.match(TokenType.DOT)) {
-            if (this.check(TokenType.NUMBER)) {
-              relationship.maxHops = Number(this.currentToken.value);
-              this.advance();
-            }
-          }
-        }
-      }
-
-      // Parse properties
-      if (this.match(TokenType.OPEN_BRACE)) {
-        relationship.properties = this.parsePropertyMap();
-        this.consume(TokenType.CLOSE_BRACE, "Expected '}' after property map");
-      }
-
+      this.parseRelationshipDetails(relationship);
       this.consume(TokenType.CLOSE_BRACKET, "Expected ']' after relationship details");
     }
 
-    // Parse the second part of the direction if needed for undirected relationships
+    // Parse the ending part of the relationship
+    const { direction: endingDirection } = this.parseRelationshipDirection();
 
-    // We need to check for the ending token regardless of the current direction
-    // For '<-' and '->' relationships, we already consumed the token, but we still need
-    // a closing token if there were brackets involved
-    if (this.check(TokenType.FORWARD_ARROW)) {
-      this.advance(); // Consume the '->'
-      // If initial direction wasn't set previously (was 'both'), set it to 'outgoing'
-      if (direction === 'both') {
-        relationship.direction = 'outgoing';
-      }
-    } else if (this.check(TokenType.BACKWARD_ARROW)) {
-      this.advance(); // Consume the '<-'
-      // If initial direction wasn't set previously (was 'both'), set it to 'incoming'
-      if (direction === 'both') {
-        relationship.direction = 'incoming';
-      }
-    } else if (this.check(TokenType.MINUS)) {
-      this.advance(); // Consume the '-'
-      // Direction remains as determined by the starting token
-    } else {
-      throw this.error("Expected relationship pattern to end with '-', '->', or '<-'");
+    // Update direction if it wasn't explicitly set in the first part
+    if (relationship.direction === 'both') {
+      relationship.direction = endingDirection !== 'both' ? endingDirection : 'both';
     }
 
     return relationship;
+  }
+
+  /**
+   * Helper method to reset the lexer to a specific index
+   * @param index The index to reset to
+   */
+  private resetLexerToIndex(index: number): void {
+    this.lexer.reset();
+    // Advance to the starting position
+    for (let i = 0; i < index; i++) {
+      this.lexer.next();
+    }
+    // Update current token
+    this.currentToken = this.lexer.next();
+  }
+
+  /**
+   * Initializes a relationship object with default values
+   * @param direction Initial direction
+   * @returns A relationship pattern object
+   */
+  private initializeRelationship(direction: 'outgoing' | 'incoming' | 'both'): RelationshipPattern {
+    return {
+      properties: {},
+      direction,
+      minHops: 1,
+      maxHops: 1
+    };
+  }
+
+  /**
+   * Parses relationship direction indicators (->, <-, -)
+   * @returns The direction and whether a token was consumed
+   */
+  private parseRelationshipDirection(): { direction: 'outgoing' | 'incoming' | 'both', consumed: boolean } {
+    if (this.match(TokenType.BACKWARD_ARROW)) {
+      return { direction: 'incoming', consumed: true };
+    } else if (this.match(TokenType.FORWARD_ARROW)) {
+      return { direction: 'outgoing', consumed: true };
+    } else if (this.match(TokenType.MINUS)) {
+      return { direction: 'both', consumed: true };
+    } else {
+      throw this.error("Expected relationship pattern token: '-', '->', or '<-'");
+    }
+  }
+
+  /**
+   * Parses the details inside a relationship bracket [...]
+   * @param relationship The relationship object to update
+   */
+  private parseRelationshipDetails(relationship: RelationshipPattern): void {
+    // Check for variable name
+    if (this.check(TokenType.IDENTIFIER) && this.peekNext().type === TokenType.COLON) {
+      relationship.variable = this.currentToken.value;
+      this.advance(); // Consume the variable name
+      this.advance(); // Skip the colon
+    } else if (this.match(TokenType.COLON)) {
+      // No variable name, just a colon
+    }
+
+    // Parse relationship type
+    this.parseRelationshipType(relationship);
+
+    // Parse variable length path if present
+    this.parseRelationshipLength(relationship);
+
+    // Parse properties if present
+    this.parseRelationshipProperties(relationship);
+  }
+
+  /**
+   * Parses the relationship type (e.g., :TYPE)
+   * @param relationship The relationship object to update
+   */
+  private parseRelationshipType(relationship: RelationshipPattern): void {
+    // Parse relationship type (allow quoted strings for reserved keywords)
+    if (this.check(TokenType.IDENTIFIER) || this.check(TokenType.STRING)) {
+      relationship.type = this.currentToken.value;
+      this.advance();
+    }
+  }
+
+  /**
+   * Parses a variable length relationship (e.g., *1..3)
+   * @param relationship The relationship object to update
+   */
+  private parseRelationshipLength(relationship: RelationshipPattern): void {
+    // Check for variable length path (e.g., *1..3)
+    if (this.match(TokenType.ASTERISK)) {
+      relationship.minHops = 1; // Default for variable length paths
+      relationship.maxHops = undefined; // Reset to undefined for unbounded paths by default
+
+      // Check for specific range
+      if (this.check(TokenType.NUMBER)) {
+        relationship.minHops = Number(this.currentToken.value);
+        this.advance();
+
+        // Check for max range
+        if (this.match(TokenType.DOT) && this.match(TokenType.DOT)) {
+          if (this.check(TokenType.NUMBER)) {
+            relationship.maxHops = Number(this.currentToken.value);
+            this.advance();
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Parses relationship properties (e.g., {key: value})
+   * @param relationship The relationship object to update
+   */
+  private parseRelationshipProperties(relationship: RelationshipPattern): void {
+    // Parse properties
+    if (this.match(TokenType.OPEN_BRACE)) {
+      relationship.properties = this.parsePropertyMap();
+      this.consume(TokenType.CLOSE_BRACE, "Expected '}' after property map");
+    }
   }
 
   /**
@@ -734,51 +787,42 @@ export class CypherParser implements Parser {
 
     // Parse first property
     if (!this.check(TokenType.CLOSE_BRACE)) {
-      // Get property name
-      const key = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-
-      // Expect colon
-      this.consume(TokenType.COLON, "Expected ':' after property name");
-
-      // Parse literal value based on token type
-      if (this.check(TokenType.STRING)) {
-        properties[key] = this.advance().value;
-      } else if (this.check(TokenType.NUMBER)) {
-        properties[key] = Number(this.advance().value);
-      } else if (this.check(TokenType.BOOLEAN)) {
-        properties[key] = this.advance().value === 'true';
-      } else if (this.check(TokenType.NULL)) {
-        this.advance();
-        properties[key] = null;
-      } else {
-        throw this.error(`Expected a literal value after ':' for property ${key}`);
-      }
+      // Use helper method to parse a single property
+      this.addPropertyKeyValue(properties);
 
       // Parse additional properties
       while (this.match(TokenType.COMMA)) {
-        // Get property name
-        const key = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-
-        // Expect colon
-        this.consume(TokenType.COLON, "Expected ':' after property name");
-
-        // Parse literal value based on token type
-        if (this.check(TokenType.STRING)) {
-          properties[key] = this.advance().value;
-        } else if (this.check(TokenType.NUMBER)) {
-          properties[key] = Number(this.advance().value);
-        } else if (this.check(TokenType.BOOLEAN)) {
-          properties[key] = this.advance().value === 'true';
-        } else if (this.check(TokenType.NULL)) {
-          this.advance();
-          properties[key] = null;
-        } else {
-          throw this.error(`Expected a literal value after ':' for property ${key}`);
-        }
+        this.addPropertyKeyValue(properties);
       }
     }
 
     return properties;
+  }
+
+  /**
+   * Helper method to parse a single property key-value pair and add it to the properties object
+   * @param properties The properties object to add to
+   */
+  private addPropertyKeyValue(properties: Record<string, string | number | boolean | null>): void {
+    // Get property name
+    const key = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
+
+    // Expect colon
+    this.consume(TokenType.COLON, "Expected ':' after property name");
+
+    // Parse literal value based on token type
+    if (this.check(TokenType.STRING)) {
+      properties[key] = this.advance().value;
+    } else if (this.check(TokenType.NUMBER)) {
+      properties[key] = Number(this.advance().value);
+    } else if (this.check(TokenType.BOOLEAN)) {
+      properties[key] = this.advance().value === 'true';
+    } else if (this.check(TokenType.NULL)) {
+      this.advance();
+      properties[key] = null;
+    } else {
+      throw this.error(`Expected a literal value after ':' for property ${key}`);
+    }
   }
 
   /**
@@ -1168,27 +1212,20 @@ export class CypherParser implements Parser {
    * @returns The parsed SET clause
    */
   private parseSetClause(): SetClause {
-    const settings: PropertySetting[] = [];
-
-    // Parse the first property setting
-    const target = this.parseVariableExpression();
-    this.consume(TokenType.DOT, "Expected '.' after variable");
-    const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-    this.consume(TokenType.EQUALS, "Expected '=' after property name");
-    const value = this.parseExpression();
-
-    settings.push({ target, property, value });
-
-    // Parse additional settings separated by commas OR additional SET tokens
-    while (this.match(TokenType.COMMA) || this.match(TokenType.SET)) {
+    const parsePropertySetting = (): PropertySetting => {
       const target = this.parseVariableExpression();
       this.consume(TokenType.DOT, "Expected '.' after variable");
       const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
       this.consume(TokenType.EQUALS, "Expected '=' after property name");
       const value = this.parseExpression();
 
-      settings.push({ target, property, value });
-    }
+      return { target, property, value };
+    };
+
+    const settings = this.parseList(
+      parsePropertySetting,
+      [TokenType.COMMA, TokenType.SET]
+    );
 
     return { settings };
   }
@@ -1199,15 +1236,10 @@ export class CypherParser implements Parser {
    * @returns The parsed DELETE clause
    */
   private parseDeleteClause(detach: boolean): DeleteClause {
-    const variables: VariableExpression[] = [];
-
-    // Parse the first variable to delete
-    variables.push(this.parseVariableExpression());
-
-    // Parse additional variables separated by commas
-    while (this.match(TokenType.COMMA) || this.match(TokenType.DELETE)) {
-      variables.push(this.parseVariableExpression());
-    }
+    const variables = this.parseList(
+      () => this.parseVariableExpression(),
+      [TokenType.COMMA, TokenType.DELETE]
+    );
 
     return { variables, detach };
   }
@@ -1217,15 +1249,10 @@ export class CypherParser implements Parser {
    * @returns The parsed RETURN clause
    */
   private parseReturnClause(): ReturnClause {
-    const items: ReturnItem[] = [];
-
-    // Parse the first return item
-    items.push(this.parseReturnItem());
-
-    // Parse additional items separated by commas OR additional RETURN tokens
-    while (this.match(TokenType.COMMA) || this.match(TokenType.RETURN)) {
-      items.push(this.parseReturnItem());
-    }
+    const items = this.parseList(
+      () => this.parseReturnItem(),
+      [TokenType.COMMA, TokenType.RETURN]
+    );
 
     return { items };
   }

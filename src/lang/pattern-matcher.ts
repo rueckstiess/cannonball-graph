@@ -254,26 +254,22 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     pattern: RelationshipPattern,
     sourceId?: NodeId
   ): Edge<EdgeData>[] {
-    // Implementation from previous example...
+    // Specialized case when we have a source node ID
     if (sourceId) {
       const sourceNode = graph.getNode(sourceId);
       if (!sourceNode) return [];
 
-      let edges: Edge<EdgeData>[] = [];
-      if (pattern.direction === 'outgoing') {
-        edges = graph.getEdgesForNode(sourceId, 'outgoing');
-      } else if (pattern.direction === 'incoming') {
-        edges = graph.getEdgesForNode(sourceId, 'incoming');
-      } else {
-        edges = graph.getEdgesForNode(sourceId, 'both');
-      }
+      // Get edges directly using the pattern direction
+      const edges = graph.getEdgesForNode(sourceId, pattern.direction);
 
       return edges.filter(edge => {
+        // Type check first as it's a fast filter
         if (pattern.type && !this.typeMatches(edge.label, pattern.type)) {
           return false;
         }
-        const edgeSourceNode = graph.getNode(edge.source);
-        const edgeTargetNode = graph.getNode(edge.target);
+
+        const { sourceNode: edgeSourceNode, targetNode: edgeTargetNode } =
+          this.getEndpointNodes(graph, edge);
         if (!edgeSourceNode || !edgeTargetNode) return false;
 
         // Adjust check for incoming when sourceId is specified
@@ -286,20 +282,46 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
       });
     }
 
+    // Optimization for type-based filtering
     if (pattern.type) {
       const typedEdges = this.getRelationshipsByType(graph, pattern.type);
-      return typedEdges.filter(edge => {
-        const sourceNode = graph.getNode(edge.source);
-        const targetNode = graph.getNode(edge.target);
-        if (!sourceNode || !targetNode) return false;
-        const noTypePattern = { ...pattern, type: undefined };
-        return this.matchesRelationshipPattern(edge, noTypePattern, sourceNode, targetNode);
-      });
+      return this.filterEdgesByPattern(graph, typedEdges,
+        { ...pattern, type: undefined }); // Skip re-checking type
     }
 
+    // General case - check all edges
     return graph.findEdges(edge => {
-      const sourceNode = graph.getNode(edge.source);
-      const targetNode = graph.getNode(edge.target);
+      const { sourceNode, targetNode } = this.getEndpointNodes(graph, edge);
+      if (!sourceNode || !targetNode) return false;
+      return this.matchesRelationshipPattern(edge, pattern, sourceNode, targetNode);
+    });
+  }
+
+  /**
+   * Helper method to get both endpoint nodes for an edge
+   * @private
+   */
+  private getEndpointNodes(
+    graph: Graph<NodeData, EdgeData>,
+    edge: Edge<EdgeData>
+  ): { sourceNode: Node<NodeData> | undefined, targetNode: Node<NodeData> | undefined } {
+    return {
+      sourceNode: graph.getNode(edge.source),
+      targetNode: graph.getNode(edge.target)
+    };
+  }
+
+  /**
+   * Helper to filter edges by a relationship pattern
+   * @private
+   */
+  private filterEdgesByPattern(
+    graph: Graph<NodeData, EdgeData>,
+    edges: Edge<EdgeData>[],
+    pattern: RelationshipPattern
+  ): Edge<EdgeData>[] {
+    return edges.filter(edge => {
+      const { sourceNode, targetNode } = this.getEndpointNodes(graph, edge);
       if (!sourceNode || !targetNode) return false;
       return this.matchesRelationshipPattern(edge, pattern, sourceNode, targetNode);
     });
@@ -308,26 +330,20 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   matchesRelationshipPattern(
     edge: Edge<EdgeData>,
     pattern: RelationshipPattern,
-    sourceNode?: Node<NodeData>, // Source of the current path step
-    targetNode?: Node<NodeData>  // Target of the current path step (neighbor)
+    sourceNode?: Node<NodeData>,
+    targetNode?: Node<NodeData>
   ): boolean {
     // Check type
     if (pattern.type && !this.typeMatches(edge.label, pattern.type)) {
       return false;
     }
 
-    // Check direction based on the provided step's source/target
-    // Note: This check assumes sourceNode and targetNode represent the direction
-    //       of the step being evaluated in the path search.
+    // Check direction
     if (sourceNode && targetNode && pattern.direction !== 'both') {
-      const isCorrectOutgoing = pattern.direction === 'outgoing' && edge.source === sourceNode.id && edge.target === targetNode.id;
-      const isCorrectIncoming = pattern.direction === 'incoming' && edge.target === sourceNode.id && edge.source === targetNode.id;
-
-      if (!isCorrectOutgoing && !isCorrectIncoming) {
+      if (!this.hasCorrectDirection(edge, pattern, sourceNode, targetNode)) {
         return false;
       }
     }
-
 
     // Check properties
     if (pattern.properties && Object.keys(pattern.properties).length > 0) {
@@ -337,6 +353,24 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     }
 
     return true;
+  }
+
+  /**
+   * Checks if an edge has the correct direction based on the pattern
+   * @private
+   */
+  private hasCorrectDirection(
+    edge: Edge<EdgeData>,
+    pattern: RelationshipPattern,
+    sourceNode: Node<NodeData>,
+    targetNode: Node<NodeData>
+  ): boolean {
+    if (pattern.direction === 'outgoing') {
+      return edge.source === sourceNode.id && edge.target === targetNode.id;
+    } else if (pattern.direction === 'incoming') {
+      return edge.target === sourceNode.id && edge.source === targetNode.id;
+    }
+    return true; // 'both' direction always matches
   }
 
   getRelationshipsByType(
