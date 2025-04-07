@@ -6,7 +6,7 @@ import {
   CypherStatement, ComparisonExpression, ExistsExpression, LiteralExpression,
   LogicalExpression, PropertyExpression, VariableExpression, Expression, MatchClause,
   WhereClause, CreateClause, SetClause, DeleteClause // <-- Import DeleteClause
-} from './rule-parser';
+} from './parser';
 
 import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher';
 

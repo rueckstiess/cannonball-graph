@@ -1,5 +1,5 @@
 import { Graph } from '@/graph';
-import { QueryEngine, createQueryEngine, QueryResult } from '@/rules/query-engine';
+import { QueryEngine, createQueryEngine, QueryResult } from '@/query/query-engine';
 
 describe('Rule Engine Query Functionality', () => {
   let engine: QueryEngine;

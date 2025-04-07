@@ -20,7 +20,7 @@ import {
   RuleAction,
   createQueryEngine,
   DeleteAction
-} from '@/rules';
+} from '@/query';
 
 // Create proper AST nodes for testing
 const mockCreateNodeAst: ASTCreateNodePatternNode = {

@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
 import { ASTRuleRoot } from '@/lang/ast-transformer';
-import { QueryEngine, createQueryEngine } from '@/rules/query-engine';
+import { QueryEngine, createQueryEngine } from '@/query/query-engine';
 import { BindingContext } from '@/lang/condition-evaluator';
 
 describe('QueryEngine', () => {

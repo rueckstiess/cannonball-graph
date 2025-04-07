@@ -6,7 +6,7 @@ import {
   QueryFormatter,
   QueryUtils,
   QueryResult
-} from '@/rules';
+} from '@/query';
 
 describe('Query API', () => {
   let graph: Graph;

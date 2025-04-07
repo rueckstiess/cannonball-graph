@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
-import { createQueryEngine, QueryEngine, QueryResult } from '@/rules';
-import { QueryFormatter, createQueryFormatter } from '@/rules';
+import { createQueryEngine, QueryEngine, QueryResult } from '@/query';
+import { QueryFormatter, createQueryFormatter } from '@/query';
 
 describe('End-to-End Query Tests', () => {
   let graph: Graph<any, any>;

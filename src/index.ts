@@ -1,3 +1,3 @@
 export * from "./graph";
 export * from "./lang";
-export * from "./rules";
+export * from "./query";

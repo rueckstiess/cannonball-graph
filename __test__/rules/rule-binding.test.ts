@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { QueryEngine, createQueryEngine } from '@/rules/query-engine';
+import { QueryEngine, createQueryEngine } from '@/query/query-engine';
 
 describe('Rule Engine Binding Tests', () => {
   let engine: QueryEngine;

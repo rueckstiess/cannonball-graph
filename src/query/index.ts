@@ -15,6 +15,7 @@ export * from './query-formatter';
 export * from './query-utils';
 
 
+
 /**
  * Creates a new action factory for converting AST nodes to executable actions.
  * 
@@ -22,7 +23,7 @@ export * from './query-utils';
  * 
  * @example
  * ```typescript
- * import { createActionFactory } from '@/rules';
+ * import { createActionFactory } from '@/query';
  * 
  * const factory = createActionFactory();
  * const actions = factory.createActionsFromRuleAst(ruleAst);
@@ -39,7 +40,7 @@ export function createActionFactory<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createActionExecutor, createBindingContext } from '@/rules';
+ * import { createActionExecutor, createBindingContext } from '@/query';
  * 
  * const executor = createActionExecutor();
  * const bindings = createBindingContext();
@@ -64,7 +65,7 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createQueryEngine } from '@/rules';
+ * import { createQueryEngine } from '@/query';
  * 
  * const engine = createQueryEngine();
  * 
@@ -109,7 +110,7 @@ export function createQueryEngine<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createQueryEngine, createQueryFormatter } from '@/rules';
+ * import { createQueryEngine, createQueryFormatter } from '@/query';
  * 
  * const engine = createQueryEngine();
  * const formatter = createQueryFormatter();
@@ -138,7 +139,7 @@ export function createQueryFormatter<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createQueryEngine, createQueryUtils } from '@/rules';
+ * import { createQueryEngine, createQueryUtils } from '@/query';
  * 
  * const engine = createQueryEngine();
  * const utils = createQueryUtils();

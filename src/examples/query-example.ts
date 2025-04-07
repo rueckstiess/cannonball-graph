@@ -1,5 +1,5 @@
 import { Graph } from '@/graph';
-import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/rules';
+import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/query';
 
 console.log('=======================================');
 console.log('Cannonball Query Functionality Example');

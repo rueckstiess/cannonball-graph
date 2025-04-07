@@ -14,7 +14,7 @@ import {
   DeleteAction,
   ActionExecutor,
   ActionFactory
-} from '@/rules';
+} from '@/query';
 
 describe('CreateNodeAction', () => {
   let graph: Graph;

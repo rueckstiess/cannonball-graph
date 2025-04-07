@@ -1,4 +1,4 @@
-import { ActionFactory, CreateNodeAction, CreateRelationshipAction, SetPropertyAction, DeleteAction } from '@/rules';
+import { ActionFactory, CreateNodeAction, CreateRelationshipAction, SetPropertyAction, DeleteAction } from '@/query';
 import {
   ASTRuleRoot,
   ASTCreateNodePatternNode,

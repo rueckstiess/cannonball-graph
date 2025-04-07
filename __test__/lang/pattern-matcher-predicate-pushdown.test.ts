@@ -1,6 +1,6 @@
 import { Graph } from '@/graph';
 import { Lexer } from '@/lang/lexer';
-import { CypherParser } from '@/lang/rule-parser';
+import { CypherParser } from '@/lang/parser';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
 

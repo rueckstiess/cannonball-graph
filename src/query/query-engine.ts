@@ -1,7 +1,7 @@
 import { Graph, Node, Edge, NodeId } from '@/graph';
 import {
   CypherParser, CypherStatement, ReturnClause, PropertyExpression, VariableExpression
-} from '@/lang/rule-parser';
+} from '@/lang/parser';
 import { Lexer } from '@/lang/lexer';
 import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';

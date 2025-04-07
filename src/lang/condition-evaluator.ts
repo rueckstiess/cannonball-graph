@@ -2,7 +2,7 @@ import { Graph, Node, Edge, Path } from '@/graph';
 import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression, ComparisonExpression,
   LogicalExpression, ExistsExpression, ComparisonOperator, LogicalOperator
-} from './rule-parser';
+} from './parser';
 import { PathPattern, NodePattern, RelationshipPattern, PatternMatcher } from './pattern-matcher';
 
 

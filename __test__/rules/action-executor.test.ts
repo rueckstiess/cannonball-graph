@@ -1,5 +1,5 @@
 import { Graph } from '@/graph';
-import { ActionExecutor, CreateNodeAction, SetPropertyAction, DeleteAction } from '@/rules';
+import { ActionExecutor, CreateNodeAction, SetPropertyAction, DeleteAction } from '@/query';
 import { BindingContext } from '@/lang/condition-evaluator';
 
 describe('ActionExecutor', () => {

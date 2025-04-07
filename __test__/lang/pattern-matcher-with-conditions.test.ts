@@ -2,7 +2,7 @@ import { Graph } from '@/graph';
 import { ConditionEvaluator } from '@/lang/condition-evaluator';
 import { NodePattern, PathPattern, RelationshipPattern } from '@/lang/pattern-matcher';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { ComparisonExpression, ComparisonOperator, Expression, LogicalExpression, LogicalOperator, WhereClause } from '@/lang/rule-parser';
+import { ComparisonExpression, ComparisonOperator, Expression, LogicalExpression, LogicalOperator, WhereClause } from '@/lang/parser';
 
 describe('PatternMatcherWithConditions', () => {
   let graph: Graph;

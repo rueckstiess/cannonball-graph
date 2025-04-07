@@ -216,7 +216,7 @@ Rules and queries are executed by the Rule Engine:
 
 ```typescript
 import { Graph } from '@/graph';
-import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/rules';
+import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/query';
 
 // Create a graph and rule engine
 const graph = new Graph();

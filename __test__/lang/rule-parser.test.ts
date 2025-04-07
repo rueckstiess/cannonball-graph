@@ -1,4 +1,4 @@
-import { CypherParser } from '../../src/lang/rule-parser';
+import { CypherParser } from '../../src/lang/parser';
 import { Lexer } from '../../src/lang';
 import {
   TokenType,
