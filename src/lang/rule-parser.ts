@@ -239,7 +239,7 @@ export interface Parser {
 
 
 /**
- * Parser for Cypher-like query language used in graph rules
+ * Parser for Cypher-like query language
  */
 export class CypherParser implements Parser {
   private lexer: Lexer;

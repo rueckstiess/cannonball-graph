@@ -1,12 +1,12 @@
 import { Graph } from '@/graph';
-import { RuleEngine, createRuleEngine, GraphQueryResult } from '@/rules/rule-engine';
+import { QueryEngine, createQueryEngine, QueryResult } from '@/rules/query-engine';
 
 describe('Rule Engine Query Functionality', () => {
-  let engine: RuleEngine;
+  let engine: QueryEngine;
   let graph: Graph;
 
   beforeEach(() => {
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     graph = new Graph();
 
     // Set up a test graph with nodes and relationships

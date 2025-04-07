@@ -7,9 +7,8 @@ import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
 import {
-  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult,
-  DeleteAction as IDeleteAction // <-- Import DeleteAction interface
-} from './rule-action-index';
+  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult
+} from './rule-action';
 
 
 /**
@@ -80,7 +79,7 @@ export interface ActionResultData<NodeData = any, EdgeData = any> {
 /**
  * Result interface for query executions
  */
-export interface GraphQueryResult<NodeData = any, EdgeData = any> {
+export interface QueryResult<NodeData = any, EdgeData = any> {
   /**
    * Whether execution was successful
    */
@@ -133,15 +132,15 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
 }
 
 /**
- * Integrated rule engine that handles the complete flow from rule text to execution
+ * Integrated query engine that handles the complete flow from query statement to execution
  */
-export class RuleEngine<NodeData = any, EdgeData = any> {
+export class QueryEngine<NodeData = any, EdgeData = any> {
   private patternMatcher: PatternMatcherWithConditions<NodeData, EdgeData>;
   private actionFactory: ActionFactory<NodeData, EdgeData>;
   private actionExecutor: ActionExecutor<NodeData, EdgeData>;
 
   /**
-   * Creates a new rule engine
+   * Creates a new query engine
    */
   constructor() {
     this.patternMatcher = new PatternMatcherWithConditions<NodeData, EdgeData>();
@@ -150,13 +149,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   }
 
   /**
-   * Executes a graph query or rule on a graph and returns a unified result
+   * Executes a graph query on a graph and returns a unified result
    * 
    * Handles both read operations (RETURN) and write operations (CREATE/SET/DELETE),
    * or a combination of both.
    * 
    * @param graph The graph to operate on
-   * @param statement The query/rule statement
+   * @param statement The query statement
    * @param options Execution options
    * @returns Unified result containing both query results and action results if applicable
    */
@@ -164,7 +163,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     graph: Graph<NodeData, EdgeData>,
     statement: string,
     options?: ActionExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData> {
+  ): QueryResult<NodeData, EdgeData> {
     const startTime = Date.now();
 
     try {
@@ -197,7 +196,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       let matches = this.findMatches(graph, cypherStatement, options);
 
       // Initialize the result
-      const result: GraphQueryResult<NodeData, EdgeData> = {
+      const result: QueryResult<NodeData, EdgeData> = {
         success: true,
         matchCount: matches.length,
         statement,
@@ -531,9 +530,9 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 }
 
 /**
- * Creates a new rule engine
- * @returns A new RuleEngine instance
+ * Creates a new query engine
+ * @returns A new QueryEngine instance
  */
-export function createRuleEngine<NodeData = any, EdgeData = any>(): RuleEngine<NodeData, EdgeData> {
-  return new RuleEngine<NodeData, EdgeData>();
+export function createQueryEngine<NodeData = any, EdgeData = any>(): QueryEngine<NodeData, EdgeData> {
+  return new QueryEngine<NodeData, EdgeData>();
 }

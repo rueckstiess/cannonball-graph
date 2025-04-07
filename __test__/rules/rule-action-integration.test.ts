@@ -18,9 +18,9 @@ import {
   ActionExecutor,
   ActionFactory,
   RuleAction,
-  createRuleEngine
+  createQueryEngine,
+  DeleteAction
 } from '@/rules';
-import { DeleteAction } from '@/rules/delete-action';
 
 // Create proper AST nodes for testing
 const mockCreateNodeAst: ASTCreateNodePatternNode = {
@@ -159,8 +159,8 @@ describe('Rule Action Integration Tests', () => {
   });
 
   // Let's simplify this test for now since it seems to be having trouble with pattern matching
-  test('RuleEngine extracts queries from markdown', () => {
-    const engine = createRuleEngine();
+  test('QueryEngine extracts queries from markdown', () => {
+    const engine = createQueryEngine();
 
     // Create a clean graph
     const testGraph = new Graph();
@@ -309,7 +309,7 @@ describe('Rule Action Integration Tests', () => {
 
   test('Debug rule engine pattern matching for simple node patterns', () => {
     // Create a rule engine
-    const engine = createRuleEngine();
+    const engine = createQueryEngine();
 
     // Create a test graph
     const testGraph = new Graph();
@@ -365,7 +365,7 @@ describe('Rule Action Integration Tests', () => {
 
   test('Rule engine should properly bind pattern matching variables to actions', () => {
     // Create a rule engine
-    const engine = createRuleEngine();
+    const engine = createQueryEngine();
 
     // Create a graph with nodes similar to our example
     const testGraph = new Graph();
@@ -400,14 +400,14 @@ describe('Rule Action Integration Tests', () => {
     // Examine rule engine internal state 
     console.log('\nRule engine execution details:');
     try {
-      const ruleEngineStateStr = JSON.stringify(result, (key, value) => {
+      const QueryEngineStateStr = JSON.stringify(result, (key, value) => {
         // Limit circular references
         if (key === 'bindings' && typeof value === 'object') {
           return 'BindingContext object';
         }
         return value;
       }, 2);
-      console.log(ruleEngineStateStr.substring(0, 1000) + '...'); // Limit output size
+      console.log(QueryEngineStateStr.substring(0, 1000) + '...'); // Limit output size
     } catch (error) {
       console.log('Could not stringify rule engine results:', error);
     }
@@ -475,7 +475,7 @@ describe('Rule Action Integration Tests', () => {
 
 
     // Execute the rule
-    const engine = createRuleEngine();
+    const engine = createQueryEngine();
     const result = engine.executeQuery(testGraph, query);
 
     // Verify rule execution result
@@ -536,7 +536,7 @@ describe('Rule Action Integration Tests', () => {
       CREATE (p)-[r:WORKS_ON]->(proj)
     `;
 
-    const engine = createRuleEngine();
+    const engine = createQueryEngine();
     const noMatchResult = engine.executeQuery(testGraph, query);
 
     // Rule should execute but create no relationships because one pattern has no matches

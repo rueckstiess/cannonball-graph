@@ -1,5 +1,5 @@
 import { Graph } from '@/graph';
-import { createRuleEngine, createQueryFormatter, createQueryUtils } from '@/rules';
+import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/rules';
 
 console.log('=======================================');
 console.log('Cannonball Query Functionality Example');
@@ -7,7 +7,7 @@ console.log('=======================================\n');
 
 // Initialize graph, rule engine, and query utilities
 const graph = new Graph();
-const engine = createRuleEngine();
+const engine = createQueryEngine();
 const formatter = createQueryFormatter();
 const utils = createQueryUtils();
 

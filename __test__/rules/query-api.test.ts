@@ -1,11 +1,11 @@
 import { Graph } from '@/graph';
 import {
-  createRuleEngine,
+  createQueryEngine,
   createQueryFormatter,
   createQueryUtils,
   QueryFormatter,
   QueryUtils,
-  GraphQueryResult
+  QueryResult
 } from '@/rules';
 
 describe('Query API', () => {
@@ -16,7 +16,7 @@ describe('Query API', () => {
 
   beforeEach(() => {
     graph = new Graph();
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     formatter = createQueryFormatter();
     utils = createQueryUtils();
 

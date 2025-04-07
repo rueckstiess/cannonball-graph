@@ -1,6 +1,6 @@
 import { Graph, Node, Edge } from '@/graph';
 import { BindingContext } from '@/lang/condition-evaluator';
-import { DeleteAction } from '@/rules/delete-action';
+import { DeleteAction } from '@/rules/rule-action';
 
 describe('DeleteAction', () => {
   let graph: Graph;

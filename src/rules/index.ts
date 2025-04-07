@@ -1,7 +1,19 @@
-import { ActionFactory, ActionExecutor } from './rule-action-index';
-import { RuleEngine } from './rule-engine';
+import { QueryEngine } from './query-engine';
 import { QueryFormatter } from './query-formatter';
 import { QueryUtils } from './query-utils';
+import { ActionFactory, ActionExecutor } from './rule-action';
+
+
+// Export interfaces
+export * from './rule-action';
+
+// Re-export rule engine types
+export * from './query-engine';
+
+// Export query-related types and classes
+export * from './query-formatter';
+export * from './query-utils';
+
 
 /**
  * Creates a new action factory for converting AST nodes to executable actions.
@@ -48,13 +60,13 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * Creates a new rule engine for end-to-end rule execution.
  * The rule engine integrates all components of the rule system.
  * 
- * @returns A new RuleEngine instance
+ * @returns A new QueryEngine instance
  * 
  * @example
  * ```typescript
- * import { createRuleEngine } from '@/rules';
+ * import { createQueryEngine } from '@/rules';
  * 
- * const engine = createRuleEngine();
+ * const engine = createQueryEngine();
  * 
  * const result = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
  * 
@@ -86,8 +98,8 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * const results = engine.executeQueries(graph, queries);
  * ```
  */
-export function createRuleEngine<NodeData = any, EdgeData = any>() {
-  return new RuleEngine<NodeData, EdgeData>();
+export function createQueryEngine<NodeData = any, EdgeData = any>() {
+  return new QueryEngine<NodeData, EdgeData>();
 }
 
 /**
@@ -97,9 +109,9 @@ export function createRuleEngine<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createRuleEngine, createQueryFormatter } from '@/rules';
+ * import { createQueryEngine, createQueryFormatter } from '@/rules';
  * 
- * const engine = createRuleEngine();
+ * const engine = createQueryEngine();
  * const formatter = createQueryFormatter();
  * 
  * // Execute a query
@@ -126,9 +138,9 @@ export function createQueryFormatter<NodeData = any, EdgeData = any>() {
  * 
  * @example
  * ```typescript
- * import { createRuleEngine, createQueryUtils } from '@/rules';
+ * import { createQueryEngine, createQueryUtils } from '@/rules';
  * 
- * const engine = createRuleEngine();
+ * const engine = createQueryEngine();
  * const utils = createQueryUtils();
  * 
  * // Execute a query
@@ -147,13 +159,3 @@ export function createQueryFormatter<NodeData = any, EdgeData = any>() {
 export function createQueryUtils<NodeData = any, EdgeData = any>() {
   return new QueryUtils<NodeData, EdgeData>();
 }
-
-// Re-export action-related types and classes
-export * from './rule-action-index';
-
-// Re-export rule engine types
-export * from './rule-engine';
-
-// Export query-related types and classes
-export * from './query-formatter';
-export * from './query-utils';

@@ -1,20 +1,20 @@
 import { Graph } from '@/graph';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
+import { QueryEngine, createQueryEngine } from '@/rules/query-engine';
 
 describe('Rule Engine Binding Tests', () => {
-  let engine: RuleEngine;
+  let engine: QueryEngine;
   let graph: Graph;
 
   beforeEach(() => {
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     graph = new Graph();
 
     // Add test nodes
     graph.addNode('person1', 'Person', { name: 'Alice', }); graph.addNode('person2', 'Person', { name: 'Bob', }); graph.addNode('task1', 'Task', { title: 'Task 1', priority: 'High', }); graph.addNode('task2', 'Task', { title: 'Task 2', priority: 'Low', });
   });
 
-  test('RuleEngine combines bindings from comma-separated patterns', () => {
+  test('QueryEngine combines bindings from comma-separated patterns', () => {
     // Define a query with comma-separated patterns
     const query = 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)';
 
@@ -55,7 +55,7 @@ describe('Rule Engine Binding Tests', () => {
     expect(connections.has('person2->task2')).toBe(true);
   });
 
-  test('RuleEngine handles the case where one pattern has no matches', () => {
+  test('QueryEngine handles the case where one pattern has no matches', () => {
     // Create a query that references a non-existent label
     const query = 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)';
     const result = engine.executeQuery(graph, query);
@@ -72,7 +72,7 @@ describe('Rule Engine Binding Tests', () => {
     expect(graph.getAllEdges().length).toBe(0);
   });
 
-  test('RuleEngine handles single pattern rules correctly', () => {
+  test('QueryEngine handles single pattern rules correctly', () => {
     // Define a query with only one pattern
     const query = "MATCH (p:Person) SET p.status = 'Active'";
     const result = engine.executeQuery(graph, query);

@@ -1,8 +1,4 @@
-import { ActionFactory } from '@/rules/action-factory';
-import { CreateNodeAction } from '@/rules/create-node-action';
-import { CreateRelationshipAction } from '@/rules/create-relationship-action';
-import { SetPropertyAction } from '@/rules/set-property-action';
-import { DeleteAction } from '@/rules/delete-action';
+import { ActionFactory, CreateNodeAction, CreateRelationshipAction, SetPropertyAction, DeleteAction } from '@/rules';
 import {
   ASTRuleRoot,
   ASTCreateNodePatternNode,

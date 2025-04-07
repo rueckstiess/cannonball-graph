@@ -1,14 +1,14 @@
 import { Graph } from '@/graph';
 import { ASTRuleRoot } from '@/lang/ast-transformer';
-import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
+import { QueryEngine, createQueryEngine } from '@/rules/query-engine';
 import { BindingContext } from '@/lang/condition-evaluator';
 
-describe('RuleEngine', () => {
-  let engine: RuleEngine;
+describe('QueryEngine', () => {
+  let engine: QueryEngine;
   let graph: Graph;
 
   beforeEach(() => {
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     graph = new Graph();
 
     // Set up a test graph

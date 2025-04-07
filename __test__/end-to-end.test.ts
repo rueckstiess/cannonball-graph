@@ -1,16 +1,16 @@
 import { Graph } from '@/graph';
-import { createRuleEngine, RuleEngine, GraphQueryResult } from '@/rules';
+import { createQueryEngine, QueryEngine, QueryResult } from '@/rules';
 import { QueryFormatter, createQueryFormatter } from '@/rules';
 
 describe('End-to-End Query Tests', () => {
   let graph: Graph<any, any>;
-  let engine: RuleEngine;
+  let engine: QueryEngine;
   let formatter: QueryFormatter;
 
   beforeEach(() => {
     // Create a new graph for each test
     graph = new Graph<any, any>();
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     formatter = createQueryFormatter();
 
     // Add nodes with different types and properties
