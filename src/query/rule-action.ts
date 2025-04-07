@@ -222,57 +222,11 @@ export interface ActionExecutionResult<NodeData = any, EdgeData = any> {
   error?: string;
 }
 
+
 /**
  * Factory for creating rule actions from AST nodes
  */
-export interface ActionFactory<NodeData = any, EdgeData = any> {
-  /**
-   * Creates actions from a CREATE node AST node
-   * 
-   * @param createNodeAst The AST node representing a node creation
-   * @returns The corresponding action
-   */
-  createNodeActionFromAst(createNodeAst: any): CreateNodeAction<NodeData, EdgeData>;
-
-  /**
-   * Creates actions from a CREATE relationship AST node
-   * 
-   * @param createRelAst The AST node representing a relationship creation
-   * @returns The corresponding action
-   */
-  createRelationshipActionFromAst(createRelAst: any): CreateRelationshipAction<NodeData, EdgeData>;
-
-  /**
-   * Creates actions from a SET property AST node
-   * 
-   * @param setPropertyAst The AST node representing a property setting
-   * @returns The corresponding action
-   */
-  setPropertyActionFromAst(setPropertyAst: any): SetPropertyAction<NodeData, EdgeData>;
-
-  /**
-   * Creates actions from a DELETE AST node
-   * 
-   * @param deleteAst The AST node representing a delete operation
-   * @returns The corresponding action
-   */
-  createDeleteActionFromAst(deleteAst: any): DeleteAction<NodeData, EdgeData>;
-
-  /**
-   * Creates actions from a rule AST
-   * 
-   * @param ruleAst The AST of the rule
-   * @returns A list of actions to execute
-   */
-  createActionsFromRuleAst(ruleAst: any): RuleAction<NodeData, EdgeData>[];
-}
-
-
-/**
- * Implementation of the ActionFactory interface
- */
-export class ActionFactory<NodeData = any, EdgeData = any>
-  implements ActionFactory<NodeData, EdgeData> {
+export class ActionFactory<NodeData = any, EdgeData = any> {
 
   private conditionEvaluator: ConditionEvaluator<NodeData, EdgeData>;
 
@@ -286,7 +240,10 @@ export class ActionFactory<NodeData = any, EdgeData = any>
   }
 
   /**
-   * Creates a CreateNodeAction from an AST node
+   * Creates actions from a CREATE node AST node
+   * 
+   * @param createNodeAst The AST node representing a node creation
+   * @returns The corresponding action
    */
   createNodeActionFromAst(
     createNodeAst: ASTCreateNodePatternNode
@@ -299,7 +256,10 @@ export class ActionFactory<NodeData = any, EdgeData = any>
   }
 
   /**
-   * Creates a CreateRelationshipAction from an AST node
+   * Creates actions from a CREATE relationship AST node
+   * 
+   * @param createRelAst The AST node representing a relationship creation
+   * @returns The corresponding action
    */
   createRelationshipActionFromAst(
     createRelAst: ASTCreateRelPatternNode
@@ -314,7 +274,10 @@ export class ActionFactory<NodeData = any, EdgeData = any>
   }
 
   /**
-   * Creates a SetPropertyAction from an AST node
+   * Creates actions from a SET property AST node
+   * 
+   * @param setPropertyAst The AST node representing a property setting
+   * @returns The corresponding action
    */
   setPropertyActionFromAst(
     setPropertyAst: ASTPropertySettingNode
@@ -342,7 +305,10 @@ export class ActionFactory<NodeData = any, EdgeData = any>
   }
 
   /**
-   * Creates a DeleteAction from an AST node
+   * Creates actions from a DELETE AST node
+   * 
+   * @param deleteAst The AST node representing a delete operation
+   * @returns The corresponding action
    */
   createDeleteActionFromAst(
     deleteAst: ASTDeleteNode
@@ -355,6 +321,9 @@ export class ActionFactory<NodeData = any, EdgeData = any>
 
   /**
    * Creates actions from a rule AST
+   * 
+   * @param ruleAst The AST of the rule
+   * @returns A list of actions to execute
    */
   createActionsFromRuleAst(
     ruleAst: ASTRuleRoot
@@ -456,27 +425,11 @@ export interface RuleAction<NodeData = any, EdgeData = any> {
  * Represents an action that creates a new node
  */
 
-export interface CreateNodeAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
-  /**
-   * The variable name to bind the created node to
-   */
-  variable: string;
-
-  /**
-   * Labels to assign to the node
-   */
-  labels: string[];
-
-  /**
-   * Properties to set on the node
-   */
-  properties: Record<string, any>;
-}
 
 /**
  * Implementation of the CreateNodeAction interface
  */
-export class CreateNodeAction<NodeData = any, EdgeData = any> implements CreateNodeAction<NodeData, EdgeData> {
+export class CreateNodeAction<NodeData = any, EdgeData = any> {
   readonly type = 'CREATE_NODE';
 
   /**
@@ -608,38 +561,11 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> implements CreateN
  * Represents an action that creates a relationship between two nodes
  */
 
-export interface CreateRelationshipAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
-  /**
-   * The variable name of the source node
-   */
-  fromVariable: string;
-
-  /**
-   * The variable name of the target node
-   */
-  toVariable: string;
-
-  /**
-   * The type of the relationship
-   */
-  relType: string;
-
-  /**
-   * The variable name to bind the created relationship to (optional)
-   */
-  variable?: string;
-
-  /**
-   * Properties to set on the relationship
-   */
-  properties: Record<string, any>;
-}
 
 /**
  * Implementation of the CreateRelationshipAction interface
  */
-export class CreateRelationshipAction<NodeData = any, EdgeData = any>
-  implements CreateRelationshipAction<NodeData, EdgeData> {
+export class CreateRelationshipAction<NodeData = any, EdgeData = any> {
 
   readonly type = 'CREATE_RELATIONSHIP';
 
@@ -792,31 +718,7 @@ export class CreateRelationshipAction<NodeData = any, EdgeData = any>
  * Represents an action that sets a property on a node or relationship
  */
 
-export interface SetPropertyAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
-  /**
-   * The variable name of the target (node or relationship)
-   */
-  targetVariable: string;
-
-  /**
-   * The name of the property to set
-   */
-  propertyName: string;
-
-  /**
-   * The value expression to evaluate and set
-   */
-  value: any;
-}
-/**
- * Represents an action that deletes a node or relationship
- */
-
-/**
- * Implementation of the SetPropertyAction interface
- */
-export class SetPropertyAction<NodeData = any, EdgeData = any>
-  implements SetPropertyAction<NodeData, EdgeData> {
+export class SetPropertyAction<NodeData = any, EdgeData = any> {
 
   readonly type = 'SET_PROPERTY';
 
@@ -997,23 +899,11 @@ export class SetPropertyAction<NodeData = any, EdgeData = any>
 
 
 
-export interface DeleteAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
-  /**
-   * The variable names of the nodes or relationships to delete
-   */
-  variableNames: string[];
-
-  /**
-   * Whether to detach nodes before deleting (DETACH DELETE)
-   */
-  detach: boolean;
-}
 
 /**
- * Implementation of the DeleteAction interface
+ * Implementation of the DeleteAction
  */
-export class DeleteAction<NodeData = any, EdgeData = any>
-  implements DeleteAction<NodeData, EdgeData> {
+export class DeleteAction<NodeData = any, EdgeData = any> {
 
   readonly type = 'DELETE';
 
@@ -1140,27 +1030,7 @@ export class DeleteAction<NodeData = any, EdgeData = any>
 
 
 
-/**
- * Orchestrates the execution of multiple actions with transaction-like semantics
- */
 
-export interface ActionExecutor<NodeData = any, EdgeData = any> {
-  /**
-   * Executes a list of actions on the graph
-   *
-   * @param graph The graph to execute on
-   * @param actions The actions to execute
-   * @param bindings Variable bindings from pattern matching
-   * @param options Execution options
-   * @returns The result of the execution
-   */
-  executeActions(
-    graph: Graph<NodeData, EdgeData>,
-    actions: RuleAction<NodeData, EdgeData>[],
-    bindings: BindingContext<NodeData, EdgeData>,
-    options?: ActionExecutionOptions
-  ): ActionExecutionResult<NodeData, EdgeData>;
-}
 
 /**
  * Default options for action execution
@@ -1171,9 +1041,10 @@ const DEFAULT_EXECUTION_OPTIONS: ActionExecutionOptions = {
 };
 
 /**
- * Implementation of the ActionExecutor interface
+ * Orchestrates the execution of multiple actions with transaction-like semantics
  */
-export class ActionExecutor<NodeData = any, EdgeData = any> implements ActionExecutor<NodeData, EdgeData> {
+
+export class ActionExecutor<NodeData = any, EdgeData = any> {
   /**
    * Executes a list of actions with rollback on failure
    */

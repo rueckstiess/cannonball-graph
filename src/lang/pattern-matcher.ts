@@ -1,4 +1,4 @@
-import { Graph, Node, NodeId, Edge, BFSVisitor, Path } from "@/graph";
+import { Graph, Node, NodeId, Edge, Path } from "@/graph";
 
 /**
  * Represents a node pattern in a Cypher query
