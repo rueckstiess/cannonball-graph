@@ -10,6 +10,7 @@ import {
   ActionFactory, ActionExecutor, QueryAction, ActionExecutionOptions, ActionExecutionResult
 } from './query-action';
 
+import { inspect } from 'unist-util-inspect';
 
 /**
  * Represents a returned value from a query
@@ -218,6 +219,8 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
           false // Not disabled
         );
 
+        console.log('AST:', inspect(ast));
+
         // Convert AST CREATE/SET/DELETE clauses to actions
         const actions = this.actionFactory.createActionsFromQueryAst(ast);
 
@@ -250,13 +253,8 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
         let allSuccessful = true;
 
         for (const match of matches) {
-          // Create a deep copy of the binding context to track changes
-          const bindingContext = new BindingContext<NodeData, EdgeData>();
-          // Copy all bindings from the original match
-          const variableNames = match.getVariableNames();
-          for (const varName of variableNames) {
-            bindingContext.set(varName, match.get(varName));
-          }
+          // Create a copy of the binding context to track changes
+          const bindingContext = match.createChildContext();
 
           // --- Execute actions in order ---
 

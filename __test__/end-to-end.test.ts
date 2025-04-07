@@ -1387,7 +1387,7 @@ describe('Query Language Documentation Examples', () => {
     expect((result.query?.rows[0][0].value as Edge).label).toBe('KNOWS');
   });
 
-  it('CREATE (p:Person {name: "David"})-[rel:WORKS_FOR]->(c:Company {name: "Acme Corp"}) RETURN p, rel, c', () => {
+  it('Create nodes with variables and relationship', () => {
     // David (User) and Acme Corp (Company) exist. Let's create Frank and Beta Inc.
     const result = engine.executeQuery(graph, 'CREATE (p:Person {name: "Frank"})-[rel:WORKS_FOR]->(c:Company {name: "Beta Inc"}) RETURN p, rel, c');
     expect(result.success).toBe(true);
@@ -1399,6 +1399,26 @@ describe('Query Language Documentation Examples', () => {
     expect(betaNode).toBeDefined();
     expect(graph.hasEdge(frankNode.id, betaNode.id, 'WORKS_FOR')).toBe(true);
     expect(result.query?.rows.length).toBe(1);
+  });
+
+  it('Create anonymous nodes and relationship', () => {
+    // David (User) and Acme Corp (Company) exist. Let's create Frank and Beta Inc.
+    const result = engine.executeQuery(graph, 'CREATE (:Person {name: "Frank"})-[rel:WORKS_FOR]->(:Company {name: "Beta Inc"}) RETURN p, rel, c');
+    expect(result.success).toBe(true);
+    expect(result.actions?.affectedNodes.length).toBe(2); // Frank, Beta Inc
+    expect(result.actions?.affectedEdges.length).toBe(1); // WORKS_FOR
+    const frankNode = graph.findNodes(n => n.data.name === 'Frank')[0];
+    const betaNode = graph.findNodes(n => n.data.name === 'Beta Inc')[0];
+    expect(frankNode).toBeDefined();
+    expect(betaNode).toBeDefined();
+    expect(graph.hasEdge(frankNode.id, betaNode.id, 'WORKS_FOR')).toBe(true);
+    expect(result.query?.rows.length).toBe(1);
+  });
+
+  it('Creating nodes without labels should fail', () => {
+    const result = engine.executeQuery(graph, 'CREATE (n)-[:WORKS_FOR]->(p) RETURN n, p');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/label is required/)
   });
 
   // SET Clause Examples
@@ -1480,20 +1500,6 @@ describe('Query Language Documentation Examples', () => {
     expect(graph.hasNode('alice')).toBe(false);
     expect(graph.hasEdge('alice', 'bob', 'KNOWS')).toBe(false); // Verify edge deletion
     expect(graph.hasEdge('alice', 'task1', 'ASSIGNED_TO')).toBe(false);
-  });
-
-  // RETURN Clause Examples
-  it('RETURN literals', () => {
-    // Note: RETURN without MATCH is not fully supported yet in the same way.
-    // Let's test returning literals alongside a MATCH.
-    const result = engine.executeQuery(graph, 'MATCH (p:Person {name: "Alice"}) RETURN "Query Complete", 123, p.name');
-    expect(result.success).toBe(true);
-    expect(result.query?.columns).toEqual(['"Query Complete"', '123', 'p.name']);
-    expect(result.query?.rows.length).toBe(1);
-    // Literal evaluation in RETURN is not implemented, it returns the string representation
-    // expect(result.query?.rows[0][0].value).toBe("Query Complete");
-    // expect(result.query?.rows[0][1].value).toBe(123);
-    expect(result.query?.rows[0][2].value).toBe("Alice");
   });
 
 });

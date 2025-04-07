@@ -71,111 +71,6 @@ export interface QueryAction<NodeData = any, EdgeData = any> {
   describe(): string;
 }
 
-/**
- * Represents an action that creates a new node
- */
-export interface CreateNodeAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
-  /**
-   * The variable name to bind the created node to
-   */
-  variable: string;
-
-  /**
-   * Labels to assign to the node
-   */
-  labels: string[];
-
-  /**
-   * Properties to set on the node
-   */
-  properties: Record<string, any>;
-}
-
-/**
- * Represents an action that creates a relationship between two nodes
- */
-export interface CreateRelationshipAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
-  /**
-   * The variable name of the source node
-   */
-  fromVariable: string;
-
-  /**
-   * The variable name of the target node
-   */
-  toVariable: string;
-
-  /**
-   * The type of the relationship
-   */
-  relType: string;
-
-  /**
-   * The variable name to bind the created relationship to (optional)
-   */
-  variable?: string;
-
-  /**
-   * Properties to set on the relationship
-   */
-  properties: Record<string, any>;
-}
-
-/**
- * Represents an action that sets a property on a node or relationship
- */
-export interface SetPropertyAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
-  /**
-   * The variable name of the target (node or relationship)
-   */
-  targetVariable: string;
-
-  /**
-   * The name of the property to set
-   */
-  propertyName: string;
-
-  /**
-   * The value expression to evaluate and set
-   */
-  value: any;
-}
-
-/**
- * Represents an action that deletes a node or relationship
- */
-export interface DeleteAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
-  /**
-   * The variable names of the nodes or relationships to delete
-   */
-  variableNames: string[];
-
-  /**
-   * Whether to detach nodes before deleting (DETACH DELETE)
-   */
-  detach: boolean;
-}
-
-/**
- * Orchestrates the execution of multiple actions with transaction-like semantics
- */
-export interface ActionExecutor<NodeData = any, EdgeData = any> {
-  /**
-   * Executes a list of actions on the graph
-   * 
-   * @param graph The graph to execute on
-   * @param actions The actions to execute
-   * @param bindings Variable bindings from pattern matching
-   * @param options Execution options
-   * @returns The result of the execution
-   */
-  executeActions(
-    graph: Graph<NodeData, EdgeData>,
-    actions: QueryAction<NodeData, EdgeData>[],
-    bindings: BindingContext<NodeData, EdgeData>,
-    options?: ActionExecutionOptions
-  ): ActionExecutionResult<NodeData, EdgeData>;
-}
 
 /**
  * Options for action execution
@@ -457,6 +352,14 @@ export class CreateNodeAction<NodeData = any, EdgeData = any> {
       return {
         valid: false,
         error: `Variable ${this.variable} already exists in bindings`
+      };
+    }
+
+    // Don't allow empty labels
+    if (this.labels.length === 0) {
+      return {
+        valid: false,
+        error: 'label is required'
       };
     }
 
