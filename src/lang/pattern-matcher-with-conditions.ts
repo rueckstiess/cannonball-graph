@@ -497,4 +497,19 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     this.conditionEvaluator = evaluator;
     this.conditionEvaluator.setPatternMatcher(this);
   }
+  
+  /**
+   * Wrapper for the enrichPatternWithBindings method from parent class
+   * This allows the ConditionEvaluator to use this method to enrich patterns with bound variables
+   * 
+   * @param pattern The original path pattern
+   * @param bindings The binding context containing bound variables
+   * @returns A new pattern with constraints from bound variables
+   */
+  enrichPatternWithBindings(
+    pattern: PathPattern,
+    bindings: BindingContext<NodeData, EdgeData>
+  ): PathPattern {
+    return super.enrichPatternWithBindings(pattern, bindings);
+  }
 }

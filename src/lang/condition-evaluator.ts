@@ -658,26 +658,16 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     expression: ExistsExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): boolean {
-    // Get the starting node variable from the pattern
-    const startVariable = expression.pattern.start.variable;
+    // Create a new pattern that's enriched with binding constraints
+    // This will constrain the pattern based on any variables (start, middle, or end)
+    // that are already bound in the current context
+    const enrichedPattern = this.patternMatcher.enrichPatternWithBindings(
+      expression.pattern,
+      bindings
+    );
 
-    // If the start variable is bound in the current context, we need to 
-    // constrain the pattern to match only paths starting from that specific node
-    if (startVariable && bindings.has(startVariable)) {
-      const startNode = bindings.get(startVariable) as Node<NodeData>;
-      if (startNode) {
-        // Find paths that start with the given node
-        const paths = this.patternMatcher.findMatchingPaths(
-          graph,
-          expression.pattern,
-          [startNode.id] // Constrain to specific starting node ID
-        );
-        return expression.positive ? paths.length > 0 : paths.length === 0;
-      }
-    }
-
-    // If no binding constraints, just find all matching paths
-    const paths = this.patternMatcher.findMatchingPaths(graph, expression.pattern);
+    // Use the enriched pattern to find matching paths
+    const paths = this.patternMatcher.findMatchingPaths(graph, enrichedPattern);
 
     // For EXISTS, check if any paths match
     // For NOT EXISTS, check if no paths match
