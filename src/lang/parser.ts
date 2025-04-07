@@ -333,6 +333,37 @@ export class Parser {
   }
 
   /**
+   * Generic parser for clauses that contain lists of items separated by commas and/or clause keywords
+   * This handles both forms: "CLAUSE item, item" and "CLAUSE item CLAUSE item"
+   * @param parseItem Function to parse a single item
+   * @param clauseType The token type for the clause keyword (e.g., TokenType.MATCH)
+   * @param wrapperFn Function to wrap the resulting list in an appropriate clause object
+   * @returns The parsed clause object
+   */
+  private parseClauseWithList<T, R>(
+    parseItem: () => T,
+    clauseType: TokenType,
+    wrapperFn: (items: T[]) => R
+  ): R {
+    const items = this.parseList(parseItem, [TokenType.COMMA, clauseType]);
+    return wrapperFn(items);
+  }
+
+  /**
+   * Parser for simple clauses that contain a single item and don't allow repetition
+   * Used for clauses like WHERE that have a single expression
+   * @param parseFn Function to parse the single item
+   * @param wrapperFn Function to wrap the parsed item in an appropriate clause object
+   * @returns The parsed clause object
+   */
+  private parseSimpleClause<T, R>(
+    parseFn: () => T,
+    wrapperFn: (item: T) => R
+  ): R {
+    return wrapperFn(parseFn());
+  }
+
+  /**
    * Generic parser for comma-separated lists or items separated by repeating keywords
    * @param parseItem Function to parse a single item
    * @param separatorTypes Token types that can separate items (e.g., COMMA or clause keywords)
@@ -357,11 +388,11 @@ export class Parser {
    * @returns The parsed match clause
    */
   private parseMatchClause(): MatchClause {
-    const patterns = this.parseList(
+    return this.parseClauseWithList(
       () => this.parsePathPattern(),
-      [TokenType.COMMA, TokenType.MATCH]
+      TokenType.MATCH,
+      patterns => ({ patterns })
     );
-    return { patterns };
   }
 
   /**
@@ -856,12 +887,7 @@ export class Parser {
 
       // Check for property access (dot notation)
       if (this.match(TokenType.DOT)) {
-        const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
-        return {
-          type: 'property',
-          object: variable,
-          property
-        };
+        return this.parsePropertyAccess(variable);
       }
 
       return variable;
@@ -946,6 +972,45 @@ export class Parser {
   }
 
   /**
+   * Parses a single CREATE pattern (either a node or a relationship path)
+   * @returns The parsed CREATE pattern (node or relationship)
+   */
+  private parseCreatePattern(): CreateNode | CreateRelationship | null {
+    if (!this.check(TokenType.OPEN_PAREN)) {
+      return null;
+    }
+
+    const firstChar = this.currentToken.value;
+    if (firstChar !== '(') {
+      return null;
+    }
+
+    // Parse the node
+    const node = this.parseNodePattern();
+
+    // Check if this is a standalone node or the start of a path
+    if (
+      this.check(TokenType.MINUS) ||
+      this.check(TokenType.FORWARD_ARROW) ||
+      this.check(TokenType.BACKWARD_ARROW)
+    ) {
+      // This is a path - parse the relationship and end node
+      const relationship = this.parseRelationshipPattern();
+      const endNode = this.parseNodePattern();
+
+      // Create a relationship pattern
+      return {
+        fromNode: { type: 'variable', name: node.variable! },
+        relationship,
+        toNode: { type: 'variable', name: endNode.variable! }
+      };
+    } else {
+      // This is a standalone node
+      return { node };
+    }
+  }
+
+  /**
    * Parses a CREATE clause
    * @returns The parsed CREATE clause
    */
@@ -953,66 +1018,16 @@ export class Parser {
     const patterns: Array<CreateNode | CreateRelationship> = [];
 
     // Parse the first pattern
-    if (this.check(TokenType.OPEN_PAREN)) {
-      const firstChar = this.currentToken.value;
-
-      // Check if this is a node or a path (for relationship creation)
-      if (firstChar === '(') {
-        // Parse first node or path
-        const node = this.parseNodePattern();
-
-        // Check if this is a standalone node or the start of a path
-        if (
-          this.check(TokenType.MINUS) ||
-          this.check(TokenType.FORWARD_ARROW) ||
-          this.check(TokenType.BACKWARD_ARROW)
-        ) {
-          // This is a path - parse the relationship and end node
-          const relationship = this.parseRelationshipPattern();
-          const endNode = this.parseNodePattern();
-
-          // Create a relationship pattern
-          patterns.push({
-            fromNode: { type: 'variable', name: node.variable! },
-            relationship,
-            toNode: { type: 'variable', name: endNode.variable! }
-          });
-        } else {
-          // This is a standalone node
-          patterns.push({ node });
-        }
-      }
+    const firstPattern = this.parseCreatePattern();
+    if (firstPattern) {
+      patterns.push(firstPattern);
     }
 
     // Parse additional patterns separated by commas OR additional CREATE tokens
     while (this.match(TokenType.COMMA) || this.match(TokenType.CREATE)) {
-      if (this.check(TokenType.OPEN_PAREN)) {
-        const firstChar = this.currentToken.value;
-
-        if (firstChar === '(') {
-          // Parse node or path
-          const node = this.parseNodePattern();
-
-          // Check if this is a standalone node or the start of a path
-          if (
-            this.check(TokenType.MINUS) ||
-            this.check(TokenType.FORWARD_ARROW) ||
-            this.check(TokenType.BACKWARD_ARROW)
-          ) {
-            // This is a path
-            const relationship = this.parseRelationshipPattern();
-            const endNode = this.parseNodePattern();
-
-            patterns.push({
-              fromNode: { type: 'variable', name: node.variable! },
-              relationship,
-              toNode: { type: 'variable', name: endNode.variable! }
-            });
-          } else {
-            // This is a standalone node
-            patterns.push({ node });
-          }
-        }
+      const nextPattern = this.parseCreatePattern();
+      if (nextPattern) {
+        patterns.push(nextPattern);
       }
     }
 
@@ -1020,26 +1035,29 @@ export class Parser {
   }
 
   /**
+   * Parses a single property setting (e.g., n.property = value)
+   * @returns The parsed property setting
+   */
+  private parsePropertySetting(): PropertySetting {
+    const target = this.parseVariableExpression();
+    this.consume(TokenType.DOT, "Expected '.' after variable");
+    const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
+    this.consume(TokenType.EQUALS, "Expected '=' after property name");
+    const value = this.parseExpression();
+
+    return { target, property, value };
+  }
+
+  /**
    * Parses a SET clause
    * @returns The parsed SET clause
    */
   private parseSetClause(): SetClause {
-    const parsePropertySetting = (): PropertySetting => {
-      const target = this.parseVariableExpression();
-      this.consume(TokenType.DOT, "Expected '.' after variable");
-      const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-      this.consume(TokenType.EQUALS, "Expected '=' after property name");
-      const value = this.parseExpression();
-
-      return { target, property, value };
-    };
-
-    const settings = this.parseList(
-      parsePropertySetting,
-      [TokenType.COMMA, TokenType.SET]
+    return this.parseClauseWithList(
+      () => this.parsePropertySetting(),
+      TokenType.SET,
+      settings => ({ settings })
     );
-
-    return { settings };
   }
 
   /**
@@ -1048,12 +1066,11 @@ export class Parser {
    * @returns The parsed DELETE clause
    */
   private parseDeleteClause(detach: boolean): DeleteClause {
-    const variables = this.parseList(
+    return this.parseClauseWithList(
       () => this.parseVariableExpression(),
-      [TokenType.COMMA, TokenType.DELETE]
+      TokenType.DELETE,
+      variables => ({ variables, detach })
     );
-
-    return { variables, detach };
   }
 
   /**
@@ -1061,12 +1078,11 @@ export class Parser {
    * @returns The parsed RETURN clause
    */
   private parseReturnClause(): ReturnClause {
-    const items = this.parseList(
+    return this.parseClauseWithList(
       () => this.parseReturnItem(),
-      [TokenType.COMMA, TokenType.RETURN]
+      TokenType.RETURN,
+      items => ({ items })
     );
-
-    return { items };
   }
 
   /**
@@ -1074,18 +1090,13 @@ export class Parser {
    * @returns The parsed return item
    */
   private parseReturnItem(): ReturnItem {
-    // Parse the expression (variable or property access)
+    // Parse the variable expression
     const variable = this.parseVariableExpression();
 
     // Check if this is a property access
     let expression: VariableExpression | PropertyExpression = variable;
     if (this.match(TokenType.DOT)) {
-      const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
-      expression = {
-        type: 'property',
-        object: variable,
-        property
-      };
+      expression = this.parsePropertyAccess(variable);
     }
 
     // Check for AS alias (not implemented yet, for future extension)
@@ -1102,6 +1113,20 @@ export class Parser {
   private parseVariableExpression(): VariableExpression {
     const name = this.consume(TokenType.IDENTIFIER, "Expected variable name").value;
     return { type: 'variable', name };
+  }
+
+  /**
+   * Parses a property access expression (e.g., n.property)
+   * @param variable The variable expression to access property from
+   * @returns The parsed property expression
+   */
+  private parsePropertyAccess(variable: VariableExpression): PropertyExpression {
+    const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
+    return {
+      type: 'property',
+      object: variable,
+      property
+    };
   }
 
   /**
