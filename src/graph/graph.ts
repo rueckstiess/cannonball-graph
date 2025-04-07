@@ -151,236 +151,16 @@ export interface GraphData<NodeData = any, EdgeData = any> {
 
 
 /**
- * Main Graph interface defining operations on a directed, labeled graph
+ * Graph
+ * 
+ * This provides a generic, directed graph with labeled nodes and edges.
+ * Each node and edge can have associated data.
+ * 
  * @template NodeData Type of data associated with nodes
  * @template EdgeData Type of data associated with edges
  */
-export interface Graph<NodeData = any, EdgeData = any> {
-  // Node operations
 
-  /**
-   * Add a node to the graph
-   * @param id Unique identifier for the node
-   * @param label Label of the node
-   * @param data Data to associate with the node
-   * @throws Error if a node with the same ID already exists
-   */
-  addNode(id: NodeId, label: string, data: NodeData): void;
-
-  /**
-   * Get a node by its ID
-   * @param id The node ID to look up
-   * @returns The node object or undefined if not found
-   */
-  getNode(id: NodeId): Node<NodeData> | undefined;
-
-  /** 
-   * Get the label of a node
-   * @param id The node ID to look up
-   * @returns The label of the node or undefined if not found
-   */
-  getNodeLabel(id: NodeId): string;
-
-  /**
-   * Check if a node exists in the graph
-   * @param id The node ID to check
-   * @returns True if the node exists, false otherwise
-   */
-  hasNode(id: NodeId): boolean;
-
-  /**
-   * Update a node's data
-   * @param id The ID of the node to update
-   * @param data The new data to associate with the node
-   * @returns True if the node was updated, false if it doesn't exist
-   */
-  updateNodeData(id: NodeId, data: NodeData): boolean;
-
-  /**
-   * Change the label of a node
-   * @param id The ID of the node to update
-   * @param label The new label to associate with the node
-   * @returns True if the node was updated, false if it doesn't exist
-   */
-  updateNodeLabel(id: NodeId, label: string): boolean;
-
-  /**
-   * Remove a node and all its connected edges
-   * @param id The ID of the node to remove
-   * @returns True if the node was removed, false if it doesn't exist
-   */
-  removeNode(id: NodeId): boolean;
-
-  /**
-   * Get all nodes in the graph
-   * @returns Array of all nodes
-   */
-  getAllNodes(): Node<NodeData>[];
-
-  /**
-   * Find nodes that match a predicate
-   * @param predicate Function that tests each node
-   * @returns Array of nodes that satisfy the predicate
-   */
-  findNodes(predicate: (node: Node<NodeData>) => boolean): Node<NodeData>[];
-
-  // Edge operations
-
-  /**
-   * Add an edge between two nodes
-   * @param source ID of the source node
-   * @param target ID of the target node
-   * @param label Type or category of the relationship
-   * @param data Data to associate with the edge
-   * @throws Error if either node doesn't exist or the edge already exists
-   */
-  addEdge(source: NodeId, target: NodeId, label: string, data: EdgeData): void;
-
-  /**
-   * Get an edge by source, target, and label
-   * @param source ID of the source node
-   * @param target ID of the target node
-   * @param label Type of the relationship
-   * @returns The edge object or undefined if not found
-   */
-  getEdge(
-    source: NodeId,
-    target: NodeId,
-    label: string,
-  ): Edge<EdgeData> | undefined;
-
-  /**
-   * Check if an edge exists
-   * @param source ID of the source node
-   * @param target ID of the target node
-   * @param label Optional label to check. If not provided, checks if any edge exists between source and target.
-   * @returns True if the edge exists, false otherwise
-   */
-  hasEdge(source: NodeId, target: NodeId, label?: string): boolean;
-
-  /**
-   * Update an edge's data
-   * @param source ID of the source node
-   * @param target ID of the target node
-   * @param label Type of the relationship
-   * @param data The new data to associate with the edge
-   * @returns True if the edge was updated, false if it doesn't exist
-   */
-  updateEdge(
-    source: NodeId,
-    target: NodeId,
-    label: string,
-    data: EdgeData,
-  ): boolean;
-
-  /**
-   * Remove an edge from the graph
-   * @param source ID of the source node
-   * @param target ID of the target node
-   * @param label Optional label to specify which edge to remove. If not provided, removes all edges between source and target.
-   * @returns True if any edge was removed, false otherwise
-   */
-  removeEdge(source: NodeId, target: NodeId, label?: string): boolean;
-
-  /**
-   * Get all edges in the graph
-   * @returns Array of all edges
-   */
-  getAllEdges(): Edge<EdgeData>[];
-
-  /**
-   * Find edges that match a predicate
-   * @param predicate Function that tests each edge
-   * @returns Array of edges that satisfy the predicate
-   */
-  findEdges(predicate: (edge: Edge<EdgeData>) => boolean): Edge<EdgeData>[];
-
-  // Traversal operations
-
-  /**
-   * Get all neighbor nodes of a node
-   * @param id The ID of the node
-   * @param direction Which edges to follow: outgoing, incoming, or both
-   * @returns Array of neighbor nodes
-   */
-  getNeighbors(
-    id: NodeId,
-    direction?: EdgeDirection,
-  ): Node<NodeData>[];
-
-  /**
-   * Get all edges connected to a node
-   * @param id The ID of the node
-   * @param direction Which edges to include: outgoing, incoming, or both
-   * @returns Array of connected edges
-   */
-  getEdgesForNode(
-    id: NodeId,
-    direction?: EdgeDirection,
-  ): Edge<EdgeData>[];
-
-  /**
-   * Find paths between two nodes
-   * @param start ID of the start node
-   * @param end ID of the end node
-   * @param options Configuration for path finding
-   * @returns Array of paths, where each path is an array of node IDs
-   */
-  findPaths(start: NodeId, end: NodeId, options?: PathOptions): NodeId[][];
-
-  /**
-   * Perform a breadth-first traversal of the graph starting from a node
-   * @param startNodeId ID of the node to start traversal from
-   * @param visitor Visitor that handles traversal events
-   * @param options Configuration for the traversal
-   */
-  traverseBFS(
-    startNodeId: NodeId,
-    visitor: BFSVisitor<NodeData, EdgeData>,
-    options?: BFSOptions
-  ): void;
-
-  /**
-   * Find all paths from a start node that match a pattern
-   * @param startNodeId ID of the node to start traversal from
-   * @param visitor Visitor that defines the pattern to match
-   * @param options Configuration for the search
-   * @returns Array of paths that match the pattern
-   */
-  findMatchingPaths(
-    startNodeId: NodeId,
-    visitor: BFSVisitor<NodeData, EdgeData>,
-    options?: BFSOptions
-  ): Path<NodeData, EdgeData>[];
-
-  // Graph-wide operations
-
-  /**
-   * Clear all nodes and edges from the graph
-   */
-  clear(): void;
-
-  /**
-   * Convert the graph to a serializable object
-   * @returns An object with nodes and edges that can be serialized
-   */
-  toJSON(): GraphData<NodeData, EdgeData>;
-
-  /**
-   * Load the graph from a serialized object
-   * @param data The serialized graph data
-   */
-  fromJSON(data: GraphData<NodeData, EdgeData>): void;
-}
-
-
-/**
- * Implementation of the Graph interface.
- *
- * This provides a generic, directed graph with labeled edges.
- * Each node and edge can have associated data.
- */
-export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, EdgeData> {
+export class Graph<NodeData = any, EdgeData = any> {
   // Maps node IDs to their node data
   private nodes: Map<NodeId, NodeData>;
   private nodeLabels: Map<NodeId, string>;
@@ -402,6 +182,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
 
   /**
    * Returns the full node object including its label and data.
+   * @private
    * @param id The ID of the node to retrieve
    * @returns The full node object or undefined if not found
    */
@@ -415,8 +196,11 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   // Node operations
 
   /**
-   * Add a node to the graph.
-   * @throws Error if node with same ID already exists
+   * Add a node to the graph
+   * @param id Unique identifier for the node
+   * @param label Label of the node
+   * @param data Data to associate with the node
+   * @throws Error if a node with the same ID already exists
    */
   addNode(id: NodeId, label: string, data: NodeData): void {
     if (this.nodes.has(id)) {
@@ -429,16 +213,18 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Get a node by its ID.
-   * @returns The node or undefined if not found
+   * Get a node by its ID
+   * @param id The node ID to look up
+   * @returns The node object or undefined if not found
    */
   getNode(id: NodeId): Node<NodeData> | undefined {
     return this.getFullNode(id);
   }
 
   /**
-   * Get the label of a node.
-   * @returns The label or undefined if not found
+   * Get the label of a node
+   * @param id The node ID to look up
+   * @returns The label of the node or undefined if not found
    */
   getNodeLabel(id: NodeId): string {
     const label = this.nodeLabels.get(id);
@@ -449,15 +235,19 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Check if a node exists.
+   * Check if a node exists in the graph
+   * @param id The node ID to check
+   * @returns True if the node exists, false otherwise
    */
   hasNode(id: NodeId): boolean {
     return this.nodes.has(id);
   }
 
   /**
-   * Update a node's data.
-   * @returns true if the node was updated, false if it doesn't exist
+   * Update a node's data
+   * @param id The ID of the node to update
+   * @param data The new data to associate with the node
+   * @returns True if the node was updated, false if it doesn't exist
    */
   updateNodeData(id: NodeId, data: NodeData): boolean {
     if (!this.nodes.has(id)) {
@@ -469,8 +259,10 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Update a node's label.
-   * @returns true if the node was updated, false if it doesn't exist
+   * Change the label of a node
+   * @param id The ID of the node to update
+   * @param label The new label to associate with the node
+   * @returns True if the node was updated, false if it doesn't exist
    */
   updateNodeLabel(id: NodeId, label: string): boolean {
     if (!this.nodes.has(id)) {
@@ -482,8 +274,9 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Remove a node and all its connected edges.
-   * @returns true if the node was removed, false if it doesn't exist
+   * Remove a node and all its connected edges
+   * @param id The ID of the node to remove
+   * @returns True if the node was removed, false if it doesn't exist
    */
   removeNode(id: NodeId): boolean {
     if (!this.nodes.has(id)) return false;
@@ -506,8 +299,10 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
     this.nodeLabels.delete(id);
     return true;
   }
+
   /**
-   * Get all nodes in the graph.
+   * Get all nodes in the graph
+   * @returns Array of all nodes
    */
   getAllNodes(): Node<NodeData>[] {
     return Array.from(this.nodes.keys())
@@ -515,9 +310,10 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
       .filter(Boolean);
   }
 
-
   /**
-   * Find nodes that match a predicate.
+   * Find nodes that match a predicate
+   * @param predicate Function that tests each node
+   * @returns Array of nodes that satisfy the predicate
    */
   findNodes(predicate: (node: Node<NodeData>) => boolean): Node<NodeData>[] {
     const result: Node<NodeData>[] = [];
@@ -533,7 +329,11 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   // Edge operations
 
   /**
-   * Add an edge between two nodes.
+   * Add an edge between two nodes
+   * @param source ID of the source node
+   * @param target ID of the target node
+   * @param label Type or category of the relationship
+   * @param data Data to associate with the edge
    * @throws Error if either node doesn't exist or the edge already exists
    */
   addEdge(source: NodeId, target: NodeId, label: string, data: EdgeData): void {
@@ -585,8 +385,11 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Get an edge by source, target, and label.
-   * @returns The edge or undefined if not found
+   * Get an edge by source, target, and label
+   * @param source ID of the source node
+   * @param target ID of the target node
+   * @param label Type of the relationship
+   * @returns The edge object or undefined if not found
    */
   getEdge(
     source: NodeId,
@@ -612,8 +415,11 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Check if an edge exists.
-   * If label is not provided, checks if any edge exists between source and target.
+   * Check if an edge exists
+   * @param source ID of the source node
+   * @param target ID of the target node
+   * @param label Optional label to check. If not provided, checks if any edge exists between source and target.
+   * @returns True if the edge exists, false otherwise
    */
   hasEdge(source: NodeId, target: NodeId, label?: string): boolean {
     const sourceOutgoing = this.outgoingEdges.get(source);
@@ -634,8 +440,12 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Update an edge's data.
-   * @returns true if the edge was updated, false if it doesn't exist
+   * Update an edge's data
+   * @param source ID of the source node
+   * @param target ID of the target node
+   * @param label Type of the relationship
+   * @param data The new data to associate with the edge
+   * @returns True if the edge was updated, false if it doesn't exist
    */
   updateEdge(
     source: NodeId,
@@ -670,9 +480,11 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Remove an edge.
-   * If label is not provided, removes all edges between source and target.
-   * @returns true if any edge was removed, false if none existed
+   * Remove an edge from the graph
+   * @param source ID of the source node
+   * @param target ID of the target node
+   * @param label Optional label to specify which edge to remove. If not provided, removes all edges between source and target.
+   * @returns True if any edge was removed, false otherwise
    */
   removeEdge(source: NodeId, target: NodeId, label?: string): boolean {
     // Check if source node has any outgoing edges
@@ -727,7 +539,8 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Get all edges in the graph.
+   * Get all edges in the graph
+   * @returns Array of all edges
    */
   getAllEdges(): Edge<EdgeData>[] {
     const result: Edge<EdgeData>[] = [];
@@ -744,7 +557,9 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Find edges that match a predicate.
+   * Find edges that match a predicate
+   * @param predicate Function that tests each edge
+   * @returns Array of edges that satisfy the predicate
    */
   findEdges(predicate: (edge: Edge<EdgeData>) => boolean): Edge<EdgeData>[] {
     const result: Edge<EdgeData>[] = [];
@@ -766,8 +581,9 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   // Traversal operations
 
   /**
-   * Get all neighbor nodes of a node.
-   * @param direction - Which edges to follow: outgoing, incoming, or both
+   * Get all neighbor nodes of a node
+   * @param id The ID of the node
+   * @param direction Which edges to follow: outgoing, incoming, or both
    * @returns Array of neighbor nodes
    */
   getNeighbors(
@@ -813,9 +629,10 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Get all edges connected to a node.
-   * @param direction - Which edges to include: outgoing, incoming, or both
-   * @returns Array of edges
+   * Get all edges connected to a node
+   * @param id The ID of the node
+   * @param direction Which edges to include: outgoing, incoming, or both
+   * @returns Array of connected edges
    */
   getEdgesForNode(
     id: NodeId,
@@ -851,8 +668,10 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Find paths between two nodes.
-   * @param options - Configuration for path finding
+   * Find paths between two nodes
+   * @param start ID of the start node
+   * @param end ID of the end node
+   * @param options Configuration for path finding
    * @returns Array of paths, where each path is an array of node IDs
    */
   findPaths(start: NodeId, end: NodeId, options: PathOptions = {}): NodeId[][] {
@@ -973,7 +792,8 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
 
 
   /**
-   * Load the graph from a serialized object.
+   * Convert the graph to a serializable object
+   * @returns An object with nodes and edges that can be serialized
    */
   toJSON(): GraphData<NodeData, EdgeData> {
     const nodes = this.getAllNodes().map(({ id, label, data }) => ({ id, label, data }));
@@ -982,7 +802,8 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
   }
 
   /**
-   * Load the graph from a serialized object.
+   * Load the graph from a serialized object
+   * @param data The serialized graph data
    */
   fromJSON(data: GraphData<NodeData, EdgeData>): void {
     this.clear();
@@ -996,8 +817,7 @@ export class Graph<NodeData = any, EdgeData = any> implements Graph<NodeData, Ed
 
 
   /**
-   * Perform a breadth-first traversal of the graph starting from a node.
-   * 
+   * Perform a breadth-first traversal of the graph starting from a node
    * @param startNodeId ID of the node to start traversal from
    * @param visitor Visitor that handles traversal events
    * @param options Configuration for the traversal
