@@ -8,6 +8,9 @@ import {
   ASTDeleteNode
 } from '@/lang/ast-transformer';
 
+import { CypherStatement } from '@/lang/parser';
+import { NodePattern } from '@/lang/pattern-matcher';
+
 /**
  * Represents the result of an action execution
  */
@@ -246,6 +249,81 @@ export class ActionFactory<NodeData = any, EdgeData = any> {
         actions.push(this.createDeleteActionFromAst(node));
       }
       // MATCH and WHERE clauses are handled earlier in the pattern matching phase
+    }
+
+    return actions;
+  }
+
+  private getOrSetNodeVar(node: NodePattern): string {
+    if (node.variable) {
+      return node.variable;
+    } else {
+      return '_anonymous_' + Math.random().toString(36).substring(2, 10);
+    }
+  }
+
+  /**
+   * Creates actions from a Cypher statement
+   * 
+   * @param statement The Cypher statement 
+   * @returns A list of actions to execute
+   */
+  createActionsFromCypherStatement(statement: CypherStatement): QueryAction<NodeData, EdgeData>[] {
+    const actions: QueryAction<NodeData, EdgeData>[] = [];
+
+    if (statement.create) {
+      for (const pattern of statement.create.patterns) {
+        if ('node' in pattern) {
+          // Create a node action
+          const nodeVar = this.getOrSetNodeVar(pattern.node);
+          actions.push(new CreateNodeAction(
+            nodeVar,
+            pattern.node.labels,
+            pattern.node.properties
+          ));
+        } else {
+          // Create node and relationship actions
+          const fromVar = this.getOrSetNodeVar(pattern.fromNode.node);
+          const toVar = this.getOrSetNodeVar(pattern.toNode.node);
+
+          actions.push(new CreateNodeAction(
+            fromVar,
+            pattern.fromNode.node.labels,
+            pattern.fromNode.node.properties
+          ));
+          actions.push(new CreateNodeAction(
+            toVar,
+            pattern.toNode.node.labels,
+            pattern.toNode.node.properties
+          ));
+          actions.push(new CreateRelationshipAction(
+            fromVar,
+            toVar,
+            pattern.relationship.type || '',
+            pattern.relationship.properties,
+          ));
+        }
+      }
+    }
+
+    if (statement.set) {
+      for (const setting of statement.set.settings) {
+        actions.push(new SetPropertyAction(
+          setting.target.name,
+          setting.property,
+          setting.value
+        ));
+      }
+    }
+
+    if (statement.delete) {
+      console.log('delete', statement.delete);
+      for (const variable of statement.delete.variables) {
+        actions.push(new DeleteAction(
+          [variable.name],
+          statement.delete.detach || false
+        ));
+      }
     }
 
     return actions;

@@ -158,11 +158,11 @@ export interface CreateNode {
  */
 export interface CreateRelationship {
   /** The starting node (must be a variable that was matched earlier) */
-  fromNode: VariableExpression;
+  fromNode: CreateNode;
   /** The relationship pattern to create */
   relationship: RelationshipPattern;
   /** The ending node (must be a variable that was matched earlier) */
-  toNode: VariableExpression;
+  toNode: CreateNode;
 }
 
 /**
@@ -484,7 +484,12 @@ export class Parser {
     const { direction: initialDirection } = this.parseRelationshipDirection();
 
     // Initialize relationship with default values
-    const relationship = this.initializeRelationship(initialDirection);
+    const relationship: RelationshipPattern = {
+      properties: {},
+      direction: initialDirection,
+      minHops: 1,
+      maxHops: 1
+    };
 
     // Parse relationship details if present
     if (this.match(TokenType.OPEN_BRACKET)) {
@@ -517,19 +522,6 @@ export class Parser {
     this.currentToken = this.lexer.next();
   }
 
-  /**
-   * Initializes a relationship object with default values
-   * @param direction Initial direction
-   * @returns A relationship pattern object
-   */
-  private initializeRelationship(direction: 'outgoing' | 'incoming' | 'both'): RelationshipPattern {
-    return {
-      properties: {},
-      direction,
-      minHops: 1,
-      maxHops: 1
-    };
-  }
 
   /**
    * Parses relationship direction indicators (->, <-, -)
@@ -986,7 +978,7 @@ export class Parser {
     }
 
     // Parse the node
-    const node = this.parseNodePattern();
+    const startNode = this.parseNodePattern();
 
     // Check if this is a standalone node or the start of a path
     if (
@@ -1000,13 +992,13 @@ export class Parser {
 
       // Create a relationship pattern
       return {
-        fromNode: { type: 'variable', name: node.variable! },
+        fromNode: { node: startNode },
         relationship,
-        toNode: { type: 'variable', name: endNode.variable! }
+        toNode: { node: endNode }
       };
     } else {
       // This is a standalone node
-      return { node };
+      return { node: startNode };
     }
   }
 

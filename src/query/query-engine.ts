@@ -211,18 +211,19 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
       // 3. Execute actions if present (CREATE/SET/DELETE)
       if (hasWriteOps) {
         // Transform to AST for action creation
-        const ast = transformToCypherAst(
-          cypherStatement,
-          'unnamed', // Default name for ad-hoc statements
-          '', // Empty description
-          0, // Default priority
-          false // Not disabled
-        );
+        // const ast = transformToCypherAst(
+        //   cypherStatement,
+        //   'unnamed', // Default name for ad-hoc statements
+        //   '', // Empty description
+        //   0, // Default priority
+        //   false // Not disabled
+        // );
 
-        console.log('AST:', inspect(ast));
+        // console.log('AST:', inspect(ast));
 
         // Convert AST CREATE/SET/DELETE clauses to actions
-        const actions = this.actionFactory.createActionsFromQueryAst(ast);
+        // const actions = this.actionFactory.createActionsFromQueryAst(ast);
+        const actions = this.actionFactory.createActionsFromCypherStatement(cypherStatement);
 
         // Group actions by type to process them in the correct order
         // Order: CREATE_NODE -> CREATE_RELATIONSHIP -> SET_PROPERTY -> DELETE
