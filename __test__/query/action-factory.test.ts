@@ -141,7 +141,7 @@ describe('ActionFactory', () => {
       ]
     };
 
-    const actions = factory.createActionsFromRuleAst(ruleAst);
+    const actions = factory.createActionsFromQueryAst(ruleAst);
 
     expect(actions).toHaveLength(4);
 

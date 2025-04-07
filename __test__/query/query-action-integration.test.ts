@@ -99,7 +99,7 @@ describe('Rule Action Integration Tests', () => {
 
   test('End-to-end rule execution with multiple actions', () => {
     // 1. Create actions from rule AST
-    const actions = factory.createActionsFromRuleAst(mockRuleAst as ASTQueryRoot);
+    const actions = factory.createActionsFromQueryAst(mockRuleAst as ASTQueryRoot);
 
     // Verify actions were created correctly
     expect(actions.length).toBe(4);

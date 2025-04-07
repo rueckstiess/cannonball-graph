@@ -7,7 +7,7 @@ import { ActionFactory, ActionExecutor } from './query-action';
 // Export interfaces
 export * from './query-action';
 
-// Re-export rule engine types
+// Re-export query engine types
 export * from './query-engine';
 
 // Export query-related types and classes
@@ -26,7 +26,7 @@ export * from './query-utils';
  * import { createActionFactory } from '@/query';
  * 
  * const factory = createActionFactory();
- * const actions = factory.createActionsFromRuleAst(ruleAst);
+ * const actions = factory.createActionsFromQueryAst(queryAst);
  * ```
  */
 export function createActionFactory<NodeData = any, EdgeData = any>() {
@@ -58,8 +58,8 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
 }
 
 /**
- * Creates a new rule engine for end-to-end rule execution.
- * The rule engine integrates all components of the rule system.
+ * Creates a new query engine for end-to-end query execution.
+ * The query engine integrates all components of the query system.
  * 
  * @returns A new QueryEngine instance
  * 

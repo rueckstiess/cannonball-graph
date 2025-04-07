@@ -219,7 +219,7 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
         );
 
         // Convert AST CREATE/SET/DELETE clauses to actions
-        const actions = this.actionFactory.createActionsFromRuleAst(ast);
+        const actions = this.actionFactory.createActionsFromQueryAst(ast);
 
         // Group actions by type to process them in the correct order
         // Order: CREATE_NODE -> CREATE_RELATIONSHIP -> SET_PROPERTY -> DELETE

@@ -17,7 +17,7 @@
     "test:performance": "node --experimental-vm-modules node_modules/.bin/jest -t performance --no-coverage",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
-    "example:rule-engine": "npx tsx -r tsconfig-paths/register ./src/examples/rule-engine-example.ts",
+    "example:query-engine": "npx tsx -r tsconfig-paths/register ./src/examples/query-engine-example.ts",
     "example:graph": "npx tsx -r tsconfig-paths/register ./src/examples/graph-example.ts",
     "example:query": "npx tsx -r tsconfig-paths/register ./src/examples/query-example.ts",
     "prepublishOnly": "npm run build"

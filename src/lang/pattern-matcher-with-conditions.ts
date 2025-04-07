@@ -1,4 +1,4 @@
-// This file extends src/rules/pattern-matcher.ts with condition evaluation capabilities
+// This file extends src/query/pattern-matcher.ts with condition evaluation capabilities
 
 import { Graph, Node, Path, NodeId } from '@/graph';
 import { Expression, WhereClause } from './parser';

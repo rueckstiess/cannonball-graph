@@ -224,7 +224,7 @@ export interface ActionExecutionResult<NodeData = any, EdgeData = any> {
 
 
 /**
- * Factory for creating rule actions from AST nodes
+ * Factory for creating query actions from AST nodes
  */
 export class ActionFactory<NodeData = any, EdgeData = any> {
 
@@ -320,18 +320,18 @@ export class ActionFactory<NodeData = any, EdgeData = any> {
   }
 
   /**
-   * Creates actions from a rule AST
+   * Creates actions from a query AST
    * 
-   * @param ruleAst The AST of the rule
+   * @param queryAst The AST of the query
    * @returns A list of actions to execute
    */
-  createActionsFromRuleAst(
-    ruleAst: ASTQueryRoot
+  createActionsFromQueryAst(
+    queryAst: ASTQueryRoot
   ): QueryAction<NodeData, EdgeData>[] {
     const actions: QueryAction<NodeData, EdgeData>[] = [];
 
-    // Process each child node in the rule AST
-    for (const node of ruleAst.children) {
+    // Process each child node in the query AST
+    for (const node of queryAst.children) {
       if (node.type === 'create') {
         // Process CREATE clause
         for (const createPattern of node.children) {
@@ -1223,7 +1223,7 @@ export interface ActionExecutionResult<NodeData = any, EdgeData = any> {
   error?: string;
 }
 /**
- * Factory for creating rule actions from AST nodes
+ * Factory for creating query actions from AST nodes
  */
 
 export interface ActionFactory<NodeData = any, EdgeData = any> {
@@ -1260,10 +1260,10 @@ export interface ActionFactory<NodeData = any, EdgeData = any> {
   createDeleteActionFromAst(deleteAst: any): DeleteAction<NodeData, EdgeData>;
 
   /**
-   * Creates actions from a rule AST
+   * Creates actions from a query AST
    *
-   * @param ruleAst The AST of the rule
+   * @param queryAst The AST of the query
    * @returns A list of actions to execute
    */
-  createActionsFromRuleAst(ruleAst: any): QueryAction<NodeData, EdgeData>[];
+  createActionsFromQueryAst(queryAst: any): QueryAction<NodeData, EdgeData>[];
 }

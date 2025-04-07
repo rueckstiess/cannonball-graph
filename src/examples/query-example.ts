@@ -5,7 +5,7 @@ console.log('=======================================');
 console.log('Cannonball Query Functionality Example');
 console.log('=======================================\n');
 
-// Initialize graph, rule engine, and query utilities
+// Initialize graph, query engine, and query utilities
 const graph = new Graph();
 const engine = createQueryEngine();
 const formatter = createQueryFormatter();
