@@ -110,7 +110,7 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @param options Formatting options
    * @returns A JSON string
    */
-  toJson(
+  toJSON(
     result: QueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {

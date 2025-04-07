@@ -234,7 +234,7 @@ const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name')
 // Format query results
 const formatter = createQueryFormatter();
 const markdownTable = formatter.toMarkdownTable(queryResult);
-const jsonOutput = formatter.toJson(queryResult);
+const jsonOutput = formatter.toJSON(queryResult);
 const textTable = formatter.toTextTable(queryResult);
 
 // Work with query results

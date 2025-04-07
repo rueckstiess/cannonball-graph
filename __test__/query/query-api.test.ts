@@ -68,7 +68,7 @@ describe('Query API', () => {
       expect(markdown).toContain('| "Alice" | 30 |');
 
       // Check the JSON formatting
-      const json = formatter.toJson(result);
+      const json = formatter.toJSON(result);
       const parsed = JSON.parse(json);
       expect(parsed.success).toBe(true);
       expect(parsed.matchCount).toBe(2);
@@ -127,9 +127,9 @@ describe('Query API', () => {
       expect(textTable).toContain('25');
     });
 
-    test('toJson formats query results as JSON', () => {
+    test('toJSON formats query results as JSON', () => {
       const queryResult = engine.executeQuery(graph, 'MATCH (p:Person) RETURN p.name, p.age');
-      const json = formatter.toJson(queryResult);
+      const json = formatter.toJSON(queryResult);
       const parsed = JSON.parse(json);
 
       // Check the JSON structure
@@ -147,7 +147,7 @@ describe('Query API', () => {
       expect(formatter.toMarkdownTable(emptyResult)).toBe('No results');
       expect(formatter.toTextTable(emptyResult)).toBe('No results');
 
-      const json = formatter.toJson(emptyResult);
+      const json = formatter.toJSON(emptyResult);
       const parsed = JSON.parse(json);
       expect(parsed.matchCount).toBe(0);
       // In the unified API, query data is under the 'query' property

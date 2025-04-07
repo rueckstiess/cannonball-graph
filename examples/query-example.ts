@@ -110,7 +110,7 @@ console.log(`Query: ${jsonQuery}`);
 console.log(`Success: ${jsonResult.success}`);
 console.log(`Matches found: ${jsonResult.matchCount}`);
 console.log('Results as JSON:');
-console.log(formatter.toJson(jsonResult, { prettyPrint: true }));
+console.log(formatter.toJSON(jsonResult, { prettyPrint: true }));
 
 // -------------------------------------------------------------------------
 // Subgraph creation

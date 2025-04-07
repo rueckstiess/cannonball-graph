@@ -1,32 +1,11 @@
-# Cannonball - An AI-powered productivity system integrated into Obsidian
-
-## High-level concepts
-
-- **Tree to Graph**: I want to be able to write Markdown quickly in Obsidian. The Markdown represents a directed labeled graph which we induce from the Markdown AST. 
-- **Markdown**: Any state of the graph can be represented as an Obsidian Note (even more specifically, a bullet point list) in Markdown format, with some custom additions to define different node types and cross-referencing nodes.
-- **AI assistance**: We integrate LLMs into the system, which can navigate the graph, search, filter, answer questions, and even make changes to the graph (via Markdown edits) These changes can be reviewed by a human before being applied (diff view). 
-- **Obsidian Integration**: The system is written as a plugin in Obsidian and updates the markdown in the editor. We can view the graph with Obsidian's graph view. It also plays nice with popular plugins, like dataview, kanban, mininal. 
-- The implementation is in TypeScript, with clean structured interfaces for graph nodes and edges. It uses remark/mdast utilities to parse and stringify the markdown. 
+# cannonball-graph
 
 ## Project Structure
 
-- **Graph Module** (`src/graph/`): Core graph data structure implementation with comprehensive interface
-  - `types.ts`: Defines Node, Edge, and Graph interfaces
-  - `graph.ts`: Implements GraphImpl with all graph operations
-  - Current branch: `rule-parser` - Working on rule system implementation
-
-- **Rules Module** (`src/rules/`): Implementation of the graph transformation rule system
-  - `types.ts`: Defines Rule interface and extraction options
-  - `rule-parser.ts`: Implements rule extraction from Markdown blocks
-  - Currently implements Step 1.1 (Rule Block Extraction) from the implementation plan
-
-- **Specifications** (`specs/`):
-  - `graph.md`: Graph component specification
-  - `rules.md`: Rule system specification with Cypher-like query language
 
 ## Development Process Guidelines
 
-When helping with the Cannonball project, please follow this structured development process:
+When helping with the `cannonball-graph` project, please follow this structured development process:
 
 1. **Specification First**: Begin by writing or discussing specifications for each component before coding. Include clear requirements, interfaces, and expected behaviors.
 

@@ -94,3 +94,4 @@ console.log('\nPaths from Alice to Diana:\n');
 paths.forEach(path => {
   console.log(path.join(' -> '));
 });
+

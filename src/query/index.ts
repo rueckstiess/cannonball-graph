@@ -122,7 +122,7 @@ export function createQueryEngine<NodeData = any, EdgeData = any>() {
  * const markdownTable = formatter.toMarkdownTable(result);
  * 
  * // Format the results as a JSON string
- * const json = formatter.toJson(result);
+ * const json = formatter.toJSON(result);
  * 
  * // Format the results as a plain text table
  * const textTable = formatter.toTextTable(result);
