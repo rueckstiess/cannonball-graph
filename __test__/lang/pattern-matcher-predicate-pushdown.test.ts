@@ -1,13 +1,13 @@
 import { Graph } from '@/graph';
 import { Lexer } from '@/lang/lexer';
-import { CypherParser } from '@/lang/parser';
+import { Parser } from '@/lang/parser';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
 
 // Helper function to execute a query and return bindings
 const executeQuery = (graph: Graph, query: string): BindingContext[] => {
   const lexer = new Lexer();
-  const parser = new CypherParser(lexer, query);
+  const parser = new Parser(lexer, query);
   const statement = parser.parse();
   const errors = parser.getErrors();
 

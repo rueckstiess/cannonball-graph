@@ -1,4 +1,4 @@
-import { CypherParser } from '../../src/lang/parser';
+import { Parser } from '../../src/lang/parser';
 import { Lexer } from '../../src/lang';
 import {
   TokenType,
@@ -16,17 +16,17 @@ import {
 
 describe('Rule Parser', () => {
 
-  describe('CypherParser utility methods', () => {
-    let parser: CypherParser;
+  describe('Parser utility methods', () => {
+    let parser: Parser;
 
     beforeEach(() => {
-      parser = new CypherParser(new Lexer());
+      parser = new Parser(new Lexer());
     });
 
     describe('error handling', () => {
       it('should capture and return errors', () => {
         const invalidQuery = 'MATCH (a:Person) INVALID_KEYWORD';
-        parser = new CypherParser(new Lexer(), invalidQuery);
+        parser = new Parser(new Lexer(), invalidQuery);
 
         parser.parse();
 
@@ -37,7 +37,7 @@ describe('Rule Parser', () => {
 
       it('should add errors when parsing invalid input', () => {
         const invalidQuery = 'INVALID_KEYWORD';
-        parser = new CypherParser(new Lexer(), invalidQuery);
+        parser = new Parser(new Lexer(), invalidQuery);
 
         // The parser should not throw, but add to errors
         parser.parse();
@@ -52,7 +52,7 @@ describe('Rule Parser', () => {
           'WHERE p.age > 25 AND p.name <> "Jane" ' +
           'SET p.processed = true';
 
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
         const result = parser.parse();
 
         // Verify no parsing errors
@@ -119,7 +119,7 @@ describe('Rule Parser', () => {
       it('should correctly identify node patterns', () => {
         // Test a simple node pattern
         const query = 'MATCH (n:Person)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -131,7 +131,7 @@ describe('Rule Parser', () => {
     describe('error handling for complex queries', () => {
       it('should handle multiple clauses without errors', () => {
         const query = 'MATCH (n:Person) SET n.processed = true';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         // Parse the query
         const result = parser.parse();
@@ -163,7 +163,7 @@ describe('Rule Parser', () => {
       // Testing public API behavior rather than private methods
       it('should parse literals in node patterns', () => {
         const query = 'MATCH (n {name: "hello", age: 123, active: true, parent: null})';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -181,7 +181,7 @@ describe('Rule Parser', () => {
       it('should handle and record errors for invalid literals', () => {
         // Test with a query containing an invalid property value
         const query = 'MATCH (n {prop: invalid})';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         // The parser should handle the error gracefully now
         const result = parser.parse();
@@ -198,7 +198,7 @@ describe('Rule Parser', () => {
         expect(errorMessage).toContain('Expected a literal value');
 
         // Also test for invalid token handling
-        parser = new CypherParser(new Lexer(), 'INVALID_TOKEN');
+        parser = new Parser(new Lexer(), 'INVALID_TOKEN');
         parser.parse();
 
         // Verify the error was recorded
@@ -210,7 +210,7 @@ describe('Rule Parser', () => {
 
     describe('token type conversion methods', () => {
       it('should convert token types to comparison operators', () => {
-        parser = new CypherParser(new Lexer());
+        parser = new Parser(new Lexer());
 
         // @ts-ignore - accessing private method for testing
         expect(parser['tokenTypeToComparisonOperator'](TokenType.EQUALS)).toBe(ComparisonOperator.EQUALS);
@@ -230,7 +230,7 @@ describe('Rule Parser', () => {
       });
 
       it('should convert token types to logical operators', () => {
-        parser = new CypherParser(new Lexer());
+        parser = new Parser(new Lexer());
 
         // @ts-ignore - accessing private method for testing
         expect(parser['tokenTypeToLogicalOperator'](TokenType.AND)).toBe(LogicalOperator.AND);
@@ -251,7 +251,7 @@ describe('Rule Parser', () => {
     describe('property map parsing', () => {
       it('should parse property maps with various data types', () => {
         const query = 'MATCH (n {stringProp: "value", numProp: 123, boolProp: true, nullProp: null})';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
         const properties = result.match?.patterns[0].start.properties;
@@ -265,7 +265,7 @@ describe('Rule Parser', () => {
 
       it('should throw an error for invalid property values', () => {
         const query = 'MATCH (n {prop: invalid})';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         try {
           parser.parse();
@@ -282,7 +282,7 @@ describe('Rule Parser', () => {
     describe('NOT EXISTS expression parsing', () => {
       it('should parse NOT EXISTS expressions', () => {
         const query = 'MATCH (a) WHERE NOT EXISTS((a)-[:KNOWS]->(b))';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -311,7 +311,7 @@ describe('Rule Parser', () => {
     describe('special comparison operators', () => {
       it('should handle NULL expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS NULL';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -337,7 +337,7 @@ describe('Rule Parser', () => {
 
       it('should handle IS NOT NULL expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS NOT NULL';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -363,7 +363,7 @@ describe('Rule Parser', () => {
 
       it('should handle and record errors for invalid IS expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IS INVALID';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         // With error handling, the parser should complete but record errors
         parser.parse();
@@ -378,7 +378,7 @@ describe('Rule Parser', () => {
 
       it('should parse CONTAINS expressions', () => {
         const query = 'MATCH (n) WHERE n.name CONTAINS "substring"';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -404,7 +404,7 @@ describe('Rule Parser', () => {
 
       it('should parse STARTS WITH expressions', () => {
         const query = 'MATCH (n) WHERE n.name STARTS WITH "prefix"';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -430,7 +430,7 @@ describe('Rule Parser', () => {
 
       it('should parse ENDS WITH expressions', () => {
         const query = 'MATCH (n) WHERE n.name ENDS WITH "suffix"';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -456,7 +456,7 @@ describe('Rule Parser', () => {
 
       it('should parse IN expressions', () => {
         const query = 'MATCH (n) WHERE n.prop IN "value"';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -484,7 +484,7 @@ describe('Rule Parser', () => {
     describe('relationship pattern parsing', () => {
       it('should parse relationships', () => {
         const query = 'MATCH (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -506,7 +506,7 @@ describe('Rule Parser', () => {
 
       it('should parse bidirectional relationships', () => {
         const query = 'MATCH (a)-[:KNOWS]-(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -525,7 +525,7 @@ describe('Rule Parser', () => {
 
       it('should parse relationships with variable length paths', () => {
         const query = 'MATCH (a)-[:KNOWS*2..5]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -547,7 +547,7 @@ describe('Rule Parser', () => {
       it('should parse relationships with variable names', () => {
         // Test relationship with explicit variable name 'r'
         const query = 'MATCH (a)-[r:KNOWS]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -578,7 +578,7 @@ describe('Rule Parser', () => {
     describe('CREATE clause parsing', () => {
       it('should parse CREATE node patterns', () => {
         const query = 'CREATE (n:Person {name: "John"})';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -606,7 +606,7 @@ describe('Rule Parser', () => {
 
       it('should parse CREATE relationship patterns', () => {
         const query = 'MATCH (a), (b) CREATE (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -635,7 +635,7 @@ describe('Rule Parser', () => {
 
       it('should parse multiple CREATE patterns', () => {
         const query = 'CREATE (a:Person), (b:Person), (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -647,7 +647,7 @@ describe('Rule Parser', () => {
     describe('SET clause parsing', () => {
       it('should parse SET property expressions', () => {
         const query = 'MATCH (n) SET n.name = "New Name", n.age = 30';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -670,7 +670,7 @@ describe('Rule Parser', () => {
       it('should parse a simple DELETE clause', () => {
         const query = 'DELETE n';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -684,7 +684,7 @@ describe('Rule Parser', () => {
       it('should parse a DELETE clause with multiple variables', () => {
         const query = 'DELETE n, r, m';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -700,7 +700,7 @@ describe('Rule Parser', () => {
       it('should parse a simple DETACH DELETE clause', () => {
         const query = 'DETACH DELETE n';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -714,7 +714,7 @@ describe('Rule Parser', () => {
       it('should parse a DETACH DELETE clause with multiple variables', () => {
         const query = 'DETACH DELETE n, m';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -729,7 +729,7 @@ describe('Rule Parser', () => {
       it('should parse MATCH followed by DELETE', () => {
         const query = 'MATCH (n:Person) DELETE n';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -744,7 +744,7 @@ describe('Rule Parser', () => {
       it('should parse MATCH followed by DETACH DELETE', () => {
         const query = 'MATCH (n:Person) DETACH DELETE n';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         const statement = parser.parse();
 
         expect(parser.getErrors()).toEqual([]);
@@ -760,7 +760,7 @@ describe('Rule Parser', () => {
       it('should report error for DETACH without DELETE', () => {
         const query = 'DETACH n';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         parser.parse();
         expect(parser.getErrors().length).toBeGreaterThan(0);
         expect(parser.getErrors()[0]).toContain("Expected DELETE after DETACH");
@@ -769,7 +769,7 @@ describe('Rule Parser', () => {
       it('should report error for DETACH with MATCH', () => {
         const query = 'DETACH MATCH (n)';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         parser.parse();
         expect(parser.getErrors().length).toBeGreaterThan(0);
         expect(parser.getErrors()[0]).toContain("DETACH cannot be used with MATCH");
@@ -778,7 +778,7 @@ describe('Rule Parser', () => {
       it('should report error for DETACH with CREATE', () => {
         const query = 'DETACH CREATE (n)';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         parser.parse();
         expect(parser.getErrors().length).toBeGreaterThan(0);
         expect(parser.getErrors()[0]).toContain("DETACH cannot be used with CREATE");
@@ -787,7 +787,7 @@ describe('Rule Parser', () => {
       it('should report error for DELETE without variable', () => {
         const query = 'DELETE';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         parser.parse();
         expect(parser.getErrors().length).toBeGreaterThan(0);
         // Error message might vary slightly depending on exact error handling in consume/parseVariableExpression
@@ -797,7 +797,7 @@ describe('Rule Parser', () => {
       it('should report error for DELETE with trailing comma', () => {
         const query = 'DELETE n,';
         const lexer = new Lexer();
-        const parser = new CypherParser(lexer, query);
+        const parser = new Parser(lexer, query);
         parser.parse();
         expect(parser.getErrors().length).toBeGreaterThan(0);
         expect(parser.getErrors()[0]).toContain("Expected variable name");
@@ -808,7 +808,7 @@ describe('Rule Parser', () => {
     describe('EXISTS expression parsing', () => {
       it('should parse EXISTS pattern expressions', () => {
         const query = 'MATCH (a) WHERE EXISTS((a)-[:KNOWS]->(b))';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -829,7 +829,7 @@ describe('Rule Parser', () => {
     describe('Uncovered methods and branches', () => {
       it('should handle multiple node patterns in MATCH clause', () => {
         const query = 'MATCH (a:Person), (b:Project)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
         expect(result.match).toBeDefined();
@@ -838,7 +838,7 @@ describe('Rule Parser', () => {
 
       it('should parse NOT operator in expressions', () => {
         const query = 'MATCH (a) WHERE NOT a.deleted';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -861,7 +861,7 @@ describe('Rule Parser', () => {
       it('should parse property access in expressions', () => {
         // Just use a simpler query to focus on property access
         const query = 'MATCH (a:Person) WHERE a.name';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -886,7 +886,7 @@ describe('Rule Parser', () => {
 
       it('should handle CREATE clauses with multiple patterns', () => {
         const query = 'CREATE (a:Person), (b:Person), (a)-[:KNOWS]->(b)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -923,7 +923,7 @@ describe('Rule Parser', () => {
 
       it('should handle MATCH clauses with multiple patterns', () => {
         const query = 'MATCH (a:Person), (b:Person)';
-        parser = new CypherParser(new Lexer(), query);
+        parser = new Parser(new Lexer(), query);
 
         const result = parser.parse();
 
@@ -947,12 +947,12 @@ describe('Rule Parser', () => {
   });
 });
 
-describe('CypherParser', () => {
-  let parser: CypherParser;
+describe('Parser', () => {
+  let parser: Parser;
 
   describe('Node Pattern Parsing', () => {
     it('should parse simple node pattern', () => {
-      parser = new CypherParser(new Lexer(), '(person)');
+      parser = new Parser(new Lexer(), '(person)');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -963,7 +963,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse node pattern with label', () => {
-      parser = new CypherParser(new Lexer(), '(person:Person)');
+      parser = new Parser(new Lexer(), '(person:Person)');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -974,12 +974,12 @@ describe('CypherParser', () => {
     });
 
     it('should parse node pattern with multiple labels', () => {
-      parser = new CypherParser(new Lexer(), '(person:Person:Employee)');
+      parser = new Parser(new Lexer(), '(person:Person:Employee)');
       expect(() => parser['parseNodePattern']()).toThrow(/single label supported/)
     });
 
     it('should parse node pattern with properties', () => {
-      parser = new CypherParser(new Lexer(), '(person:Person {name: "John", age: 30})');
+      parser = new Parser(new Lexer(), '(person:Person {name: "John", age: 30})');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -993,7 +993,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse anonymous node pattern with label and properties', () => {
-      parser = new CypherParser(new Lexer(), '(:Person {name: "John"})');
+      parser = new Parser(new Lexer(), '(:Person {name: "John"})');
       const result = parser['parseNodePattern']();
 
       expect(result).toEqual({
@@ -1008,7 +1008,7 @@ describe('CypherParser', () => {
 
   describe('Relationship Pattern Parsing', () => {
     it('should parse simple outgoing relationship', () => {
-      parser = new CypherParser(new Lexer(), '-[:KNOWS]->');
+      parser = new Parser(new Lexer(), '-[:KNOWS]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1022,7 +1022,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse simple incoming relationship', () => {
-      parser = new CypherParser(new Lexer(), '<-[:KNOWS]-');
+      parser = new Parser(new Lexer(), '<-[:KNOWS]-');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1036,7 +1036,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse bidirectional relationship', () => {
-      parser = new CypherParser(new Lexer(), '-[:KNOWS]-');
+      parser = new Parser(new Lexer(), '-[:KNOWS]-');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1100,7 +1100,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse relationship with variable length path', () => {
-      parser = new CypherParser(new Lexer(), '-[:KNOWS*1..3]->');
+      parser = new Parser(new Lexer(), '-[:KNOWS*1..3]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1114,7 +1114,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse relationship with unbounded variable length path', () => {
-      parser = new CypherParser(new Lexer(), '-[:KNOWS*]->');
+      parser = new Parser(new Lexer(), '-[:KNOWS*]->');
       const result = parser['parseRelationshipPattern']();
 
       expect(result).toEqual({
@@ -1130,7 +1130,7 @@ describe('CypherParser', () => {
 
   describe('Path Pattern Parsing', () => {
     it('should parse simple path pattern', () => {
-      parser = new CypherParser(new Lexer(), '(a:Person)-[:KNOWS]->(b:Person)');
+      parser = new Parser(new Lexer(), '(a:Person)-[:KNOWS]->(b:Person)');
       const result = parser['parsePathPattern']();
 
       expect(result).toEqual({
@@ -1160,7 +1160,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse complex path pattern', () => {
-      parser = new CypherParser(
+      parser = new Parser(
         new Lexer(),
         '(a:Person)-[:KNOWS]->(b:Person)-[:WORKS_AT]->(c:Company)'
       );
@@ -1211,7 +1211,7 @@ describe('CypherParser', () => {
   describe('Expression Parsing', () => {
     // Tests for literal values directly exposed methods that are working
     it('should parse string literal', () => {
-      parser = new CypherParser(new Lexer(), '"John Doe"');
+      parser = new Parser(new Lexer(), '"John Doe"');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1222,7 +1222,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse number literal', () => {
-      parser = new CypherParser(new Lexer(), '42');
+      parser = new Parser(new Lexer(), '42');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1233,7 +1233,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse boolean literal', () => {
-      parser = new CypherParser(new Lexer(), 'true');
+      parser = new Parser(new Lexer(), 'true');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1244,7 +1244,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse null literal', () => {
-      parser = new CypherParser(new Lexer(), 'NULL');
+      parser = new Parser(new Lexer(), 'NULL');
       const result = parser['parseLiteralExpression']();
 
       expect(result).toEqual({
@@ -1265,7 +1265,7 @@ describe('CypherParser', () => {
         CREATE (parent)-[:dependsOn {auto: true}]->(child)
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify logical expressions are parsed correctly in WHERE clause
@@ -1280,7 +1280,7 @@ describe('CypherParser', () => {
 
   describe('Clause Parsing', () => {
     it('should parse MATCH clause', () => {
-      parser = new CypherParser(
+      parser = new Parser(
         new Lexer(),
         'MATCH (a:Person)-[:KNOWS]->(b:Person)'
       );
@@ -1321,7 +1321,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse CREATE clause with node', () => {
-      parser = new CypherParser(
+      parser = new Parser(
         new Lexer(),
         'CREATE (p:Person {name: "John", age: 30})'
       );
@@ -1333,7 +1333,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse CREATE clause with relationship', () => {
-      parser = new CypherParser(
+      parser = new Parser(
         new Lexer(),
         'MATCH (a:Person), (b:Person) CREATE (a)-[:KNOWS]->(b)'
       );
@@ -1346,7 +1346,7 @@ describe('CypherParser', () => {
     });
 
     it('should parse SET clause', () => {
-      parser = new CypherParser(
+      parser = new Parser(
         new Lexer(),
         'MATCH (p:Person) SET p.age = 31, p.updated = true'
       );
@@ -1370,7 +1370,7 @@ describe('CypherParser', () => {
         CREATE (parent)-[:dependsOn {auto: true}]->(child)
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1387,7 +1387,7 @@ describe('CypherParser', () => {
 
       // 1. Unknown keyword
       const invalidKeywordQuery = 'MATCH (a:Person) INVALID_KEYWORD SET a.processed = true';
-      parser = new CypherParser(new Lexer(), invalidKeywordQuery);
+      parser = new Parser(new Lexer(), invalidKeywordQuery);
 
       // Parse should complete without throwing exceptions
       const result1 = parser.parse();
@@ -1410,7 +1410,7 @@ describe('CypherParser', () => {
 
       // 2. Syntax error
       const syntaxErrorQuery = 'MATCH (a:Person WHERE a.age > 30';
-      parser = new CypherParser(new Lexer(), syntaxErrorQuery);
+      parser = new Parser(new Lexer(), syntaxErrorQuery);
 
       // Should not throw despite the missing ')'
       const result2 = parser.parse();
@@ -1421,7 +1421,7 @@ describe('CypherParser', () => {
 
       // 3. Multiple errors in one query
       const multipleErrorsQuery = 'MATCH (a:Person INVALID_PROP SET a.status = "active" WHERE a.name = ';
-      parser = new CypherParser(new Lexer(), multipleErrorsQuery);
+      parser = new Parser(new Lexer(), multipleErrorsQuery);
 
       // Should handle multiple errors gracefully
       const result3 = parser.parse();
@@ -1434,7 +1434,7 @@ describe('CypherParser', () => {
         MATCH (n:Person {name: "John", age: 30, active: true, score: null})
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify no parsing errors
@@ -1476,7 +1476,7 @@ describe('CypherParser', () => {
         WHERE n.age > 25 AND n.active = true
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify no parsing errors
@@ -1516,7 +1516,7 @@ describe('CypherParser', () => {
         MATCH (a:Person)-[:KNOWS]->(b:Person)
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1532,7 +1532,7 @@ describe('CypherParser', () => {
         MATCH (a:Person), (b:Person)
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.match).toBeDefined();
@@ -1547,7 +1547,7 @@ describe('CypherParser', () => {
         SET a.age = 30, a.updated = true, a.status = "active"
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.set).toBeDefined();
@@ -1570,7 +1570,7 @@ describe('CypherParser', () => {
         CREATE (a:Person {name: "John"})
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.create).toBeDefined();
@@ -1583,7 +1583,7 @@ describe('CypherParser', () => {
         CREATE (a:Person {name: "Bob", active: true})
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       expect(result.create).toBeDefined();
@@ -1607,7 +1607,7 @@ describe('CypherParser', () => {
         SET a.taskCount = 1, task.created = true
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify no parsing errors
@@ -1676,7 +1676,7 @@ describe('CypherParser', () => {
         SET a.taskCount = a.taskCount + 1
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // These assertions will pass once the features are implemented
@@ -1695,15 +1695,15 @@ describe('CypherParser', () => {
   });
 
   describe('RETURN Clause Parsing', () => {
-    let parser: CypherParser;
+    let parser: Parser;
 
     beforeEach(() => {
-      parser = new CypherParser(new Lexer());
+      parser = new Parser(new Lexer());
     });
 
     it('should parse simple RETURN clauses with variables', () => {
       const query = 'MATCH (p:Person) RETURN p';
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
 
       const result = parser.parse();
 
@@ -1717,7 +1717,7 @@ describe('CypherParser', () => {
 
     it('should parse RETURN clauses with property access', () => {
       const query = 'MATCH (p:Person) RETURN p.name';
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
 
       const result = parser.parse();
 
@@ -1732,7 +1732,7 @@ describe('CypherParser', () => {
 
     it('should parse RETURN clauses with multiple items', () => {
       const query = 'MATCH (p:Person) RETURN p.name, p.age, p';
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
 
       const result = parser.parse();
 
@@ -1759,7 +1759,7 @@ describe('CypherParser', () => {
         RETURN p.name, p.age
       `;
 
-      parser = new CypherParser(new Lexer(), query);
+      parser = new Parser(new Lexer(), query);
       const result = parser.parse();
 
       // Verify all clauses

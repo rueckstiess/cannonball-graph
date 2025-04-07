@@ -219,35 +219,17 @@ export interface CypherStatement {
   return?: ReturnClause;
 }
 
-/**
- * Interface for the Parser that parses Cypher queries
- */
-export interface Parser {
-  /**
-   * Parses the token stream to produce a Cypher statement
-   * @returns The parsed Cypher statement
-   */
-  parse(): CypherStatement;
-
-  /**
-   * Returns the list of errors encountered during parsing
-   * @returns Array of error messages
-   */
-  getErrors(): string[];
-}
-
-
 
 /**
  * Parser for Cypher-like query language
  */
-export class CypherParser implements Parser {
+export class Parser {
   private lexer: Lexer;
   private currentToken: Token;
   private errors: string[] = [];
 
   /**
-   * Creates a new CypherParser
+   * Creates a new Parser
    * @param lexer The lexer to use for tokenization
    * @param input Optional input string to parse (if provided, tokenizes immediately)
    */

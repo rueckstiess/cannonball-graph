@@ -1,5 +1,5 @@
 import { Graph, Node } from '@/graph';
-import { Lexer, CypherParser, PatternMatcher, Token } from '@/lang';
+import { Lexer, Parser, PatternMatcher, Token } from '@/lang';
 
 
 describe('End-to-End Pattern Matching', () => {
@@ -74,7 +74,7 @@ describe('End-to-End Pattern Matching', () => {
     const tokens: Token[] = lexer.tokenize(matchPart);
 
     // 2. Parse the query
-    const parser = new CypherParser(lexer);
+    const parser = new Parser(lexer);
     const statement = parser.parse();
 
     // 3. Handle errors if any
@@ -230,7 +230,7 @@ describe('End-to-End Pattern Matching', () => {
 
         const lexer = new Lexer();
         lexer.tokenize(matchPart);
-        const parser = new CypherParser(lexer);
+        const parser = new Parser(lexer);
         const statement = parser.parse();
 
         if (!statement.match || statement.match.patterns.length === 0) {
@@ -288,7 +288,7 @@ describe('End-to-End Pattern Matching', () => {
       // Mock the parser response for this variable length path
       const mockTokenizer = new Lexer();
       mockTokenizer.tokenize('MATCH (t:Task)-[r*1..2]->(c:Category) RETURN c');
-      const mockParser = new CypherParser(mockTokenizer);
+      const mockParser = new Parser(mockTokenizer);
 
       // Create a path pattern with variable length
       const statement = {
@@ -350,7 +350,7 @@ describe('End-to-End Pattern Matching', () => {
       // Mock the parser response for unbounded path (p1)-[:KNOWS*]->(p4)
       const mockTokenizer = new Lexer();
       mockTokenizer.tokenize('MATCH (p1:Person {name: "Alice"})-[:KNOWS*]->(p4:Person {name: "Diana"}) RETURN p4');
-      const mockParser = new CypherParser(mockTokenizer);
+      const mockParser = new Parser(mockTokenizer);
 
       // Create a path pattern with unbounded length
       const statement = {

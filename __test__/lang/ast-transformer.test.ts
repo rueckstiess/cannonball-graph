@@ -1,5 +1,5 @@
 import { Lexer } from '@/lang';
-import { CypherParser } from '@/lang';
+import { Parser } from '@/lang';
 import {
   transformToCypherAst,
   visualizeAst,
@@ -28,7 +28,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (n:Person) WHERE n.age > 30 RETURN n';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'TestRule', 'Test description', 50);
@@ -89,7 +89,7 @@ describe('AST Transformer', () => {
       `;
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'ComplexRule', 'Complex rule example', 75, true);
@@ -155,7 +155,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Task) WHERE EXISTS((a)-[:DEPENDS_ON]->(b))';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'ExistsRule', 'Rule with EXISTS pattern', 30);
@@ -199,7 +199,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Task)';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'VarLengthRule', 'Rule with variable length path', 40);
@@ -238,7 +238,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Person)-[:KNOWS]->(b:Person) WHERE a.age > 30';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'VisualRule', 'Visualization test', 50);
@@ -267,7 +267,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Person) WHERE a.age > 30 CREATE (b:Task {assignee: a.name})';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'ValidRule', 'Valid rule test', 50);
@@ -280,7 +280,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Person)';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       // Create AST with missing name and description
@@ -303,7 +303,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Person) WHERE b.age > 30';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'InvalidRule', 'Rule with undeclared variable', 50);
@@ -317,7 +317,7 @@ describe('AST Transformer', () => {
       const input = 'MATCH (a:Person) CREATE (a)-[:KNOWS]->(c) SET b.name = "John"';
 
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, input);
+      const parser = new Parser(lexer, input);
       const statement = parser.parse();
 
       const ast = transformToCypherAst(statement, 'InvalidRule', 'Rule with undeclared variables', 50);
@@ -338,7 +338,7 @@ describe('AST Transformer', () => {
 
       // Parse the Cypher statement
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, query);
+      const parser = new Parser(lexer, query);
       const statement = parser.parse();
 
       // Transform to AST
@@ -367,7 +367,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'MATCH (a:Person) DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'DeleteRule', 'Rule with DELETE clause', 10);
@@ -384,7 +384,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'MATCH (a:Person) DETACH DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'DetachDeleteRule', 'Rule with DETACH DELETE clause', 20);
@@ -401,7 +401,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'MATCH (a:Person) DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'VisualDeleteRule', 'Visualization test for DELETE', 30);
@@ -415,7 +415,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'MATCH (a:Person) DETACH DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'VisualDetachDeleteRule', 'Visualization test for DETACH DELETE', 40);
@@ -429,7 +429,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'MATCH (a:Person) DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'ValidDeleteRule', 'Valid DELETE clause', 50);
@@ -443,7 +443,7 @@ describe('AST Transformer - DELETE Clause', () => {
     const input = 'DELETE a';
 
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, input);
+    const parser = new Parser(lexer, input);
     const statement = parser.parse();
 
     const ast = transformToCypherAst(statement, 'InvalidDeleteRule', 'Invalid DELETE clause', 60);

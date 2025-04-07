@@ -1,5 +1,5 @@
 import {
-  Lexer, CypherParser, transformToCypherAst,
+  Lexer, Parser, transformToCypherAst,
   inspectAst,
   visualizeAst,
   ASTRuleRoot
@@ -21,7 +21,7 @@ describe('Unist integration tests', () => {
 
     // Parse the Cypher statement
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, sampleQuery);
+    const parser = new Parser(lexer, sampleQuery);
     const statement = parser.parse();
 
     // Transform to AST

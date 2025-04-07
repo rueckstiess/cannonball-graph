@@ -1,6 +1,6 @@
 import { Graph, Node, Edge, NodeId } from '@/graph';
 import {
-  CypherParser, CypherStatement, ReturnClause, PropertyExpression, VariableExpression
+  Parser, CypherStatement, ReturnClause, PropertyExpression, VariableExpression
 } from '@/lang/parser';
 import { Lexer } from '@/lang/lexer';
 import { transformToCypherAst } from '@/lang/ast-transformer';
@@ -169,7 +169,7 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
     try {
       // 1. Parse the statement to a CypherStatement
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, statement);
+      const parser = new Parser(lexer, statement);
       const cypherStatement = parser.parse();
 
       const parseErrors = parser.getErrors();
