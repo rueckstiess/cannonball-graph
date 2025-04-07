@@ -7,7 +7,7 @@ import {
   ASTLiteralExpressionNode
 } from '@/lang/ast-transformer';
 import {
-  RuleAction,
+  QueryAction,
   CreateNodeAction,
   CreateRelationshipAction,
   SetPropertyAction,
@@ -184,7 +184,7 @@ describe('ActionExecutor', () => {
     bindings = new BindingContext();
 
     // Create a sequence of actions
-    const actions: RuleAction[] = [
+    const actions: QueryAction[] = [
       new CreateNodeAction('p', ['Person'], { name: 'Charlie' }),
       new CreateNodeAction('t', ['Task'], { title: 'Task 1' }),
       new CreateRelationshipAction('p', 't', 'WORKS_ON', { since: 2023 })
@@ -227,7 +227,7 @@ describe('ActionExecutor', () => {
     bindings = new BindingContext();
 
     // Create a sequence with a failing action in the middle
-    const actions: RuleAction[] = [
+    const actions: QueryAction[] = [
       new CreateNodeAction('p', ['Person'], { name: 'Dave' }),
       new CreateNodeAction('p', ['Task'], { title: 'Task 1' }), // This will fail (duplicate var)
       new CreateNodeAction('t', ['Task'], { title: 'Task 2' })  // This should not execute

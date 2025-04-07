@@ -12,16 +12,16 @@ import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher
 
 
 /**
- * Interface for rule AST nodes
+ * Interface for query AST nodes
  */
-export interface ASTRuleNode extends Node {
+export interface ASTQueryNode extends Node {
   type: string;
 }
 
 /**
- * Root node of the Rule AST
+ * Root node of the Query AST
  */
-export interface ASTRuleRoot extends Parent {
+export interface ASTQueryRoot extends Parent {
   type: 'rule';
   name: string;
   description: string;
@@ -31,7 +31,7 @@ export interface ASTRuleRoot extends Parent {
 }
 
 /**
- * Match clause node in the Rule AST
+ * Match clause node in the Query AST
  */
 export interface ASTMatchNode extends Parent {
   type: 'match';
@@ -39,7 +39,7 @@ export interface ASTMatchNode extends Parent {
 }
 
 /**
- * Where clause node in the Rule AST
+ * Where clause node in the Query AST
  */
 export interface ASTWhereNode extends Parent {
   type: 'where';
@@ -47,7 +47,7 @@ export interface ASTWhereNode extends Parent {
 }
 
 /**
- * Create clause node in the Rule AST
+ * Create clause node in the Query AST
  */
 export interface ASTCreateNode extends Parent {
   type: 'create';
@@ -55,7 +55,7 @@ export interface ASTCreateNode extends Parent {
 }
 
 /**
- * Set clause node in the Rule AST
+ * Set clause node in the Query AST
  */
 export interface ASTSetNode extends Parent {
   type: 'set';
@@ -63,16 +63,16 @@ export interface ASTSetNode extends Parent {
 }
 
 /**
- * Delete clause node in the Rule AST
+ * Delete clause node in the Query AST
  */
-export interface ASTDeleteNode extends ASTRuleNode {
+export interface ASTDeleteNode extends ASTQueryNode {
   type: 'delete';
   variables: string[];
   detach: boolean;
 }
 
 /**
- * Path pattern node in the Rule AST
+ * Path pattern node in the Query AST
  */
 export interface ASTPathPatternNode extends Parent {
   type: 'pathPattern';
@@ -80,9 +80,9 @@ export interface ASTPathPatternNode extends Parent {
 }
 
 /**
- * Node pattern node in the Rule AST
+ * Node pattern node in the Query AST
  */
-export interface ASTNodePatternNode extends ASTRuleNode {
+export interface ASTNodePatternNode extends ASTQueryNode {
   type: 'nodePattern';
   variable?: string;
   labels: string[];
@@ -90,7 +90,7 @@ export interface ASTNodePatternNode extends ASTRuleNode {
 }
 
 /**
- * Relationship segment (relationship + node) node in the Rule AST
+ * Relationship segment (relationship + node) node in the Query AST
  */
 export interface ASTRelationshipSegmentNode extends Parent {
   type: 'relationshipSegment';
@@ -98,9 +98,9 @@ export interface ASTRelationshipSegmentNode extends Parent {
 }
 
 /**
- * Relationship pattern node in the Rule AST
+ * Relationship pattern node in the Query AST
  */
-export interface ASTRelationshipPatternNode extends ASTRuleNode {
+export interface ASTRelationshipPatternNode extends ASTQueryNode {
   type: 'relationshipPattern';
   variable?: string;
   relType?: string;
@@ -111,9 +111,9 @@ export interface ASTRelationshipPatternNode extends ASTRuleNode {
 }
 
 /**
- * Create node pattern node in the Rule AST
+ * Create node pattern node in the Query AST
  */
-export interface ASTCreateNodePatternNode extends ASTRuleNode {
+export interface ASTCreateNodePatternNode extends ASTQueryNode {
   type: 'createNode';
   variable?: string;
   labels: string[];
@@ -121,9 +121,9 @@ export interface ASTCreateNodePatternNode extends ASTRuleNode {
 }
 
 /**
- * Create relationship pattern node in the Rule AST
+ * Create relationship pattern node in the Query AST
  */
-export interface ASTCreateRelPatternNode extends ASTRuleNode {
+export interface ASTCreateRelPatternNode extends ASTQueryNode {
   type: 'createRelationship';
   fromVar: string;
   toVar: string;
@@ -136,9 +136,9 @@ export interface ASTCreateRelPatternNode extends ASTRuleNode {
 }
 
 /**
- * Property setting node in the Rule AST
+ * Property setting node in the Query AST
  */
-export interface ASTPropertySettingNode extends ASTRuleNode {
+export interface ASTPropertySettingNode extends ASTQueryNode {
   type: 'propertySetting';
   target: string;
   property: string;
@@ -146,7 +146,7 @@ export interface ASTPropertySettingNode extends ASTRuleNode {
 }
 
 /**
- * Base interface for expression nodes in the Rule AST
+ * Base interface for expression nodes in the Query AST
  */
 export type ASTExpressionNode =
   | ASTLiteralExpressionNode
@@ -157,33 +157,33 @@ export type ASTExpressionNode =
   | ASTExistsExpressionNode;
 
 /**
- * Literal expression node in the Rule AST
+ * Literal expression node in the Query AST
  */
-export interface ASTLiteralExpressionNode extends ASTRuleNode {
+export interface ASTLiteralExpressionNode extends ASTQueryNode {
   type: 'literalExpression';
   value: string | number | boolean | null;
   dataType: 'string' | 'number' | 'boolean' | 'null';
 }
 
 /**
- * Variable expression node in the Rule AST
+ * Variable expression node in the Query AST
  */
-export interface ASTVariableExpressionNode extends ASTRuleNode {
+export interface ASTVariableExpressionNode extends ASTQueryNode {
   type: 'variableExpression';
   name: string;
 }
 
 /**
- * Property expression node in the Rule AST
+ * Property expression node in the Query AST
  */
-export interface ASTPropertyExpressionNode extends ASTRuleNode {
+export interface ASTPropertyExpressionNode extends ASTQueryNode {
   type: 'propertyExpression';
   object: string;
   property: string;
 }
 
 /**
- * Comparison expression node in the Rule AST
+ * Comparison expression node in the Query AST
  */
 export interface ASTComparisonExpressionNode extends Parent {
   type: 'comparisonExpression';
@@ -192,7 +192,7 @@ export interface ASTComparisonExpressionNode extends Parent {
 }
 
 /**
- * Logical expression node in the Rule AST
+ * Logical expression node in the Query AST
  */
 export interface ASTLogicalExpressionNode extends Parent {
   type: 'logicalExpression';
@@ -201,7 +201,7 @@ export interface ASTLogicalExpressionNode extends Parent {
 }
 
 /**
- * Exists expression node in the Rule AST
+ * Exists expression node in the Query AST
  */
 export interface ASTExistsExpressionNode extends Parent {
   type: 'existsExpression';
@@ -210,15 +210,15 @@ export interface ASTExistsExpressionNode extends Parent {
 }
 
 /**
- * Create a unist Node representing a RuleRoot
+ * Create a unist Node representing a QueryRoot
  */
-function createASTRuleNode(
+function createASTQueryNode(
   name: string,
   description: string,
   priority: number,
   disabled: boolean | undefined,
   children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode>
-): ASTRuleRoot {
+): ASTQueryRoot {
   return {
     type: 'rule',
     name,
@@ -479,21 +479,21 @@ function createASTExistsExpressionNode(
 }
 
 /**
- * Transforms a Cypher statement into a Rule AST
+ * Transforms a Cypher statement into a Query AST
  * @param statement The Cypher statement to transform
- * @param ruleName The name of the rule
- * @param description The description of the rule
- * @param priority The priority of the rule
- * @param disabled Whether the rule is disabled
- * @returns The transformed Rule AST
+ * @param queryName The name of the query
+ * @param description The description of the query
+ * @param priority The priority of the query
+ * @param disabled Whether the query is disabled
+ * @returns The transformed Query AST
  */
 export function transformToCypherAst(
   statement: CypherStatement,
-  ruleName: string,
+  queryName: string,
   description: string,
   priority: number,
   disabled?: boolean
-): ASTRuleRoot {
+): ASTQueryRoot {
   // Update the type of children array
   const children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode> = [];
 
@@ -522,8 +522,7 @@ export function transformToCypherAst(
     children.push(transformDeleteClause(statement.delete));
   }
 
-  // Update the return type of createASTRuleNode if necessary (or adjust the function signature)
-  return createASTRuleNode(ruleName, description, priority, disabled, children);
+  return createASTQueryNode(queryName, description, priority, disabled, children);
 }
 
 /**
@@ -779,7 +778,7 @@ function transformExistsExpression(existsExpression: ExistsExpression): ASTExist
  * @param ast The AST to inspect
  * @returns A string representation of the AST
  */
-export function inspectAst(ast: ASTRuleRoot): string {
+export function inspectAst(ast: ASTQueryRoot): string {
   return inspect(ast);
 }
 
@@ -789,15 +788,15 @@ export function inspectAst(ast: ASTRuleRoot): string {
  * @param indent The indentation level (default: 0)
  * @returns The ASCII visualization
  */
-export function visualizeAst(node: ASTRuleNode | Parent, indent: number = 0): string {
+export function visualizeAst(node: ASTQueryNode | Parent, indent: number = 0): string {
   const padding = ' '.repeat(indent * 2);
   let result = `${padding}${node.type}`;
 
   // Add properties based on node type
   switch (node.type) {
     case 'rule':
-      const ruleNode = node as ASTRuleRoot;
-      result += ` (name: "${ruleNode.name}", priority: ${ruleNode.priority})`;
+      const queryNode = node as ASTQueryRoot;
+      result += ` (name: "${queryNode.name}", priority: ${queryNode.priority})`;
       break;
     case 'nodePattern':
       const nodePattern = node as ASTNodePatternNode;
@@ -872,26 +871,26 @@ export function visualizeAst(node: ASTRuleNode | Parent, indent: number = 0): st
  * @param ast The AST to validate
  * @returns An array of validation errors, or an empty array if the AST is valid
  */
-export function validateAst(ast: ASTRuleRoot): string[] {
+export function validateAst(ast: ASTQueryRoot): string[] {
   const errors: string[] = [];
 
-  // Validate rule metadata
+  // Validate query metadata
   if (!ast.name) {
-    errors.push('Rule must have a name');
+    errors.push('Query must have a name');
   }
 
   if (!ast.description) {
-    errors.push('Rule must have a description');
+    errors.push('Query must have a description');
   }
 
   if (typeof ast.priority !== 'number' || isNaN(ast.priority)) {
-    errors.push('Rule must have a numeric priority');
+    errors.push('Query must have a numeric priority');
   }
 
-  // Validate that the rule has at least one clause
+  // Validate that the query has at least one clause
   if (!ast.children || ast.children.length === 0) {
     // Update error message to include delete
-    errors.push('Rule must have at least one clause (MATCH, WHERE, CREATE, SET, DELETE)');
+    errors.push('Query must have at least one clause (MATCH, WHERE, CREATE, SET, DELETE)');
   }
 
   // Validate variable references

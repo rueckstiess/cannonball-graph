@@ -17,7 +17,7 @@ import {
   ASTExistsExpressionNode,
   ASTCreateNodePatternNode,
   ASTCreateRelPatternNode,
-  ASTRuleRoot
+  ASTQueryRoot
 } from '@/lang';
 
 import { inspect } from 'unist-util-inspect'
@@ -294,9 +294,9 @@ describe('AST Transformer', () => {
       const errors = validateAst(ast);
 
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors).toContain('Rule must have a name');
-      expect(errors).toContain('Rule must have a description');
-      expect(errors).toContain('Rule must have a numeric priority');
+      expect(errors).toContain('Query must have a name');
+      expect(errors).toContain('Query must have a description');
+      expect(errors).toContain('Query must have a numeric priority');
     });
 
     it('should detect undeclared variables', () => {

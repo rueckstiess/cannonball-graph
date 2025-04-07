@@ -1,11 +1,11 @@
 import { QueryEngine } from './query-engine';
 import { QueryFormatter } from './query-formatter';
 import { QueryUtils } from './query-utils';
-import { ActionFactory, ActionExecutor } from './rule-action';
+import { ActionFactory, ActionExecutor } from './query-action';
 
 
 // Export interfaces
-export * from './rule-action';
+export * from './query-action';
 
 // Re-export rule engine types
 export * from './query-engine';

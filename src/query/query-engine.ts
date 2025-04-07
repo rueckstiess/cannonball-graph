@@ -7,8 +7,8 @@ import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { BindingContext } from '@/lang/condition-evaluator';
 import {
-  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult
-} from './rule-action';
+  ActionFactory, ActionExecutor, QueryAction, ActionExecutionOptions, ActionExecutionResult
+} from './query-action';
 
 
 /**
@@ -223,10 +223,10 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
 
         // Group actions by type to process them in the correct order
         // Order: CREATE_NODE -> CREATE_RELATIONSHIP -> SET_PROPERTY -> DELETE
-        const createNodeActions: RuleAction<NodeData, EdgeData>[] = [];
-        const createRelationshipActions: RuleAction<NodeData, EdgeData>[] = [];
-        const setPropertyActions: RuleAction<NodeData, EdgeData>[] = [];
-        const deleteActions: RuleAction<NodeData, EdgeData>[] = []; // <-- Add delete actions group
+        const createNodeActions: QueryAction<NodeData, EdgeData>[] = [];
+        const createRelationshipActions: QueryAction<NodeData, EdgeData>[] = [];
+        const setPropertyActions: QueryAction<NodeData, EdgeData>[] = [];
+        const deleteActions: QueryAction<NodeData, EdgeData>[] = []; // <-- Add delete actions group
 
         actions.forEach(action => {
           if (action.type === 'CREATE_NODE') {

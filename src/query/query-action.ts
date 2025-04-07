@@ -1,7 +1,7 @@
 import { Graph, Node, Edge } from '@/graph';
 import { BindingContext, ConditionEvaluator } from '@/lang/condition-evaluator';
 import {
-  ASTRuleRoot,
+  ASTQueryRoot,
   ASTCreateNodePatternNode,
   ASTCreateRelPatternNode,
   ASTPropertySettingNode,
@@ -36,7 +36,7 @@ export interface ActionResult<NodeData = any, EdgeData = any> {
 /**
  * Represents an action that can be executed on a graph
  */
-export interface RuleAction<NodeData = any, EdgeData = any> {
+export interface QueryAction<NodeData = any, EdgeData = any> {
   /**
    * The type of the action (CREATE_NODE, CREATE_RELATIONSHIP, SET_PROPERTY, etc.)
    */
@@ -74,7 +74,7 @@ export interface RuleAction<NodeData = any, EdgeData = any> {
 /**
  * Represents an action that creates a new node
  */
-export interface CreateNodeAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
+export interface CreateNodeAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
   /**
    * The variable name to bind the created node to
    */
@@ -94,7 +94,7 @@ export interface CreateNodeAction<NodeData = any, EdgeData = any> extends RuleAc
 /**
  * Represents an action that creates a relationship between two nodes
  */
-export interface CreateRelationshipAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
+export interface CreateRelationshipAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
   /**
    * The variable name of the source node
    */
@@ -124,7 +124,7 @@ export interface CreateRelationshipAction<NodeData = any, EdgeData = any> extend
 /**
  * Represents an action that sets a property on a node or relationship
  */
-export interface SetPropertyAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
+export interface SetPropertyAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
   /**
    * The variable name of the target (node or relationship)
    */
@@ -144,7 +144,7 @@ export interface SetPropertyAction<NodeData = any, EdgeData = any> extends RuleA
 /**
  * Represents an action that deletes a node or relationship
  */
-export interface DeleteAction<NodeData = any, EdgeData = any> extends RuleAction<NodeData, EdgeData> {
+export interface DeleteAction<NodeData = any, EdgeData = any> extends QueryAction<NodeData, EdgeData> {
   /**
    * The variable names of the nodes or relationships to delete
    */
@@ -171,7 +171,7 @@ export interface ActionExecutor<NodeData = any, EdgeData = any> {
    */
   executeActions(
     graph: Graph<NodeData, EdgeData>,
-    actions: RuleAction<NodeData, EdgeData>[],
+    actions: QueryAction<NodeData, EdgeData>[],
     bindings: BindingContext<NodeData, EdgeData>,
     options?: ActionExecutionOptions
   ): ActionExecutionResult<NodeData, EdgeData>;
@@ -326,9 +326,9 @@ export class ActionFactory<NodeData = any, EdgeData = any> {
    * @returns A list of actions to execute
    */
   createActionsFromRuleAst(
-    ruleAst: ASTRuleRoot
-  ): RuleAction<NodeData, EdgeData>[] {
-    const actions: RuleAction<NodeData, EdgeData>[] = [];
+    ruleAst: ASTQueryRoot
+  ): QueryAction<NodeData, EdgeData>[] {
+    const actions: QueryAction<NodeData, EdgeData>[] = [];
 
     // Process each child node in the rule AST
     for (const node of ruleAst.children) {
@@ -386,7 +386,7 @@ export interface ActionResult<NodeData = any, EdgeData = any> {
  * Represents an action that can be executed on a graph
  */
 
-export interface RuleAction<NodeData = any, EdgeData = any> {
+export interface QueryAction<NodeData = any, EdgeData = any> {
   /**
    * The type of the action (CREATE_NODE, CREATE_RELATIONSHIP, SET_PROPERTY, etc.)
    */
@@ -1050,7 +1050,7 @@ export class ActionExecutor<NodeData = any, EdgeData = any> {
    */
   executeActions(
     graph: Graph<NodeData, EdgeData>,
-    actions: RuleAction<NodeData, EdgeData>[],
+    actions: QueryAction<NodeData, EdgeData>[],
     bindings: any,
     options: ActionExecutionOptions = DEFAULT_EXECUTION_OPTIONS
   ): ActionExecutionResult<NodeData, EdgeData> {
@@ -1101,7 +1101,7 @@ export class ActionExecutor<NodeData = any, EdgeData = any> {
    */
   private rollbackActions(
     graph: Graph<NodeData, EdgeData>,
-    actions: RuleAction<NodeData, EdgeData>[],
+    actions: QueryAction<NodeData, EdgeData>[],
     actionResults: ActionResult<NodeData, EdgeData>[]
   ): void {
     for (let i = actionResults.length - 1; i >= 0; i--) {
@@ -1265,5 +1265,5 @@ export interface ActionFactory<NodeData = any, EdgeData = any> {
    * @param ruleAst The AST of the rule
    * @returns A list of actions to execute
    */
-  createActionsFromRuleAst(ruleAst: any): RuleAction<NodeData, EdgeData>[];
+  createActionsFromRuleAst(ruleAst: any): QueryAction<NodeData, EdgeData>[];
 }

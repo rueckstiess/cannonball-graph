@@ -1,6 +1,6 @@
 import { ActionFactory, CreateNodeAction, CreateRelationshipAction, SetPropertyAction, DeleteAction } from '@/query';
 import {
-  ASTRuleRoot,
+  ASTQueryRoot,
   ASTCreateNodePatternNode,
   ASTCreateRelPatternNode,
   ASTPropertySettingNode,
@@ -90,7 +90,7 @@ describe('ActionFactory', () => {
   });
 
   test('should include all actions in actions created from ASTRuleRoot', () => {
-    const ruleAst: ASTRuleRoot = {
+    const ruleAst: ASTQueryRoot = {
       type: 'rule',
       name: 'TestRule',
       description: 'Test rule with multiple actions',

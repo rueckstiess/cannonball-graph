@@ -2,7 +2,7 @@ import {
   Lexer, Parser, transformToCypherAst,
   inspectAst,
   visualizeAst,
-  ASTRuleRoot
+  ASTQueryRoot
 } from '@/lang';
 
 import { is } from 'unist-util-is';
@@ -15,7 +15,7 @@ describe('Unist integration tests', () => {
     WHERE NOT EXISTS((parent)-[:dependsOn]->(child))
     CREATE (parent)-[:dependsOn {auto: true}]->(child)`;
 
-  let ast: ASTRuleRoot;
+  let ast: ASTQueryRoot;
 
   beforeAll(() => {
 

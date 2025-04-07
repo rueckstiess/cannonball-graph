@@ -1,7 +1,7 @@
 import { Graph, Node } from '@/graph';
 import { BindingContext } from '@/lang/condition-evaluator';
 import {
-  ASTRuleRoot,
+  ASTQueryRoot,
   ASTCreateNodePatternNode,
   ASTCreateRelPatternNode,
   ASTPropertySettingNode,
@@ -17,7 +17,7 @@ import {
   SetPropertyAction,
   ActionExecutor,
   ActionFactory,
-  RuleAction,
+  QueryAction,
   createQueryEngine,
   DeleteAction
 } from '@/query';
@@ -61,7 +61,7 @@ const mockTaskNodeAst: ASTCreateNodePatternNode = {
   properties: { title: 'Complete project', due: '2023-12-31' }
 };
 
-const mockRuleAst: ASTRuleRoot = {
+const mockRuleAst: ASTQueryRoot = {
   type: 'rule',
   name: 'AddPersonAndTask',
   description: 'Create a person and a task, and connect them',
@@ -99,7 +99,7 @@ describe('Rule Action Integration Tests', () => {
 
   test('End-to-end rule execution with multiple actions', () => {
     // 1. Create actions from rule AST
-    const actions = factory.createActionsFromRuleAst(mockRuleAst as ASTRuleRoot);
+    const actions = factory.createActionsFromRuleAst(mockRuleAst as ASTQueryRoot);
 
     // Verify actions were created correctly
     expect(actions.length).toBe(4);
