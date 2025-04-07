@@ -76,110 +76,11 @@ export interface PatternMatcherOptions {
   maxPathResults?: number;
 }
 
-/**
- * Interface for the pattern matcher
- */
-export interface PatternMatcher<NodeData = any, EdgeData = any> {
-  /**
-   * Finds nodes in the graph that match the given node pattern
-   * @param graph The graph to search
-   * @param pattern The node pattern to match
-   * @returns Array of matching nodes
-   */
-  findMatchingNodes(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: NodePattern
-  ): Node<NodeData>[];
-
-  /**
-   * Checks if a specific node matches the given node pattern
-   * @param node The node to check
-   * @param pattern The node pattern to match against
-   * @returns True if the node matches the pattern
-   */
-  matchesNodePattern(
-    node: Node<NodeData>,
-    pattern: NodePattern
-  ): boolean;
-
-  /**
-   * Creates a filtered view of nodes by label
-   * @param graph The graph to filter
-   * @param label The label to filter by
-   * @returns Array of nodes with the given label
-   */
-  getNodesByLabel(
-    graph: Graph<NodeData, EdgeData>,
-    label: string
-  ): Node<NodeData>[];
-
-  /**
-   * Finds relationships in the graph that match the given relationship pattern
-   * @param graph The graph to search
-   * @param pattern The relationship pattern to match
-   * @param sourceId Optional source node ID to filter relationships
-   * @returns Array of matching relationships
-   */
-  findMatchingRelationships(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: RelationshipPattern,
-    sourceId?: NodeId
-  ): Edge<EdgeData>[];
-
-  /**
-   * Checks if a specific relationship matches the given relationship pattern
-   * @param edge The edge to check
-   * @param pattern The relationship pattern to match against
-   * @param sourceNode Optional source node of the relationship
-   * @param targetNode Optional target node of the relationship
-   * @returns True if the relationship matches the pattern
-   */
-  matchesRelationshipPattern(
-    edge: Edge<EdgeData>,
-    pattern: RelationshipPattern,
-    sourceNode?: Node<NodeData>,
-    targetNode?: Node<NodeData>
-  ): boolean;
-
-  /**
-   * Creates a filtered view of relationships by type
-   * @param graph The graph to filter
-   * @param type The relationship type to filter by
-   * @returns Array of relationships with the given type
-   */
-  getRelationshipsByType(
-    graph: Graph<NodeData, EdgeData>,
-    type: string
-  ): Edge<EdgeData>[];
-
-  /**
-   * Finds paths in the graph that match the given path pattern
-   * @param graph The graph to search
-   * @param pattern The path pattern to match
-   * @param startNodeIds Optional array of node IDs to constrain the starting nodes
-   * @returns Array of matching paths, where each path contains arrays of nodes and edges
-   */
-  findMatchingPaths(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern,
-    startNodeIds?: NodeId[]
-  ): Array<{
-    nodes: Node<NodeData>[];
-    edges: Edge<EdgeData>[];
-  }>;
-
-  /**
-   * Clears any internal caches
-   */
-  clearCache(): void;
-}
-
-
 
 /**
  * Implementation of the pattern matcher
  */
-export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMatcher<NodeData, EdgeData> {
+export class PatternMatcher<NodeData = any, EdgeData = any> {
   private options: Required<PatternMatcherOptions>;
 
   // Cache for node labels
@@ -197,8 +98,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     };
   }
 
-  // --- findMatchingNodes, matchesNodePattern, getNodesByLabel ---
-  // Assume these are implemented correctly as per previous discussions/code
+  /**
+   * Finds nodes in the graph that match the given node pattern
+   * @param graph The graph to search
+   * @param pattern The node pattern to match
+   * @returns Array of matching nodes
+   */
   findMatchingNodes(
     graph: Graph<NodeData, EdgeData>,
     pattern: NodePattern
@@ -210,6 +115,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return graph.findNodes(node => this.matchesNodePattern(node, pattern));
   }
 
+  /**
+   * Checks if a specific node matches the given node pattern
+   * @param node The node to check
+   * @param pattern The node pattern to match against
+   * @returns True if the node matches the pattern
+   */
   matchesNodePattern(
     node: Node<NodeData>,
     pattern: NodePattern
@@ -228,6 +139,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return true;
   }
 
+  /**
+   * Creates a filtered view of nodes by label
+   * @param graph The graph to filter
+   * @param label The label to filter by
+   * @returns Array of nodes with the given label
+   */
   getNodesByLabel(
     graph: Graph<NodeData, EdgeData>,
     label: string
@@ -247,8 +164,13 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   }
 
 
-  // --- findMatchingRelationships, matchesRelationshipPattern, getRelationshipsByType ---
-  // Assume these are implemented correctly as per previous discussions/code
+  /**
+   * Finds relationships in the graph that match the given relationship pattern
+   * @param graph The graph to search
+   * @param pattern The relationship pattern to match
+   * @param sourceId Optional source node ID to filter relationships
+   * @returns Array of matching relationships
+   */
   findMatchingRelationships(
     graph: Graph<NodeData, EdgeData>,
     pattern: RelationshipPattern,
@@ -327,6 +249,14 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     });
   }
 
+  /**
+   * Checks if a specific relationship matches the given relationship pattern
+   * @param edge The edge to check
+   * @param pattern The relationship pattern to match against
+   * @param sourceNode Optional source node of the relationship
+   * @param targetNode Optional target node of the relationship
+   * @returns True if the relationship matches the pattern
+   */
   matchesRelationshipPattern(
     edge: Edge<EdgeData>,
     pattern: RelationshipPattern,
@@ -373,6 +303,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return true; // 'both' direction always matches
   }
 
+  /**
+   * Creates a filtered view of relationships by type
+   * @param graph The graph to filter
+   * @param type The relationship type to filter by
+   * @returns Array of relationships with the given type
+   */
   getRelationshipsByType(
     graph: Graph<NodeData, EdgeData>,
     type: string
@@ -397,7 +333,9 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   }
 
 
-  // --- clearCache ---
+  /**
+   * Clears any internal caches
+   */
   clearCache(): void {
     this.labelCache.clear();
     this.typeCache.clear();
@@ -482,10 +420,13 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return false; // Default to strict equality if no coercion applies
   }
 
-  // ========================================================================
-  // findMatchingPaths Implementation (REVISED AGAIN + DEBUG)
-  // ========================================================================
-
+  /**
+   * Finds paths in the graph that match the given path pattern
+   * @param graph The graph to search
+   * @param pattern The path pattern to match
+   * @param startNodeIds Optional array of node IDs to constrain the starting nodes
+   * @returns Array of matching paths, where each path contains arrays of nodes and edges
+   */
   findMatchingPaths(
     graph: Graph<NodeData, EdgeData>,
     pattern: PathPattern,
