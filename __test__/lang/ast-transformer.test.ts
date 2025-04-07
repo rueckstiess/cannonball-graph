@@ -34,7 +34,7 @@ describe('AST Transformer', () => {
       const ast = transformToCypherAst(statement, 'TestRule', 'Test description', 50);
 
       expect(ast).toBeDefined();
-      expect(ast.type).toBe('rule');
+      expect(ast.type).toBe('query');
       expect(ast.name).toBe('TestRule');
       expect(ast.description).toBe('Test description');
       expect(ast.priority).toBe(50);
@@ -95,7 +95,7 @@ describe('AST Transformer', () => {
       const ast = transformToCypherAst(statement, 'ComplexRule', 'Complex rule example', 75, true);
 
       expect(ast).toBeDefined();
-      expect(ast.type).toBe('rule');
+      expect(ast.type).toBe('query');
       expect(ast.name).toBe('ComplexRule');
       expect(ast.description).toBe('Complex rule example');
       expect(ast.priority).toBe(75);
@@ -206,7 +206,7 @@ describe('AST Transformer', () => {
 
       // Just verify we have a valid AST structure
       expect(ast).toBeDefined();
-      expect(ast.type).toBe('rule');
+      expect(ast.type).toBe('query');
       expect(ast.name).toBe('VarLengthRule');
 
       // Verify MATCH clause exists and is properly formed
@@ -245,7 +245,7 @@ describe('AST Transformer', () => {
       const visualization = visualizeAst(ast);
 
       // Basic checks on the output format
-      expect(visualization).toContain('rule (name: "VisualRule", priority: 50)');
+      expect(visualization).toContain('query (name: "VisualRule", priority: 50)');
       expect(visualization).toContain('match');
       expect(visualization).toContain('pathPattern');
       expect(visualization).toContain('nodePattern (a:Person)');

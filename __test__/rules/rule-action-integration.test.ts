@@ -62,7 +62,7 @@ const mockTaskNodeAst: ASTCreateNodePatternNode = {
 };
 
 const mockRuleAst: ASTQueryRoot = {
-  type: 'rule',
+  type: 'query',
   name: 'AddPersonAndTask',
   description: 'Create a person and a task, and connect them',
   priority: 10,

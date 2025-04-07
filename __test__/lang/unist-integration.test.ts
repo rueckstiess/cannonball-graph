@@ -36,13 +36,13 @@ describe('Unist integration tests', () => {
 
   test('AST is a valid unist node', () => {
     expect(ast).toBeDefined();
-    expect(ast.type).toBe('rule');
+    expect(ast.type).toBe('query');
     expect(Array.isArray(ast.children)).toBe(true);
     expect(ast.children.length).toBeGreaterThan(0);
   });
 
   test('unist-util-is works with the AST', () => {
-    expect(is(ast, { type: 'rule' })).toBe(true);
+    expect(is(ast, { type: 'query' })).toBe(true);
 
     const matchNode = ast.children.find(child => child.type === 'match');
     expect(matchNode).toBeDefined();
@@ -59,7 +59,7 @@ describe('Unist integration tests', () => {
 
     // We should have counted various node types
     expect(Object.keys(nodeTypes).length).toBeGreaterThan(3);
-    expect(nodeTypes['rule']).toBe(1);
+    expect(nodeTypes['query']).toBe(1);
     expect(nodeTypes['match']).toBe(1);
     expect(nodeTypes['where']).toBe(1);
     expect(nodeTypes['create']).toBe(1);
@@ -80,7 +80,7 @@ describe('Unist integration tests', () => {
 
   test('visualizeAst produces meaningful output', () => {
     const visualization = visualizeAst(ast);
-    expect(visualization).toContain('rule');
+    expect(visualization).toContain('query');
     expect(visualization).toContain('match');
     expect(visualization).toContain('nodePattern');
     expect(visualization).toContain('listItem');
@@ -89,7 +89,7 @@ describe('Unist integration tests', () => {
 
   test('inspectAst produces unist-compatible output', () => {
     const inspected = inspectAst(ast);
-    expect(inspected).toContain('rule');
+    expect(inspected).toContain('query');
     // Verify that the output shows child nodes with the tree structure indicators
     expect(inspected).toContain('├─0');
     expect(inspected.length).toBeGreaterThan(100);

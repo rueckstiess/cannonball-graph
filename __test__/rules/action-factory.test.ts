@@ -91,7 +91,7 @@ describe('ActionFactory', () => {
 
   test('should include all actions in actions created from ASTRuleRoot', () => {
     const ruleAst: ASTQueryRoot = {
-      type: 'rule',
+      type: 'query',
       name: 'TestRule',
       description: 'Test rule with multiple actions',
       priority: 10,

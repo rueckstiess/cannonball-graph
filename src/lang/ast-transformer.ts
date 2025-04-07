@@ -22,7 +22,7 @@ export interface ASTQueryNode extends Node {
  * Root node of the Query AST
  */
 export interface ASTQueryRoot extends Parent {
-  type: 'rule';
+  type: 'query';
   name: string;
   description: string;
   priority: number;
@@ -220,7 +220,7 @@ function createASTQueryNode(
   children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode>
 ): ASTQueryRoot {
   return {
-    type: 'rule',
+    type: 'query',
     name,
     description,
     priority,
@@ -794,7 +794,7 @@ export function visualizeAst(node: ASTQueryNode | Parent, indent: number = 0): s
 
   // Add properties based on node type
   switch (node.type) {
-    case 'rule':
+    case 'query':
       const queryNode = node as ASTQueryRoot;
       result += ` (name: "${queryNode.name}", priority: ${queryNode.priority})`;
       break;
