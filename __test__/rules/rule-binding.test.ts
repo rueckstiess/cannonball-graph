@@ -1,6 +1,5 @@
 import { Graph } from '@/graph';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { Rule } from '@/lang/rule-parser';
 import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
 
 describe('Rule Engine Binding Tests', () => {
@@ -57,17 +56,9 @@ describe('Rule Engine Binding Tests', () => {
   });
 
   test('RuleEngine handles the case where one pattern has no matches', () => {
-    // Create a rule that references a non-existent label
-    const rule: Rule = {
-      name: 'NoMatchesRule',
-      description: 'Rule that matches nothing',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)',
-      markdown: '```graphrule\nname: NoMatchesRule\ndescription: Rule that matches nothing\npriority: 1\nMATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+    // Create a query that references a non-existent label
+    const query = 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)';
+    const result = engine.executeQuery(graph, query);
 
     // We're specifically testing that even when Category nodes don't exist,
     // the rule engine correctly handles this case with an empty result set
@@ -82,17 +73,9 @@ describe('Rule Engine Binding Tests', () => {
   });
 
   test('RuleEngine handles single pattern rules correctly', () => {
-    // Define a rule with only one pattern
-    const rule: Rule = {
-      name: 'UpdatePersonRule',
-      description: 'Update all person nodes',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person) SET p.status = "Active"',
-      markdown: '```graphrule\nname: UpdatePersonRule\ndescription: Update all person nodes\npriority: 1\nMATCH (p:Person) SET p.status = "Active"\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+    // Define a query with only one pattern
+    const query = "MATCH (p:Person) SET p.status = 'Active'";
+    const result = engine.executeQuery(graph, query);
 
     // Verify execution succeeded
     expect(result.success).toBe(true);

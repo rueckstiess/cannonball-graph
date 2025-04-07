@@ -1,5 +1,5 @@
 import {
-  Lexer, CypherParser, parseRuleFromMarkdown, transformToCypherAst,
+  Lexer, CypherParser, transformToCypherAst,
   inspectAst,
   visualizeAst,
   ASTRuleRoot
@@ -10,36 +10,27 @@ import { visit } from 'unist-util-visit';
 
 describe('Unist integration tests', () => {
   // Sample graphrule
-  const sampleRule = '```graphrule\n' +
-    'name: TaskDependencies\n' +
-    'description: Creates dependency relationships between nested tasks\n' +
-    'priority: 50\n' +
-    '\n' +
-    'MATCH (parent:listItem {isTask: true})\n' +
-    '-[:renders]->(:list)\n' +
-    '-[:renders]->(child:listItem {isTask: true})\n' +
-    'WHERE NOT EXISTS((parent)-[:dependsOn]->(child))\n' +
-    'CREATE (parent)-[:dependsOn {auto: true}]->(child)\n' +
-    '```';
+  const sampleQuery = `
+    MATCH (parent:listItem {isTask: true})-[:renders]->(:list)-[:renders]->(child:listItem {isTask: true})
+    WHERE NOT EXISTS((parent)-[:dependsOn]->(child))
+    CREATE (parent)-[:dependsOn {auto: true}]->(child)`;
 
   let ast: ASTRuleRoot;
 
   beforeAll(() => {
-    // Parse the rule
-    const rule = parseRuleFromMarkdown(sampleRule);
 
     // Parse the Cypher statement
     const lexer = new Lexer();
-    const parser = new CypherParser(lexer, rule.ruleText);
+    const parser = new CypherParser(lexer, sampleQuery);
     const statement = parser.parse();
 
     // Transform to AST
     ast = transformToCypherAst(
       statement,
-      rule.name,
-      rule.description,
-      rule.priority,
-      rule.disabled
+      "rule name",
+      "rule description",
+      1,
+      false
     );
   });
 

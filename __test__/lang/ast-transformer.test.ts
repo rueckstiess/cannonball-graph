@@ -1,6 +1,5 @@
 import { Lexer } from '@/lang';
 import { CypherParser } from '@/lang';
-import { parseRuleFromMarkdown } from '@/lang';
 import {
   transformToCypherAst,
   visualizeAst,
@@ -332,24 +331,18 @@ describe('AST Transformer', () => {
 
   describe('integration with rule-parser', () => {
     // Define a sample rule directly in the test file
-    const sampleRule = '```graphrule\nname: TaskDependencies\ndescription: Creates dependency relationships between nested tasks\npriority: 50\n\nMATCH (parent:listItem {isTask: true})\n-[:renders]->(:list)\n-[:renders]->(child:listItem {isTask: true})\nWHERE NOT EXISTS((parent)-[:dependsOn]->(child))\nCREATE (parent)-[:dependsOn {auto: true}]->(child)\n```';
 
     it('should transform a rule from markdown to AST', () => {
       // Parse the rule
-      const rule = parseRuleFromMarkdown(sampleRule);
+      const query = "MATCH (parent:listItem {isTask: true})\n-[:renders]->(:list)\n-[:renders]->(child:listItem {isTask: true})\nWHERE NOT EXISTS((parent)-[:dependsOn]->(child))\nCREATE (parent)-[:dependsOn {auto: true}]->(child)";
 
       // Parse the Cypher statement
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, rule.ruleText);
+      const parser = new CypherParser(lexer, query);
       const statement = parser.parse();
 
       // Transform to AST
-      const ast = transformToCypherAst(statement, rule.name, rule.description, rule.priority, rule.disabled);
-
-      // Basic structure tests
-      expect(ast.name).toBe('TaskDependencies');
-      expect(ast.description).toBe('Creates dependency relationships between nested tasks');
-      expect(ast.priority).toBe(50);
+      const ast = transformToCypherAst(statement, "rule name", "rule description", 10, false);
 
       // Check that we have the expected clauses
       const clauseTypes = ast.children.map(child => child.type);

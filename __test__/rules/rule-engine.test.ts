@@ -1,5 +1,4 @@
 import { Graph } from '@/graph';
-import { Rule } from '@/lang/rule-parser';
 import { ASTRuleRoot } from '@/lang/ast-transformer';
 import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
 import { BindingContext } from '@/lang/condition-evaluator';
@@ -19,20 +18,12 @@ describe('RuleEngine', () => {
     graph.addNode('task2', 'Task', { title: 'Task 2', priority: 'Low' });
   });
 
-  test('executeQuery handles basic rule execution', () => {
-    const rule: Rule = {
-      name: 'TestRule',
-      description: 'A test rule',
-      priority: 1,
-      disabled: false,
-      ruleText: 'CREATE (n:NewNode {name: "TestNode"})',
-      markdown: '```graphrule\nname: TestRule\ndescription: A test rule\npriority: 1\nCREATE (n:NewNode {name: "TestNode"})\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+  test('executeQuery handles basic query execution', () => {
+    const query = 'CREATE (n:NewNode {name: "TestNode"})';
+    const result = engine.executeQuery(graph, query);
 
     expect(result.success).toBe(true);
-    expect(result.matchCount).toBe(1); // One empty binding context for CREATE-only rules
+    expect(result.matchCount).toBe(1); // One empty binding context for CREATE-only query
     expect(result.actions).toBeDefined();
     expect(result.actions!.actionResults.length).toBe(1);
 
@@ -47,16 +38,8 @@ describe('RuleEngine', () => {
   });
 
   test('executeQuery handles pattern matching with conditions', () => {
-    const rule: Rule = {
-      name: 'TestRule',
-      description: 'A test rule with pattern matching',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person) WHERE p.name = "Alice" SET p.status = "Active"',
-      markdown: '```graphrule\nname: TestRule\ndescription: A test rule with pattern matching\npriority: 1\nMATCH (p:Person) WHERE p.name = "Alice" SET p.status = "Active"\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+    const query = "MATCH (p:Person) WHERE p.name = 'Alice' SET p.status = 'Active'";
+    const result = engine.executeQuery(graph, query);
 
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(1);
@@ -92,23 +75,12 @@ describe('RuleEngine', () => {
   });
 
   test('executeQueriesFromMarkdown extracts and executes queries from markdown', () => {
-    const markdown = `
-## Test Rules
 
-\`\`\`graphrule
-name: TestRule
-description: A test rule
-priority: 1
+    const query = `CREATE (n:NewNode {name: "FromMarkdown"})`;
+    const result = engine.executeQuery(graph, query);
 
-CREATE (n:NewNode {name: "FromMarkdown"})
-\`\`\`
-    `;
-
-    const results = engine.executeQueriesFromMarkdown(graph, markdown);
-
-    expect(results.length).toBe(1);
-    expect(results[0].success).toBe(true);
-    expect(results[0].actions).toBeDefined();
+    expect(result.success).toBe(true);
+    expect(result.actions).toBeDefined();
 
     // The rule should have created a new node
     const newNode = graph.findNodes(node => node.data.name === 'FromMarkdown')[0];

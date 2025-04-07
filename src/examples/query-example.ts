@@ -99,34 +99,6 @@ console.log('Results:');
 console.log(formatter.toTextTable(complexResult));
 
 // -------------------------------------------------------------------------
-// Query from markdown
-// -------------------------------------------------------------------------
-console.log('\n7. Query from markdown: Extract and execute a query from markdown');
-const markdown = `
-# Task Priority Report
-
-The following query finds all high priority tasks:
-
-\`\`\`graphquery
-MATCH (t:Task)
-WHERE t.priority = "High"
-RETURN t.title, t.dueDate
-\`\`\`
-
-Results should be reviewed by the team.
-`;
-
-const markdownResult = engine.executeQueryFromMarkdown(graph, markdown);
-
-console.log('Markdown:');
-console.log(markdown);
-console.log('\nExtracted query results:');
-console.log(`Success: ${markdownResult.success}`);
-console.log(`Matches found: ${markdownResult.matchCount}`);
-console.log('Results:');
-console.log(formatter.toTextTable(markdownResult));
-
-// -------------------------------------------------------------------------
 // JSON output
 // -------------------------------------------------------------------------
 console.log('\n8. JSON output: Format results as JSON');

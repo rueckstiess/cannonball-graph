@@ -116,7 +116,6 @@ describe('Rule Action Integration Tests', () => {
     // 2. Execute actions with validation (but don't validate before, to avoid early failure)
     const result = executor.executeActions(graph, actions, bindings, {
       validateBeforeExecute: false, // Important: we'll validate each action during its execution
-      continueOnFailure: true       // Try all actions even if some fail
     });
 
     // Log results for debugging
@@ -171,33 +170,19 @@ describe('Rule Action Integration Tests', () => {
     testGraph.addNode("task1", 'Task', { title: 'Task', priority: 'High' });
 
     // Define rule in markdown - very simple version
-    const ruleMarkdown = `
-## Simple Test Rule
-
-\`\`\`graphrule
-name: TestRule
-description: A simple test rule
-priority: 1
-
-CREATE (n:NewNode {name: "TestNode"})
-\`\`\`
-    `;
+    const query = "CREATE (n:NewNode {name: 'TestNode'})";
 
     // Just test that the rule is extracted from markdown
-    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
-
-    // Log details for debugging
-    console.log('Query execution results:', results);
+    const result = engine.executeQuery(testGraph, query);
 
     // At minimum, the rule should be extracted
-    expect(results.length).toBe(1);
-    expect(results[0].success).toBe(true);
-    expect(results[0].actions).toBeDefined();
+    expect(result.success).toBe(true);
+    expect(result.actions).toBeDefined();
 
     // The rule should create at least one node
     const nodes = testGraph.getAllNodes();
     console.log('Nodes after rule execution:', nodes);
-    expect(nodes.length).toBeGreaterThan(1); // More than the 2 we started with
+    expect(nodes.length).toBe(3);
   });
 
   test('Handles validation failures without executing actions', () => {
@@ -397,33 +382,25 @@ CREATE (n:NewNode {name: "TestNode"})
     expect(testGraph.findNodes(node => node.label === 'Task').length).toBe(1);
 
     // Define a rule that matches Person and Task nodes and creates a relationship between them
-    const ruleMarkdown = `
-## Connect People to Tasks
-
-\`\`\`graphrule
-name: ConnectPersonToTask
-description: Create WORKS_ON relationships between people and tasks
-priority: 10
-
-MATCH (p:Person), (t:Task)
-CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
-\`\`\`
+    const query = `
+      MATCH (p:Person), (t:Task)
+      CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     `;
 
     // Execute the rule
-    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
+    const result = engine.executeQuery(testGraph, query);
 
-    // Log results for debugging
-    console.log('\nRule execution results for pattern matching binding test:');
-    console.log(`Rule text: ${results[0].statement}`);
-    console.log(`Success: ${results[0].success}`);
-    console.log(`Matches found: ${results[0].matchCount}`);
-    console.log(`Error: ${results[0].error || 'none'}`);
+    // Log result for debugging
+    console.log('\nRule execution result for pattern matching binding test:');
+    console.log(`Rule text: ${result.statement}`);
+    console.log(`Success: ${result.success}`);
+    console.log(`Matches found: ${result.matchCount}`);
+    console.log(`Error: ${result.error || 'none'}`);
 
     // Examine rule engine internal state 
     console.log('\nRule engine execution details:');
     try {
-      const ruleEngineStateStr = JSON.stringify(results[0], (key, value) => {
+      const ruleEngineStateStr = JSON.stringify(result, (key, value) => {
         // Limit circular references
         if (key === 'bindings' && typeof value === 'object') {
           return 'BindingContext object';
@@ -435,29 +412,23 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
       console.log('Could not stringify rule engine results:', error);
     }
 
-    // Log graph state after rule execution
-    console.log('Nodes in graph:', testGraph.getAllNodes().length);
-    console.log('Edges in graph:', testGraph.getAllEdges().length);
-
-    // EXPECTED CORRECT BEHAVIOR:
-
     // 1. Pattern matching should find Person and Task nodes
-    expect(results[0].matchCount).toBeGreaterThan(0);
+    expect(result.matchCount).toBeGreaterThan(0);
 
     // 2. Rule execution should succeed because variables should be properly bound
-    expect(results[0].success).toBe(true); // THIS WILL FAIL with current implementation
+    expect(result.success).toBe(true); // THIS WILL FAIL with current implementation
 
     // 3. There should be no execution errors
-    expect(results[0].error).toBeUndefined(); // THIS WILL FAIL with current implementation
+    expect(result.error).toBeUndefined(); // THIS WILL FAIL with current implementation
 
     // 4. All actions should have executed successfully
-    if (results[0].actions && results[0].actions.actionResults.length > 0) {
+    if (result.actions && result.actions.actionResults.length > 0) {
       console.log('Action execution results:',
-        results[0].actions.actionResults.map(r => ({ success: r.success, error: r.error }))
+        result.actions.actionResults.map(r => ({ success: r.success, error: r.error }))
       );
 
       // All actions should succeed (no binding errors)
-      const allActionsSucceeded = results[0].actions.actionResults.every(r => r.success === true);
+      const allActionsSucceeded = result.actions.actionResults.every(r => r.success === true);
       expect(allActionsSucceeded).toBe(true); // THIS WILL FAIL with current implementation
     }
 
@@ -497,26 +468,18 @@ CREATE (p)-[r:WORKS_ON {assigned: true, date: "2023-01-15"}]->(t)
     testGraph.addNode("task1", 'Task', { title: 'Task 1', });
     testGraph.addNode("task2", 'Task', { title: 'Task 2', });
     // Define a rule that matches all people and all tasks and connects them
-    const ruleMarkdown = `
-## Connect All People to All Tasks
-
-\`\`\`graphrule
-name: ConnectAllPeopleToTasks
-description: Create WORKS_ON relationships between all people and all tasks
-priority: 5
-
-MATCH (p:Person), (t:Task)
-CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
-\`\`\`
+    const query = `
+      MATCH (p:Person), (t:Task)
+      CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
     `;
+
 
     // Execute the rule
     const engine = createRuleEngine();
-    const results = engine.executeQueriesFromMarkdown(testGraph, ruleMarkdown);
+    const result = engine.executeQuery(testGraph, query);
 
     // Verify rule execution result
-    expect(results.length).toBe(1);
-    expect(results[0].success).toBe(true);
+    expect(result.success).toBe(true);
 
     // With 2 people and 2 tasks, we should have 4 binding combinations (2×2=4)
     // One relationship for each binding combination should be created
@@ -568,51 +531,30 @@ CREATE (p)-[r:ASSIGNED {date: "2023-01-15"}]->(t)
     // Add a single person node for testing the case where one pattern has only one match
     testGraph.addNode("person1", 'Person', { name: 'Alice', });
     // Test rule with no matches for one pattern - should have no combined results
-    const noMatchRuleMarkdown = `
-## No Match Rule
-
-\`\`\`graphrule
-name: NoMatchRule
-description: Should not match anything because Project nodes don't exist
-priority: 5
-
-MATCH (p:Person), (proj:Project)
-CREATE (p)-[r:WORKS_ON]->(proj)
-\`\`\`
+    const query = `
+      MATCH (p:Person), (proj:Project)
+      CREATE (p)-[r:WORKS_ON]->(proj)
     `;
 
     const engine = createRuleEngine();
-    const noMatchResults = engine.executeQueriesFromMarkdown(testGraph, noMatchRuleMarkdown);
+    const noMatchResult = engine.executeQuery(testGraph, query);
 
     // Rule should execute but create no relationships because one pattern has no matches
-    expect(noMatchResults.length).toBe(1);
-    expect(noMatchResults[0].success).toBe(true);
-    expect(noMatchResults[0].matchCount).toBe(0); // No matches when one pattern has no matches
-    expect(noMatchResults[0].actions?.actionResults.length).toBe(0); // No actions executed with no matches
+    expect(noMatchResult.success).toBe(true);
+    expect(noMatchResult.matchCount).toBe(0); // No matches when one pattern has no matches
+    expect(noMatchResult.actions?.actionResults.length).toBe(0); // No actions executed with no matches
 
     // No edges should be created
     expect(testGraph.getAllEdges().length).toBe(0);
 
     // Test rule with a single pattern (not using cross-product bindings)
-    const singlePatternRuleMarkdown = `
-## Single Pattern Rule
+    const singlePatternQuery = `MATCH (p:Person) SET p.status = "Active"`;
 
-\`\`\`graphrule
-name: SinglePatternRule
-description: Only matches a single pattern (Person)
-priority: 5
-
-MATCH (p:Person)
-SET p.status = "Active"
-\`\`\`
-    `;
-
-    const singlePatternResults = engine.executeQueriesFromMarkdown(testGraph, singlePatternRuleMarkdown);
+    const singlePatternResult = engine.executeQuery(testGraph, singlePatternQuery);
 
     // Rule should execute and match the single person
-    expect(singlePatternResults.length).toBe(1);
-    expect(singlePatternResults[0].success).toBe(true);
-    expect(singlePatternResults[0].matchCount).toBe(1);
+    expect(singlePatternResult.success).toBe(true);
+    expect(singlePatternResult.matchCount).toBe(1);
 
     // The Person node should have its status set to "Active"
     const person = testGraph.getNode("person1");

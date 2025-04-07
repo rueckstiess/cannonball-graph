@@ -1,7 +1,6 @@
-import { Graph, Node, Edge, NodeId } from '@/graph'; // <-- Add NodeId
+import { Graph, Node, Edge, NodeId } from '@/graph';
 import {
-  Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser,
-  CypherStatement, ReturnClause, ReturnItem, PropertyExpression, VariableExpression
+  CypherParser, CypherStatement, ReturnClause, PropertyExpression, VariableExpression
 } from '@/lang/rule-parser';
 import { Lexer } from '@/lang/lexer';
 import { transformToCypherAst } from '@/lang/ast-transformer';
@@ -12,15 +11,6 @@ import {
   DeleteAction as IDeleteAction // <-- Import DeleteAction interface
 } from './rule-action-index';
 
-/**
- * Options for rule execution
- */
-export interface RuleExecutionOptions extends ActionExecutionOptions {
-  /**
-   * Maximum number of matches to process
-   */
-  maxMatches?: number;
-}
 
 /**
  * Represents a returned value from a query
@@ -88,7 +78,7 @@ export interface ActionResultData<NodeData = any, EdgeData = any> {
 }
 
 /**
- * Unified result interface for both queries and rule executions
+ * Result interface for query executions
  */
 export interface GraphQueryResult<NodeData = any, EdgeData = any> {
   /**
@@ -142,38 +132,6 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
   actions?: ActionResultData<NodeData, EdgeData>;
 }
 
-
-/**
- * Result of rule execution
- */
-export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
-  /**
-   * The rule that was executed
-   */
-  rule: Rule;
-
-  /**
-   * Whether execution was successful
-   */
-  success: boolean;
-
-  /**
-   * Results from action execution
-   */
-  actionResults: ActionExecutionResult<NodeData, EdgeData>[];
-
-  /**
-   * Number of pattern matches found
-   */
-  matchCount: number;
-
-  /**
-   * Error message if execution failed
-   */
-  error?: string;
-
-}
-
 /**
  * Integrated rule engine that handles the complete flow from rule text to execution
  */
@@ -205,7 +163,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   executeQuery(
     graph: Graph<NodeData, EdgeData>,
     statement: string,
-    options?: RuleExecutionOptions
+    options?: ActionExecutionOptions
   ): GraphQueryResult<NodeData, EdgeData> {
     const startTime = Date.now();
 
@@ -415,7 +373,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   private findMatches(
     graph: Graph<NodeData, EdgeData>,
     cypherStatement: CypherStatement,
-    options?: RuleExecutionOptions
+    options?: ActionExecutionOptions
   ): BindingContext<NodeData, EdgeData>[] {
     let matches: BindingContext<NodeData, EdgeData>[] = [];
 
@@ -427,10 +385,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         cypherStatement.where // Pass the WHERE clause
       );
 
-      // Limit final matches if maxMatches is specified
-      if (options?.maxMatches && matches.length > options.maxMatches) {
-        matches = matches.slice(0, options.maxMatches);
-      }
     } else {
       // If no MATCH clause, create a single empty binding context
       // This allows WHERE clauses without MATCH (e.g., WHERE 1=1) or CREATE without MATCH
@@ -573,124 +527,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       'label' in value &&
       'data' in value
     );
-  }
-
-  /**
-   * Executes multiple graph queries on a graph in priority order (highest first)
-   * 
-   * @param graph The graph to execute the queries on
-   * @param rules The rules to execute
-   * @param options Execution options
-   * @returns Array of unified query results
-   */
-  executeQueries(
-    graph: Graph<NodeData, EdgeData>,
-    rules: Rule[],
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData>[] {
-    // Sort rules by priority (highest first)
-    const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-
-    // Execute each rule
-    const results: GraphQueryResult<NodeData, EdgeData>[] = [];
-
-    for (const rule of sortedRules) {
-      // Skip disabled rules
-      if (rule.disabled) {
-        continue;
-      }
-
-      const result = this.executeQuery(graph, rule.ruleText, options);
-      results.push(result);
-
-      // Log execution for monitoring
-      console.log(`Executed rule '${rule.name}': ${result.success ? 'SUCCESS' : 'FAILED'}`);
-      console.log(`  - Matches: ${result.matchCount}`);
-
-      if (result.actions) {
-        console.log(`  - Actions executed: ${result.actions.actionResults.reduce(
-          (sum, r) => sum + r.actionResults.length, 0
-        )}`);
-      }
-
-      if (result.error) {
-        console.error(`  - Error: ${result.error}`);
-      }
-    }
-
-    return results;
-  }
-
-
-  /**
-   * Parse and execute graph queries from markdown
-   * 
-   * @param graph The graph to execute the queries on
-   * @param markdown The markdown containing the rules/queries
-   * @param options Execution options
-   * @returns Array of unified query results
-   */
-  executeQueriesFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData>[] {
-    const rules = extractRulesFromMarkdown(markdown);
-    return this.executeQueries(graph, rules, options);
-  }
-
-
-  /**
-   * Execute a graph query from a markdown code block
-   * 
-   * @param graph The graph to query
-   * @param markdown The markdown containing the query in a code block
-   * @param codeBlockType The type of code block to look for (default: "graphquery")
-   * @param options Execution options
-   * @returns Unified result containing both query results and action results if applicable
-   */
-  executeQueryFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    codeBlockType: string = "graphquery",
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData> {
-    try {
-      // Extract the query from the markdown code block
-      const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``);
-      const match = regex.exec(markdown);
-
-      if (!match) {
-        return {
-          success: false,
-          matchCount: 0,
-          statement: '',
-          error: `No ${codeBlockType} code block found in the provided markdown`,
-          stats: {
-            readOperations: false,
-            writeOperations: false,
-            executionTimeMs: 0
-          }
-        };
-      }
-
-      const statement = match[1].trim();
-
-      // Execute the query
-      return this.executeQuery(graph, statement, options);
-    } catch (error: any) {
-      return {
-        success: false,
-        matchCount: 0,
-        statement: '',
-        error: error.message || String(error),
-        stats: {
-          readOperations: false,
-          writeOperations: false,
-          executionTimeMs: 0
-        }
-      };
-    }
   }
 }
 

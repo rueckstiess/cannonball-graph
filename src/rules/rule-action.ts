@@ -184,11 +184,6 @@ export interface ActionExecutionOptions {
    * Whether to validate all actions before executing any
    */
   validateBeforeExecute?: boolean;
-
-  /**
-   * Whether to continue executing remaining actions if one fails
-   */
-  continueOnFailure?: boolean;
 }
 
 /**

@@ -1,5 +1,4 @@
 import { Graph } from '@/graph';
-import { Rule } from '@/lang/rule-parser';
 import { RuleEngine, createRuleEngine, GraphQueryResult } from '@/rules/rule-engine';
 
 describe('Rule Engine Query Functionality', () => {
@@ -145,16 +144,8 @@ describe('Rule Engine Query Functionality', () => {
   });
 
   test('executeQuery handles rules with RETURN clauses', () => {
-    const rule: Rule = {
-      name: 'QueryRule',
-      description: 'A rule with a RETURN clause',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person) RETURN p.name, p.age',
-      markdown: '```graphrule\nname: QueryRule\ndescription: A rule with a RETURN clause\npriority: 1\nMATCH (p:Person) RETURN p.name, p.age\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+    const query = `MATCH (p:Person) RETURN p.name, p.age`;
+    const result = engine.executeQuery(graph, query);
 
     // Rule should execute successfully
     expect(result.success).toBe(true);
@@ -171,17 +162,12 @@ describe('Rule Engine Query Functionality', () => {
     expect(names).toContain('Bob');
   });
 
-  test('executeQueryFromMarkdown extracts and executes queries from markdown', () => {
-    const markdown = `
-## Test Query
-
-\`\`\`graphquery
-MATCH (p:Person)
-RETURN p.name, p.age
-\`\`\`
+  test('executeQuery extracts and executes queries from markdown', () => {
+    const query = `
+      MATCH (p:Person)
+      RETURN p.name, p.age
     `;
-
-    const result = engine.executeQueryFromMarkdown(graph, markdown);
+    const result = engine.executeQuery(graph, query);
 
     // Query should execute successfully
     expect(result.success).toBe(true);

@@ -56,8 +56,6 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  * 
  * const engine = createRuleEngine();
  * 
- * // RECOMMENDED: Unified API
- * // Execute any graph statement (query, rule, or both)
  * const result = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
  * 
  * // Execute a graph statement that both modifies and returns data
@@ -86,19 +84,6 @@ export function createActionExecutor<NodeData = any, EdgeData = any>() {
  *   { statement: 'MATCH (n:Person) RETURN n.name, n.active', priority: 5 }
  * ];
  * const results = engine.executeQueries(graph, queries);
- * 
- * // Parse and execute queries from markdown
- * const markdownResults = engine.executeQueriesFromMarkdown(graph, markdownText);
- * 
- * // See src/examples/unified-query-example.ts for more examples
- * // See src/examples/unified-query-migration.md for migration guidance
- * 
- * // DEPRECATED: Legacy API
- * // The following methods are deprecated and will be removed in a future version
- * // const queryResult = engine.executeQuery(graph, 'MATCH (n:Person) RETURN n.name');
- * // const ruleResult = engine.executeRule(graph, rule);
- * // const ruleResults = engine.executeRules(graph, rules);
- * // const markdownResults = engine.executeRulesFromMarkdown(graph, markdownText);
  * ```
  */
 export function createRuleEngine<NodeData = any, EdgeData = any>() {

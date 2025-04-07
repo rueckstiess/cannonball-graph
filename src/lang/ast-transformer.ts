@@ -27,7 +27,6 @@ export interface ASTRuleRoot extends Parent {
   description: string;
   priority: number;
   disabled?: boolean;
-  // Add ASTDeleteNode to the possible children
   children: Array<ASTMatchNode | ASTWhereNode | ASTCreateNode | ASTSetNode | ASTDeleteNode>;
 }
 
