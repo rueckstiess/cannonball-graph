@@ -209,19 +209,7 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
 
       // 3. Execute actions if present (CREATE/SET/DELETE)
       if (hasWriteOps) {
-        // Transform to AST for action creation
-        // const ast = transformToCypherAst(
-        //   cypherStatement,
-        //   'unnamed', // Default name for ad-hoc statements
-        //   '', // Empty description
-        //   0, // Default priority
-        //   false // Not disabled
-        // );
-
-        // console.log('AST:', inspect(ast));
-
         // Convert AST CREATE/SET/DELETE clauses to actions
-        // const actions = this.actionFactory.createActionsFromQueryAst(ast);
         const actions = this.actionFactory.createActionsFromCypherStatement(cypherStatement);
 
         // Group actions by type to process them in the correct order
@@ -245,10 +233,11 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
 
         // Execute actions for each match
         const allActionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
-        const allAffectedNodes: Node<NodeData>[] = [];
-        const allAffectedEdges: Edge<EdgeData>[] = [];
-        const allDeletedNodeIds: NodeId[] = []; // <-- Track deleted node IDs
-        const allDeletedEdgeKeys: string[] = []; // <-- Track deleted edge keys
+        // Use Maps with appropriate keys to track unique elements
+        const uniqueAffectedNodes = new Map<string, Node<NodeData>>();
+        const uniqueAffectedEdges = new Map<string, Edge<EdgeData>>();
+        const allDeletedNodeIds: NodeId[] = [];
+        const allDeletedEdgeKeys: string[] = [];
         const updatedMatches: BindingContext<NodeData, EdgeData>[] = [];
         let allSuccessful = true;
 
@@ -262,7 +251,10 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
           if (createNodeActions.length > 0) {
             const nodeResult = this.actionExecutor.executeActions(graph, createNodeActions, bindingContext, options);
             allActionResults.push(nodeResult);
-            if (nodeResult.affectedNodes) allAffectedNodes.push(...nodeResult.affectedNodes);
+            if (nodeResult.affectedNodes) {
+              // Add each node to the map using its ID as the key
+              nodeResult.affectedNodes.forEach(node => uniqueAffectedNodes.set(node.id, node));
+            }
             if (!nodeResult.success) {
               allSuccessful = false; result.success = false; result.error = nodeResult.error || 'CREATE NODE failed'; continue;
             }
@@ -272,7 +264,13 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
           if (createRelationshipActions.length > 0) {
             const relResult = this.actionExecutor.executeActions(graph, createRelationshipActions, bindingContext, options);
             allActionResults.push(relResult);
-            if (relResult.affectedEdges) allAffectedEdges.push(...relResult.affectedEdges);
+            if (relResult.affectedEdges) {
+              // Add each edge to the map using a composite key
+              relResult.affectedEdges.forEach(edge => {
+                const key = `${edge.source}-${edge.label}-${edge.target}`;
+                uniqueAffectedEdges.set(key, edge);
+              });
+            }
             if (!relResult.success) {
               allSuccessful = false; result.success = false; result.error = relResult.error || 'CREATE RELATIONSHIP failed'; continue;
             }
@@ -283,8 +281,15 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
             const setResult = this.actionExecutor.executeActions(graph, setPropertyActions, bindingContext, options);
             allActionResults.push(setResult);
             // SET might affect nodes or edges
-            if (setResult.affectedNodes) allAffectedNodes.push(...setResult.affectedNodes);
-            if (setResult.affectedEdges) allAffectedEdges.push(...setResult.affectedEdges);
+            if (setResult.affectedNodes) {
+              setResult.affectedNodes.forEach(node => uniqueAffectedNodes.set(node.id, node));
+            }
+            if (setResult.affectedEdges) {
+              setResult.affectedEdges.forEach(edge => {
+                const key = `${edge.source}-${edge.label}-${edge.target}`;
+                uniqueAffectedEdges.set(key, edge);
+              });
+            }
             if (!setResult.success) {
               allSuccessful = false; result.success = false; result.error = setResult.error || 'SET PROPERTY failed'; continue;
             }
@@ -296,7 +301,9 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
             allActionResults.push(deleteResult);
             // DELETE returns the *original* items before deletion in affectedNodes/Edges
             if (deleteResult.affectedNodes) {
-              deleteResult.affectedNodes.forEach(n => { if (!allDeletedNodeIds.includes(n.id)) allDeletedNodeIds.push(n.id); });
+              deleteResult.affectedNodes.forEach(n => {
+                if (!allDeletedNodeIds.includes(n.id)) allDeletedNodeIds.push(n.id);
+              });
             }
             if (deleteResult.affectedEdges) {
               deleteResult.affectedEdges.forEach(e => {
@@ -322,9 +329,10 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
 
         // Add action results to the unified result
         result.actions = {
-          actionResults: allActionResults, // Use the collected results
-          affectedNodes: allAffectedNodes,
-          affectedEdges: allAffectedEdges,
+          actionResults: allActionResults,
+          // Convert Maps back to arrays for the final result
+          affectedNodes: Array.from(uniqueAffectedNodes.values()),
+          affectedEdges: Array.from(uniqueAffectedEdges.values()),
           deletedNodeIds: allDeletedNodeIds,
           deletedEdgeKeys: allDeletedEdgeKeys
         };
@@ -356,8 +364,6 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
       };
     }
   }
-
-
 
   /**
    * Finds pattern matches for a Cypher statement using the updated PatternMatcherWithConditions.

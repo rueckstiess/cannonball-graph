@@ -949,13 +949,20 @@ export class ActionExecutor<NodeData = any, EdgeData = any> {
   private collectAffectedNodes(
     actionResults: ActionResult<NodeData, EdgeData>[]
   ): Node<NodeData>[] {
-    const nodes: Node<NodeData>[] = [];
+    // Use a map with node ID as key to eliminate duplicates
+    const uniqueNodes = new Map<string, Node<NodeData>>();
+
     for (const result of actionResults) {
       if (result.success && result.affectedNodes) {
-        nodes.push(...result.affectedNodes);
+        for (const node of result.affectedNodes) {
+          // Only add the node if it doesn't already exist in the map
+          uniqueNodes.set(node.id, node);
+        }
       }
     }
-    return nodes;
+
+    // Convert the map values back to an array
+    return Array.from(uniqueNodes.values());
   }
 
   /**
@@ -964,12 +971,21 @@ export class ActionExecutor<NodeData = any, EdgeData = any> {
   private collectAffectedEdges(
     actionResults: ActionResult<NodeData, EdgeData>[]
   ): Edge<EdgeData>[] {
-    const edges: Edge<EdgeData>[] = [];
+    // Use a map with composite key (source-label-target) to eliminate duplicates
+    const uniqueEdges = new Map<string, Edge<EdgeData>>();
+
     for (const result of actionResults) {
       if (result.success && result.affectedEdges) {
-        edges.push(...result.affectedEdges);
+        for (const edge of result.affectedEdges) {
+          // Create a composite key from source-label-target
+          const key = `${edge.source}-${edge.label}-${edge.target}`;
+          // Only add the edge if it doesn't already exist in the map
+          uniqueEdges.set(key, edge);
+        }
       }
     }
-    return edges;
+
+    // Convert the map values back to an array
+    return Array.from(uniqueEdges.values());
   }
 }
