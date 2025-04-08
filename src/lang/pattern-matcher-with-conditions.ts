@@ -1,8 +1,8 @@
-// This file extends src/rules/pattern-matcher.ts with condition evaluation capabilities
+// This file extends src/query/pattern-matcher.ts with condition evaluation capabilities
 
-import { Graph, Node, Edge, Path, NodeId } from '@/graph';
-import { Expression, WhereClause, LogicalOperator, VariableExpression, PropertyExpression } from './rule-parser';
-import { NodePattern, RelationshipPattern, PathPattern, PatternMatcher, PatternMatcherOptions } from './pattern-matcher';
+import { Graph, Node, Path, NodeId } from '@/graph';
+import { Expression, WhereClause } from './parser';
+import { PathPattern, PatternMatcher, PatternMatcherOptions } from './pattern-matcher';
 import { BindingContext, ConditionEvaluatorOptions, ConditionEvaluator } from './condition-evaluator';
 
 /**
@@ -55,7 +55,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
       singleVariablePredicates = analysis.singleVariablePredicates;
       multiVariablePredicates = analysis.multiVariablePredicates;
 
-      // --- Add Validation Step ---
+      // --- Start Validation Step ---
       // 1. Collect variables defined in MATCH patterns
       const matchVariables = new Set<string>();
       for (const pattern of pathPatterns) {
@@ -142,6 +142,7 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     return combinedBindings;
   }
 
+  /*...*/
   /**
    * Helper to convert paths found for a pattern into binding contexts.
    * @private
@@ -153,23 +154,67 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
     const results: Array<BindingContext<NodeData, EdgeData>> = [];
     for (const path of paths) {
       const bindings = new BindingContext<NodeData, EdgeData>();
-      // Bind nodes and edges from the path according to the pattern variables
-      if (pattern.start.variable && path.nodes[0]) {
+
+      // Bind start node variable
+      if (pattern.start.variable && path.nodes.length > 0) {
         bindings.set(pattern.start.variable, path.nodes[0]);
       }
-      for (let i = 0; i < pattern.segments.length; i++) {
-        const segment = pattern.segments[i];
-        if (segment.relationship.variable && path.edges[i]) {
-          bindings.set(segment.relationship.variable, path.edges[i]);
-        }
-        if (segment.node.variable && path.nodes[i + 1]) {
-          bindings.set(segment.node.variable, path.nodes[i + 1]);
+
+      let currentPathEdgeIndex = 0;
+      let currentPathNodeIndex = 1; // Start node is index 0
+
+      // Iterate through the segments defined in the PATTERN
+      for (let segIdx = 0; segIdx < pattern.segments.length; segIdx++) {
+        const segment = pattern.segments[segIdx];
+        const relPattern = segment.relationship;
+        const nodePattern = segment.node;
+
+        // Determine if this segment represents a variable-length path
+        const isVariableLength = !((relPattern.minHops ?? 1) === 1 && (relPattern.maxHops ?? 1) === 1);
+
+        if (!isVariableLength) {
+          // --- Fixed Length Segment (1 hop) ---
+          // Bind relationship variable if defined and path has the edge
+          if (relPattern.variable && currentPathEdgeIndex < path.edges.length) {
+            bindings.set(relPattern.variable, path.edges[currentPathEdgeIndex]);
+          }
+          // Bind node variable if defined and path has the node
+          if (nodePattern.variable && currentPathNodeIndex < path.nodes.length) {
+            bindings.set(nodePattern.variable, path.nodes[currentPathNodeIndex]);
+          }
+          // Advance path indices for the next segment
+          currentPathEdgeIndex++;
+          currentPathNodeIndex++;
+        } else {
+          // --- Variable Length Segment ---
+          // This segment consumes the remaining edges/nodes in the path
+          const edgesInVarSegment = path.edges.slice(currentPathEdgeIndex);
+          const finalNodeInPath = path.nodes[path.nodes.length - 1];
+
+          // Bind relationship variable (as an array) if defined
+          if (relPattern.variable && edgesInVarSegment.length > 0) {
+            bindings.set(relPattern.variable, edgesInVarSegment);
+          }
+
+          // Bind the node variable to the *last* node of the entire path
+          if (nodePattern.variable && finalNodeInPath) {
+            bindings.set(nodePattern.variable, finalNodeInPath);
+          }
+
+          // Since this variable segment consumes the rest, update indices to the end
+          currentPathEdgeIndex = path.edges.length;
+          currentPathNodeIndex = path.nodes.length;
+
+          // Only one variable-length segment is supported per pattern for simplicity.
+          // If multiple were allowed, more complex index tracking would be needed.
+          break; // Stop processing pattern segments after the variable one
         }
       }
       results.push(bindings);
     }
     return results;
   }
+
 
   /**
    * Helper to get all variable names defined within a path pattern.
@@ -451,5 +496,20 @@ export class PatternMatcherWithConditions<NodeData = any, EdgeData = any> extend
   setConditionEvaluator(evaluator: ConditionEvaluator<NodeData, EdgeData>): void {
     this.conditionEvaluator = evaluator;
     this.conditionEvaluator.setPatternMatcher(this);
+  }
+  
+  /**
+   * Wrapper for the enrichPatternWithBindings method from parent class
+   * This allows the ConditionEvaluator to use this method to enrich patterns with bound variables
+   * 
+   * @param pattern The original path pattern
+   * @param bindings The binding context containing bound variables
+   * @returns A new pattern with constraints from bound variables
+   */
+  enrichPatternWithBindings(
+    pattern: PathPattern,
+    bindings: BindingContext<NodeData, EdgeData>
+  ): PathPattern {
+    return super.enrichPatternWithBindings(pattern, bindings);
   }
 }

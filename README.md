@@ -1,116 +1,79 @@
-# Cannonball-TS
+# Cannonball Graph
 
-A TypeScript library for transforming Markdown notes into a knowledge graph, with special support for Obsidian PKM.
+_Cannonball Graph_ is an in-memory graph database for JavaScript/TypeScript that supports a subset of the Cypher query language. It provides both direct graph manipulation and a declarative query interface.
 
-## Overview
+## 🚧 Project Status
 
-Cannonball is a productivity system that turns regular Markdown documents into a directed labeled graph structure. It's designed to work seamlessly with Obsidian, allowing you to:
+This project was primarily vibe-coded and written by [Claude](https://claude.ai/), Anthropic's AI assistant. While functional, it is not production-ready and likely contains bugs. **Use at your own risk.**
 
-- Parse Markdown into a graph data structure
-- Query and traverse relationships between nodes
-- Make changes to the graph
-- Serialize the graph back to Markdown
+## 📚 Documentation
 
-## Core Concepts
+For detailed information, please refer to the documentation:
 
-- **Node Types**: Documents, headings, tasks, bullets, paragraphs, code blocks, etc.
-- **Relation Types**: Contains, depends_on, links_to, etc.
-- **Graph Operations**: Add, update, delete nodes and edges, query the graph
+*   **[Overview & Quick Start](./docs/index.md)**
+*   **[Graph API Guide](./docs/graph-api.md)** (Direct Manipulation)
+*   **[Query Language Guide](./docs/query-language.md)** (Cypher Subset)
+*   **[Query Engine Guide](./docs/query-engine.md)** (Executing Queries)
 
-## Features
+## 📋 Features
 
-- **Markdown Parsing**: Convert Markdown documents to a graph structure
-- **Task Hierarchies**: Automatically create dependency relationships between tasks and subtasks
-- **Section Containers**: Group content by headings and maintain hierarchical relationships
-- **Serialization**: Convert the graph back to Markdown with options for restructuring
+- In-memory labeled property graph database
+- Full graph traversal and path finding
+- Cypher-inspired query language for declarative operations
+- Pattern matching with variable-length paths and conditions
+- Graph modification via CREATE, SET, and DELETE operations
+- Serialization and deserialization support
+- Query result formatting as text tables, markdown, or JSON
 
-## Usage
-
-### Basic Example
-
-```typescript
-import { MarkdownParser, CannonballGraph, MarkdownSerializer } from 'cannonball-ts';
-
-// Parse Markdown to a graph
-const parser = new MarkdownParser();
-const graph = parser.parse(`
-# Project
-- [ ] Task 1
-  - [ ] Subtask 1.1
-  - [ ] Subtask 1.2
-- [ ] Task 2
-`, 'project.md');
-
-// Query the graph
-const tasks = graph.findNodesByType('task');
-console.log(`Found ${tasks.length} tasks`);
-
-// Find dependencies of a task
-const task1 = tasks.find(t => t.content === 'Task 1');
-const dependencies = graph.getRelatedNodes(task1.id, 'depends_on');
-console.log(`Task 1 depends on ${dependencies.length} subtasks`);
-
-// Serialize back to Markdown
-const serializer = new MarkdownSerializer();
-const result = serializer.serialize(graph);
-console.log(result.files.get('project.md'));
-```
-
-### Obsidian Integration
-
-When used as an Obsidian plugin, Cannonball can:
-
-- Parse all vault notes into a unified graph
-- Maintain cross-file relationships
-- Update files when the graph changes
-- Visualize relationships in the graph view
-
-## API Reference
-
-### Core Types
-
-- `CannonballGraph`: The main graph class for storing and manipulating nodes and edges
-- `MarkdownParser`: Converts Markdown text into a Cannonball graph
-- `MarkdownSerializer`: Converts a Cannonball graph back to Markdown
-
-### Graph Operations
-
-- `addNode(node)`: Add a new node to the graph
-- `updateNode(node)`: Update an existing node
-- `removeNode(id)`: Remove a node and its associated edges
-- `addEdge(edge)`: Add a new edge between nodes
-- `removeEdge(source, target, relation)`: Remove an edge
-
-### Querying
-
-- `getNode(id)`: Get a node by ID
-- `getRelatedNodes(id, relation)`: Get nodes related to a given node
-- `findNodesByType(type)`: Find all nodes of a specific type
-- `searchNodes(query)`: Search nodes by content
-
-## Development
-
-### Setup
+## 🔧 Installation
 
 ```bash
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Run tests
-npm test
+npm install cannonball-graph
 ```
 
-### Roadmap
+## 💻 Usage (Examples)
 
-- [x] Core graph data structure
-- [x] Markdown parsing and serialization
-- [ ] Obsidian plugin integration
-- [ ] AI assistance features
-- [ ] Advanced query language
+See the **[Quick Start](./docs/index.md)** guide for introductory examples. More detailed examples can be found in the specific documentation pages linked above.
 
-## License
+### Basic Graph Operations (Direct API)
 
-ISC
+```javascript
+// filepath: readme-example-graph.ts
+import { Graph } from 'cannonball-graph';
+
+const graph = new Graph();
+graph.addNode('alice', 'Person', { name: 'Alice', age: 30 });
+graph.addNode('bob', 'Person', { name: 'Bob', age: 25 });
+graph.addEdge('alice', 'bob', 'FRIENDS_WITH', { since: '2020-01-01' });
+const alice = graph.getNode('alice');
+console.log(alice?.data.name); // Output: Alice
+```
+*See [Graph API Guide](./docs/graph-api.md) for more.*
+
+### Using the Query Engine
+
+```javascript
+// filepath: readme-example-query.ts
+import { Graph, createQueryEngine, createQueryFormatter } from 'cannonball-graph';
+
+const graph = new Graph();
+graph.addNode('alice', 'Person', { name: 'Alice', age: 30 });
+graph.addNode('bob', 'Person', { name: 'Bob', age: 25 });
+graph.addEdge('alice', 'bob', 'FRIENDS_WITH', { since: '2020-01-01' });
+
+const engine = createQueryEngine();
+const formatter = createQueryFormatter();
+
+const result = engine.executeQuery(graph, 'MATCH (p:Person)-[:FRIENDS_WITH]->(f:Person) RETURN p.name, f.name');
+console.log(formatter.toTextTable(result));
+/* Output:
+p.name  | f.name
+--------+-------
+"Alice" | "Bob"
+*/
+```
+*See [Query Language Guide](./docs/query-language.md) and [Query Engine Guide](./docs/query-engine.md) for more.*
+
+## 📄 License
+
+MIT

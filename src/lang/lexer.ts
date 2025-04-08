@@ -9,7 +9,7 @@ export enum TokenType {
   SET = 'SET',
   UNSET = 'UNSET',
   DELETE = 'DELETE',
-  DETACH = 'DETACH', // Add DETACH here
+  DETACH = 'DETACH',
   EXISTS = 'EXISTS',
   NOT = 'NOT',
   AND = 'AND',
@@ -92,37 +92,6 @@ export interface Token {
   position: number;
 }
 
-/**
- * Interface for the lexer that tokenizes Cypher-like query text
- */
-export interface Lexer {
-  /**
-   * Tokenizes the input string and returns an array of tokens
-   * @param input The Cypher-like query text to tokenize
-   * @returns Array of tokens
-   */
-  tokenize(input: string): Token[];
-
-  /**
-   * Returns the current token without advancing
-   */
-  peek(): Token;
-
-  /**
-   * Returns the current token and advances to the next token
-   */
-  next(): Token;
-
-  /**
-   * Returns true if there are no more tokens
-   */
-  isAtEnd(): boolean;
-
-  /**
-   * Resets the lexer to the beginning of the input
-   */
-  reset(): void;
-}
 
 /**
  * Configuration options for the lexer
@@ -188,7 +157,7 @@ const KEYWORDS: Record<string, TokenType> = {
 /**
  * Implementation of the Lexer interface for Cypher-like query language
  */
-export class Lexer implements Lexer {
+export class Lexer {
   private input: string = '';
   private tokens: Token[] = [];
   private currentPosition: number = 0;

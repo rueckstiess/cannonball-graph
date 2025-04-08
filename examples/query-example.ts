@@ -1,13 +1,13 @@
 import { Graph } from '@/graph';
-import { createRuleEngine, createQueryFormatter, createQueryUtils } from '@/rules';
+import { createQueryEngine, createQueryFormatter, createQueryUtils } from '@/query';
 
 console.log('=======================================');
 console.log('Cannonball Query Functionality Example');
 console.log('=======================================\n');
 
-// Initialize graph, rule engine, and query utilities
+// Initialize graph, query engine, and query utilities
 const graph = new Graph();
-const engine = createRuleEngine();
+const engine = createQueryEngine();
 const formatter = createQueryFormatter();
 const utils = createQueryUtils();
 
@@ -99,34 +99,6 @@ console.log('Results:');
 console.log(formatter.toTextTable(complexResult));
 
 // -------------------------------------------------------------------------
-// Query from markdown
-// -------------------------------------------------------------------------
-console.log('\n7. Query from markdown: Extract and execute a query from markdown');
-const markdown = `
-# Task Priority Report
-
-The following query finds all high priority tasks:
-
-\`\`\`graphquery
-MATCH (t:Task)
-WHERE t.priority = "High"
-RETURN t.title, t.dueDate
-\`\`\`
-
-Results should be reviewed by the team.
-`;
-
-const markdownResult = engine.executeQueryFromMarkdown(graph, markdown);
-
-console.log('Markdown:');
-console.log(markdown);
-console.log('\nExtracted query results:');
-console.log(`Success: ${markdownResult.success}`);
-console.log(`Matches found: ${markdownResult.matchCount}`);
-console.log('Results:');
-console.log(formatter.toTextTable(markdownResult));
-
-// -------------------------------------------------------------------------
 // JSON output
 // -------------------------------------------------------------------------
 console.log('\n8. JSON output: Format results as JSON');
@@ -138,7 +110,7 @@ console.log(`Query: ${jsonQuery}`);
 console.log(`Success: ${jsonResult.success}`);
 console.log(`Matches found: ${jsonResult.matchCount}`);
 console.log('Results as JSON:');
-console.log(formatter.toJson(jsonResult, { prettyPrint: true }));
+console.log(formatter.toJSON(jsonResult, { prettyPrint: true }));
 
 // -------------------------------------------------------------------------
 // Subgraph creation

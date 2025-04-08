@@ -1,8 +1,5 @@
 import { Graph } from '@/graph';
-import { ActionExecutor } from '@/rules/action-executor';
-import { CreateNodeAction } from '@/rules/create-node-action';
-import { SetPropertyAction } from '@/rules/set-property-action';
-import { DeleteAction } from '@/rules/delete-action';
+import { ActionExecutor, CreateNodeAction, SetPropertyAction, DeleteAction } from '@/query';
 import { BindingContext } from '@/lang/condition-evaluator';
 
 describe('ActionExecutor', () => {
@@ -71,7 +68,7 @@ describe('ActionExecutor', () => {
     bindings.set('n', alice);
 
     const createAction = new CreateNodeAction('task', ['Task'], { title: 'Task 1' });
-    const setAction = new SetPropertyAction('n', 'age', 30);
+    const setAction = new SetPropertyAction('n', 'age', { "type": "literal", "value": 30, dataType: "number" });
     const deleteAction = new DeleteAction(['n'], true);
 
     const result = executor.executeActions(graph, [createAction, setAction, deleteAction], bindings, {

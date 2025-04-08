@@ -1,4 +1,4 @@
-import { ReturnedValue, GraphQueryResult, QueryResultData } from './rule-engine';
+import { ReturnedValue, QueryResult, QueryResultData } from './query-engine';
 import { Graph, Node, Edge } from '@/graph';
 
 /**
@@ -23,7 +23,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns Array of values from the specified column
    */
   extractColumn(
-    result: GraphQueryResult<NodeData, EdgeData>,
+    result: QueryResult<NodeData, EdgeData>,
     columnName: string
   ): any[] {
     if (!result.success || !result.query || result.query.rows.length === 0) {
@@ -55,7 +55,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns Array of objects with column names as keys
    */
   toObjectArray(
-    result: GraphQueryResult<NodeData, EdgeData>
+    result: QueryResult<NodeData, EdgeData>
   ): Record<string, any>[] {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
@@ -89,7 +89,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns Array of nodes found in the query results
    */
   extractNodes(
-    result: GraphQueryResult<NodeData, EdgeData>
+    result: QueryResult<NodeData, EdgeData>
   ): Node<NodeData>[] {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
@@ -130,7 +130,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns Array of edges found in the query results
    */
   extractEdges(
-    result: GraphQueryResult<NodeData, EdgeData>
+    result: QueryResult<NodeData, EdgeData>
   ): Edge<EdgeData>[] {
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return [];
@@ -173,7 +173,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns A new graph containing only the nodes and edges from the query result
    */
   toSubgraph(
-    result: GraphQueryResult<NodeData, EdgeData>
+    result: QueryResult<NodeData, EdgeData>
   ): Graph<NodeData, EdgeData> {
     const subgraph = new Graph<NodeData, EdgeData>();
 
@@ -209,7 +209,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns True if the result has no rows, false otherwise
    */
   isEmpty(
-    result: GraphQueryResult<NodeData, EdgeData>
+    result: QueryResult<NodeData, EdgeData>
   ): boolean {
     return !result.success || !result.query || result.query.rows.length === 0;
   }
@@ -222,7 +222,7 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns The value, or undefined if not found
    */
   getSingleValue(
-    result: GraphQueryResult<NodeData, EdgeData>,
+    result: QueryResult<NodeData, EdgeData>,
     columnName?: string
   ): any {
     if (!result.success || !result.query || result.query.rows.length === 0) {
@@ -258,8 +258,8 @@ export class QueryUtils<NodeData = any, EdgeData = any> {
    * @returns A combined query result
    */
   combineResults(
-    results: GraphQueryResult<NodeData, EdgeData>[]
-  ): GraphQueryResult<NodeData, EdgeData> {
+    results: QueryResult<NodeData, EdgeData>[]
+  ): QueryResult<NodeData, EdgeData> {
     if (results.length === 0) {
       return {
         success: true,

@@ -1,21 +1,20 @@
 import { Graph } from '@/graph';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { Rule } from '@/lang/rule-parser';
-import { RuleEngine, createRuleEngine } from '@/rules/rule-engine';
+import { QueryEngine, createQueryEngine } from '@/query/query-engine';
 
 describe('Rule Engine Binding Tests', () => {
-  let engine: RuleEngine;
+  let engine: QueryEngine;
   let graph: Graph;
 
   beforeEach(() => {
-    engine = createRuleEngine();
+    engine = createQueryEngine();
     graph = new Graph();
 
     // Add test nodes
     graph.addNode('person1', 'Person', { name: 'Alice', }); graph.addNode('person2', 'Person', { name: 'Bob', }); graph.addNode('task1', 'Task', { title: 'Task 1', priority: 'High', }); graph.addNode('task2', 'Task', { title: 'Task 2', priority: 'Low', });
   });
 
-  test('RuleEngine combines bindings from comma-separated patterns', () => {
+  test('QueryEngine combines bindings from comma-separated patterns', () => {
     // Define a query with comma-separated patterns
     const query = 'MATCH (p:Person), (t:Task) CREATE (p)-[r:WORKS_ON {date: "2023-01-15"}]->(t)';
 
@@ -56,18 +55,10 @@ describe('Rule Engine Binding Tests', () => {
     expect(connections.has('person2->task2')).toBe(true);
   });
 
-  test('RuleEngine handles the case where one pattern has no matches', () => {
-    // Create a rule that references a non-existent label
-    const rule: Rule = {
-      name: 'NoMatchesRule',
-      description: 'Rule that matches nothing',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)',
-      markdown: '```graphrule\nname: NoMatchesRule\ndescription: Rule that matches nothing\npriority: 1\nMATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+  test('QueryEngine handles the case where one pattern has no matches', () => {
+    // Create a query that references a non-existent label
+    const query = 'MATCH (p:Person), (c:Category) CREATE (p)-[r:BELONGS_TO]->(c)';
+    const result = engine.executeQuery(graph, query);
 
     // We're specifically testing that even when Category nodes don't exist,
     // the rule engine correctly handles this case with an empty result set
@@ -81,18 +72,10 @@ describe('Rule Engine Binding Tests', () => {
     expect(graph.getAllEdges().length).toBe(0);
   });
 
-  test('RuleEngine handles single pattern rules correctly', () => {
-    // Define a rule with only one pattern
-    const rule: Rule = {
-      name: 'UpdatePersonRule',
-      description: 'Update all person nodes',
-      priority: 1,
-      disabled: false,
-      ruleText: 'MATCH (p:Person) SET p.status = "Active"',
-      markdown: '```graphrule\nname: UpdatePersonRule\ndescription: Update all person nodes\npriority: 1\nMATCH (p:Person) SET p.status = "Active"\n```'
-    };
-
-    const result = engine.executeQuery(graph, rule.ruleText);
+  test('QueryEngine handles single pattern rules correctly', () => {
+    // Define a query with only one pattern
+    const query = "MATCH (p:Person) SET p.status = 'Active'";
+    const result = engine.executeQuery(graph, query);
 
     // Verify execution succeeded
     expect(result.success).toBe(true);

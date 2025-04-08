@@ -1,36 +1,20 @@
-import { Graph, Node, Edge, NodeId } from '@/graph'; // <-- Add NodeId
+import { Graph, Node, Edge, NodeId } from '@/graph';
 import {
-  Rule, parseRuleFromMarkdown, extractRulesFromMarkdown, CypherParser,
-  CypherStatement, ReturnClause, ReturnItem, PropertyExpression, VariableExpression
-} from '@/lang/rule-parser';
+  Parser, CypherStatement, ReturnClause, PropertyExpression, VariableExpression
+} from '@/lang/parser';
 import { Lexer } from '@/lang/lexer';
-import { transformToCypherAst } from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { BindingContext } from '@/lang/condition-evaluator';
+import { BindingContext, ConditionEvaluator } from '@/lang/condition-evaluator';
 import {
-  ActionFactory, ActionExecutor, RuleAction, ActionExecutionOptions, ActionExecutionResult,
-  DeleteAction as IDeleteAction // <-- Import DeleteAction interface
-} from './rule-action-index';
+  ActionFactory, ActionExecutor, QueryAction, ActionExecutionOptions, ActionExecutionResult
+} from './query-action';
 
-/**
- * Options for rule execution
- */
-export interface RuleExecutionOptions extends ActionExecutionOptions {
-  /**
-   * Maximum number of matches to process
-   */
-  maxMatches?: number;
-}
+import { inspect } from 'unist-util-inspect';
 
 /**
  * Represents a returned value from a query
  */
 export interface ReturnedValue<NodeData = any, EdgeData = any> {
-  /**
-   * The variable or property name
-   */
-  name: string;
-
   /**
    * The value from the graph (can be a node, edge, or property value)
    */
@@ -39,7 +23,7 @@ export interface ReturnedValue<NodeData = any, EdgeData = any> {
   /**
    * The type of the value ('node', 'edge', or 'property')
    */
-  type: 'node' | 'edge' | 'property';
+  type: 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
 }
 
 /**
@@ -88,9 +72,9 @@ export interface ActionResultData<NodeData = any, EdgeData = any> {
 }
 
 /**
- * Unified result interface for both queries and rule executions
+ * Result interface for query executions
  */
-export interface GraphQueryResult<NodeData = any, EdgeData = any> {
+export interface QueryResult<NodeData = any, EdgeData = any> {
   /**
    * Whether execution was successful
    */
@@ -142,48 +126,16 @@ export interface GraphQueryResult<NodeData = any, EdgeData = any> {
   actions?: ActionResultData<NodeData, EdgeData>;
 }
 
-
 /**
- * Result of rule execution
+ * Integrated query engine that handles the complete flow from query statement to execution
  */
-export interface RuleExecutionResult<NodeData = any, EdgeData = any> {
-  /**
-   * The rule that was executed
-   */
-  rule: Rule;
-
-  /**
-   * Whether execution was successful
-   */
-  success: boolean;
-
-  /**
-   * Results from action execution
-   */
-  actionResults: ActionExecutionResult<NodeData, EdgeData>[];
-
-  /**
-   * Number of pattern matches found
-   */
-  matchCount: number;
-
-  /**
-   * Error message if execution failed
-   */
-  error?: string;
-
-}
-
-/**
- * Integrated rule engine that handles the complete flow from rule text to execution
- */
-export class RuleEngine<NodeData = any, EdgeData = any> {
+export class QueryEngine<NodeData = any, EdgeData = any> {
   private patternMatcher: PatternMatcherWithConditions<NodeData, EdgeData>;
   private actionFactory: ActionFactory<NodeData, EdgeData>;
   private actionExecutor: ActionExecutor<NodeData, EdgeData>;
 
   /**
-   * Creates a new rule engine
+   * Creates a new query engine
    */
   constructor() {
     this.patternMatcher = new PatternMatcherWithConditions<NodeData, EdgeData>();
@@ -192,27 +144,27 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   }
 
   /**
-   * Executes a graph query or rule on a graph and returns a unified result
+   * Executes a graph query on a graph and returns a unified result
    * 
    * Handles both read operations (RETURN) and write operations (CREATE/SET/DELETE),
    * or a combination of both.
    * 
    * @param graph The graph to operate on
-   * @param statement The query/rule statement
+   * @param statement The query statement
    * @param options Execution options
    * @returns Unified result containing both query results and action results if applicable
    */
   executeQuery(
     graph: Graph<NodeData, EdgeData>,
     statement: string,
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData> {
+    options?: ActionExecutionOptions
+  ): QueryResult<NodeData, EdgeData> {
     const startTime = Date.now();
 
     try {
       // 1. Parse the statement to a CypherStatement
       const lexer = new Lexer();
-      const parser = new CypherParser(lexer, statement);
+      const parser = new Parser(lexer, statement);
       const cypherStatement = parser.parse();
 
       const parseErrors = parser.getErrors();
@@ -239,7 +191,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       let matches = this.findMatches(graph, cypherStatement, options);
 
       // Initialize the result
-      const result: GraphQueryResult<NodeData, EdgeData> = {
+      const result: QueryResult<NodeData, EdgeData> = {
         success: true,
         matchCount: matches.length,
         statement,
@@ -252,24 +204,15 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
       // 3. Execute actions if present (CREATE/SET/DELETE)
       if (hasWriteOps) {
-        // Transform to AST for action creation
-        const ast = transformToCypherAst(
-          cypherStatement,
-          'unnamed', // Default name for ad-hoc statements
-          '', // Empty description
-          0, // Default priority
-          false // Not disabled
-        );
-
         // Convert AST CREATE/SET/DELETE clauses to actions
-        const actions = this.actionFactory.createActionsFromRuleAst(ast);
+        const actions = this.actionFactory.createActionsFromCypherStatement(cypherStatement);
 
         // Group actions by type to process them in the correct order
         // Order: CREATE_NODE -> CREATE_RELATIONSHIP -> SET_PROPERTY -> DELETE
-        const createNodeActions: RuleAction<NodeData, EdgeData>[] = [];
-        const createRelationshipActions: RuleAction<NodeData, EdgeData>[] = [];
-        const setPropertyActions: RuleAction<NodeData, EdgeData>[] = [];
-        const deleteActions: RuleAction<NodeData, EdgeData>[] = []; // <-- Add delete actions group
+        const createNodeActions: QueryAction<NodeData, EdgeData>[] = [];
+        const createRelationshipActions: QueryAction<NodeData, EdgeData>[] = [];
+        const setPropertyActions: QueryAction<NodeData, EdgeData>[] = [];
+        const deleteActions: QueryAction<NodeData, EdgeData>[] = []; // <-- Add delete actions group
 
         actions.forEach(action => {
           if (action.type === 'CREATE_NODE') {
@@ -285,21 +228,17 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
         // Execute actions for each match
         const allActionResults: ActionExecutionResult<NodeData, EdgeData>[] = [];
-        const allAffectedNodes: Node<NodeData>[] = [];
-        const allAffectedEdges: Edge<EdgeData>[] = [];
-        const allDeletedNodeIds: NodeId[] = []; // <-- Track deleted node IDs
-        const allDeletedEdgeKeys: string[] = []; // <-- Track deleted edge keys
+        // Use Maps with appropriate keys to track unique elements
+        const uniqueAffectedNodes = new Map<string, Node<NodeData>>();
+        const uniqueAffectedEdges = new Map<string, Edge<EdgeData>>();
+        const allDeletedNodeIds: NodeId[] = [];
+        const allDeletedEdgeKeys: string[] = [];
         const updatedMatches: BindingContext<NodeData, EdgeData>[] = [];
         let allSuccessful = true;
 
         for (const match of matches) {
-          // Create a deep copy of the binding context to track changes
-          const bindingContext = new BindingContext<NodeData, EdgeData>();
-          // Copy all bindings from the original match
-          const variableNames = match.getVariableNames();
-          for (const varName of variableNames) {
-            bindingContext.set(varName, match.get(varName));
-          }
+          // Create a copy of the binding context to track changes
+          const bindingContext = match.createChildContext();
 
           // --- Execute actions in order ---
 
@@ -307,7 +246,10 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           if (createNodeActions.length > 0) {
             const nodeResult = this.actionExecutor.executeActions(graph, createNodeActions, bindingContext, options);
             allActionResults.push(nodeResult);
-            if (nodeResult.affectedNodes) allAffectedNodes.push(...nodeResult.affectedNodes);
+            if (nodeResult.affectedNodes) {
+              // Add each node to the map using its ID as the key
+              nodeResult.affectedNodes.forEach(node => uniqueAffectedNodes.set(node.id, node));
+            }
             if (!nodeResult.success) {
               allSuccessful = false; result.success = false; result.error = nodeResult.error || 'CREATE NODE failed'; continue;
             }
@@ -317,7 +259,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
           if (createRelationshipActions.length > 0) {
             const relResult = this.actionExecutor.executeActions(graph, createRelationshipActions, bindingContext, options);
             allActionResults.push(relResult);
-            if (relResult.affectedEdges) allAffectedEdges.push(...relResult.affectedEdges);
+            if (relResult.affectedEdges) {
+              // Add each edge to the map using a composite key
+              relResult.affectedEdges.forEach(edge => {
+                const key = `${edge.source}-${edge.label}-${edge.target}`;
+                uniqueAffectedEdges.set(key, edge);
+              });
+            }
             if (!relResult.success) {
               allSuccessful = false; result.success = false; result.error = relResult.error || 'CREATE RELATIONSHIP failed'; continue;
             }
@@ -328,8 +276,15 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             const setResult = this.actionExecutor.executeActions(graph, setPropertyActions, bindingContext, options);
             allActionResults.push(setResult);
             // SET might affect nodes or edges
-            if (setResult.affectedNodes) allAffectedNodes.push(...setResult.affectedNodes);
-            if (setResult.affectedEdges) allAffectedEdges.push(...setResult.affectedEdges);
+            if (setResult.affectedNodes) {
+              setResult.affectedNodes.forEach(node => uniqueAffectedNodes.set(node.id, node));
+            }
+            if (setResult.affectedEdges) {
+              setResult.affectedEdges.forEach(edge => {
+                const key = `${edge.source}-${edge.label}-${edge.target}`;
+                uniqueAffectedEdges.set(key, edge);
+              });
+            }
             if (!setResult.success) {
               allSuccessful = false; result.success = false; result.error = setResult.error || 'SET PROPERTY failed'; continue;
             }
@@ -341,7 +296,9 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
             allActionResults.push(deleteResult);
             // DELETE returns the *original* items before deletion in affectedNodes/Edges
             if (deleteResult.affectedNodes) {
-              deleteResult.affectedNodes.forEach(n => { if (!allDeletedNodeIds.includes(n.id)) allDeletedNodeIds.push(n.id); });
+              deleteResult.affectedNodes.forEach(n => {
+                if (!allDeletedNodeIds.includes(n.id)) allDeletedNodeIds.push(n.id);
+              });
             }
             if (deleteResult.affectedEdges) {
               deleteResult.affectedEdges.forEach(e => {
@@ -367,9 +324,10 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
 
         // Add action results to the unified result
         result.actions = {
-          actionResults: allActionResults, // Use the collected results
-          affectedNodes: allAffectedNodes,
-          affectedEdges: allAffectedEdges,
+          actionResults: allActionResults,
+          // Convert Maps back to arrays for the final result
+          affectedNodes: Array.from(uniqueAffectedNodes.values()),
+          affectedEdges: Array.from(uniqueAffectedEdges.values()),
           deletedNodeIds: allDeletedNodeIds,
           deletedEdgeKeys: allDeletedEdgeKeys
         };
@@ -378,7 +336,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       // 4. Extract query results if RETURN is present
       if (hasReadOps) {
         if (cypherStatement.return) {
-          const queryData = this.extractQueryData(matches, cypherStatement.return);
+          const queryData = this.extractQueryData(graph, matches, cypherStatement.return);
           result.query = queryData;
         }
       }
@@ -402,8 +360,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
     }
   }
 
-
-
   /**
    * Finds pattern matches for a Cypher statement using the updated PatternMatcherWithConditions.
    * 
@@ -415,7 +371,7 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
   private findMatches(
     graph: Graph<NodeData, EdgeData>,
     cypherStatement: CypherStatement,
-    options?: RuleExecutionOptions
+    options?: ActionExecutionOptions
   ): BindingContext<NodeData, EdgeData>[] {
     let matches: BindingContext<NodeData, EdgeData>[] = [];
 
@@ -427,10 +383,6 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
         cypherStatement.where // Pass the WHERE clause
       );
 
-      // Limit final matches if maxMatches is specified
-      if (options?.maxMatches && matches.length > options.maxMatches) {
-        matches = matches.slice(0, options.maxMatches);
-      }
     } else {
       // If no MATCH clause, create a single empty binding context
       // This allows WHERE clauses without MATCH (e.g., WHERE 1=1) or CREATE without MATCH
@@ -454,11 +406,13 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
    * @returns The query data
    */
   private extractQueryData(
+    graph: Graph<NodeData, EdgeData>,
     matches: BindingContext<NodeData, EdgeData>[],
     returnClause: ReturnClause
   ): QueryResultData<NodeData, EdgeData> {
     const columns: string[] = [];
     const rows: ReturnedValue<NodeData, EdgeData>[][] = [];
+    const conditionEvaluator = new ConditionEvaluator<NodeData, EdgeData>();
 
     // Extract column names from the return items
     for (const item of returnClause.items) {
@@ -477,59 +431,19 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       const row: ReturnedValue<NodeData, EdgeData>[] = [];
 
       for (const item of returnClause.items) {
-        if (item.expression.type === 'variable') {
-          const varExpr = item.expression as VariableExpression;
-          const value = match.get(varExpr.name);
 
-          if (value !== undefined) {
-            const type = this.isNode(value) ? 'node' : 'edge';
-            row.push({
-              name: varExpr.name,
-              value,
-              type
-            });
-          } else {
-            // Variable not found, push null
-            row.push({
-              name: varExpr.name,
-              value: null,
-              type: 'property'
-            });
-          }
+        const evalResult = conditionEvaluator.evaluateExpression(graph, item.expression, match);
+        // if evaluation fails, set value to null
+        if (evalResult.error) {
+          evalResult.value = null;
+          evalResult.type = 'null';
         }
-        else if (item.expression.type === 'property') {
-          const propExpr = item.expression as PropertyExpression;
-          const object = match.get(propExpr.object.name);
 
-          if (object !== undefined) {
-            // Extract property value from the object
-            let propertyValue: any = null;
-
-            // For graph nodes and edges, property is in data
-            if (this.isNode(object) || this.isEdge(object)) {
-              propertyValue = object.data[propExpr.property as keyof typeof object.data];
-            }
-            // For other objects, property is direct
-            else if (typeof object === 'object' && object !== null) {
-              propertyValue = (object as any)[propExpr.property];
-            }
-
-            row.push({
-              name: `${propExpr.object.name}.${propExpr.property}`,
-              value: propertyValue,
-              type: 'property'
-            });
-          } else {
-            // Object not found, push null
-            row.push({
-              name: `${propExpr.object.name}.${propExpr.property}`,
-              value: null,
-              type: 'property'
-            });
-          }
-        }
+        row.push({
+          value: evalResult.value,
+          type: evalResult.type
+        });
       }
-
       rows.push(row);
     }
 
@@ -574,130 +488,12 @@ export class RuleEngine<NodeData = any, EdgeData = any> {
       'data' in value
     );
   }
-
-  /**
-   * Executes multiple graph queries on a graph in priority order (highest first)
-   * 
-   * @param graph The graph to execute the queries on
-   * @param rules The rules to execute
-   * @param options Execution options
-   * @returns Array of unified query results
-   */
-  executeQueries(
-    graph: Graph<NodeData, EdgeData>,
-    rules: Rule[],
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData>[] {
-    // Sort rules by priority (highest first)
-    const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-
-    // Execute each rule
-    const results: GraphQueryResult<NodeData, EdgeData>[] = [];
-
-    for (const rule of sortedRules) {
-      // Skip disabled rules
-      if (rule.disabled) {
-        continue;
-      }
-
-      const result = this.executeQuery(graph, rule.ruleText, options);
-      results.push(result);
-
-      // Log execution for monitoring
-      console.log(`Executed rule '${rule.name}': ${result.success ? 'SUCCESS' : 'FAILED'}`);
-      console.log(`  - Matches: ${result.matchCount}`);
-
-      if (result.actions) {
-        console.log(`  - Actions executed: ${result.actions.actionResults.reduce(
-          (sum, r) => sum + r.actionResults.length, 0
-        )}`);
-      }
-
-      if (result.error) {
-        console.error(`  - Error: ${result.error}`);
-      }
-    }
-
-    return results;
-  }
-
-
-  /**
-   * Parse and execute graph queries from markdown
-   * 
-   * @param graph The graph to execute the queries on
-   * @param markdown The markdown containing the rules/queries
-   * @param options Execution options
-   * @returns Array of unified query results
-   */
-  executeQueriesFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData>[] {
-    const rules = extractRulesFromMarkdown(markdown);
-    return this.executeQueries(graph, rules, options);
-  }
-
-
-  /**
-   * Execute a graph query from a markdown code block
-   * 
-   * @param graph The graph to query
-   * @param markdown The markdown containing the query in a code block
-   * @param codeBlockType The type of code block to look for (default: "graphquery")
-   * @param options Execution options
-   * @returns Unified result containing both query results and action results if applicable
-   */
-  executeQueryFromMarkdown(
-    graph: Graph<NodeData, EdgeData>,
-    markdown: string,
-    codeBlockType: string = "graphquery",
-    options?: RuleExecutionOptions
-  ): GraphQueryResult<NodeData, EdgeData> {
-    try {
-      // Extract the query from the markdown code block
-      const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``);
-      const match = regex.exec(markdown);
-
-      if (!match) {
-        return {
-          success: false,
-          matchCount: 0,
-          statement: '',
-          error: `No ${codeBlockType} code block found in the provided markdown`,
-          stats: {
-            readOperations: false,
-            writeOperations: false,
-            executionTimeMs: 0
-          }
-        };
-      }
-
-      const statement = match[1].trim();
-
-      // Execute the query
-      return this.executeQuery(graph, statement, options);
-    } catch (error: any) {
-      return {
-        success: false,
-        matchCount: 0,
-        statement: '',
-        error: error.message || String(error),
-        stats: {
-          readOperations: false,
-          writeOperations: false,
-          executionTimeMs: 0
-        }
-      };
-    }
-  }
 }
 
 /**
- * Creates a new rule engine
- * @returns A new RuleEngine instance
+ * Creates a new query engine
+ * @returns A new QueryEngine instance
  */
-export function createRuleEngine<NodeData = any, EdgeData = any>(): RuleEngine<NodeData, EdgeData> {
-  return new RuleEngine<NodeData, EdgeData>();
+export function createQueryEngine<NodeData = any, EdgeData = any>(): QueryEngine<NodeData, EdgeData> {
+  return new QueryEngine<NodeData, EdgeData>();
 }

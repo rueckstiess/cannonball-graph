@@ -1,308 +1,9 @@
-import { Graph, Node, Edge, Path } from '@/graph';
+import { Graph, Node, Edge } from '@/graph';
 import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression, ComparisonExpression,
   LogicalExpression, ExistsExpression, ComparisonOperator, LogicalOperator
-} from './rule-parser';
-import { PathPattern, NodePattern, RelationshipPattern, PatternMatcher } from './pattern-matcher';
-
-
-/**
- * Interface for a binding context that maps variable names to graph elements.
- * The binding context is used to store variable values during condition evaluation.
- * It supports parent-child relationships for scoped evaluation contexts.
- * 
- * @template NodeData Type of data associated with nodes
- * @template EdgeData Type of data associated with edges
- */
-export interface BindingContext<NodeData = any, EdgeData = any> {
-  /**
-   * Get a bound value by variable name
-   * 
-   * @param name The variable name to look up
-   * @returns The bound node, edge, or value; undefined if not found
-   * 
-   * @example
-   * ```typescript
-   * const node = bindings.get('n');
-   * if (node) {
-   *   console.log(node.id);
-   * }
-   * ```
-   */
-  get(name: string): Node<NodeData> | Edge<EdgeData> | any | undefined;
-
-  /**
-   * Set a bound value by variable name
-   * 
-   * @param name The variable name to bind
-   * @param value The node, edge, or value to bind
-   * 
-   * @example
-   * ```typescript
-   * // Bind a node
-   * bindings.set('n', graph.getNode('node1'));
-   * 
-   * // Bind an edge
-   * bindings.set('r', graph.getEdge('node1', 'node2', 'KNOWS'));
-   * 
-   * // Bind a simple value
-   * bindings.set('priority', 1);
-   * ```
-   */
-  set(name: string, value: Node<NodeData> | Edge<EdgeData> | any): void;
-
-  /**
-   * Check if a variable name is bound
-   * 
-   * @param name The variable name to check
-   * @returns True if the variable is bound, false otherwise
-   * 
-   * @example
-   * ```typescript
-   * if (bindings.has('n')) {
-   *   // Variable 'n' is bound
-   * }
-   * ```
-   */
-  has(name: string): boolean;
-
-  /**
-   * Create a child binding context that inherits from this one.
-   * Changes to the child context do not affect the parent.
-   * The child can access parent bindings, but the parent cannot access child bindings.
-   * 
-   * @returns A new binding context with this one as parent
-   * 
-   * @example
-   * ```typescript
-   * // Create parent context
-   * const parentBindings = createBindingContext();
-   * parentBindings.set('global', 'value');
-   * 
-   * // Create child context
-   * const childBindings = parentBindings.createChildContext();
-   * childBindings.set('local', 'childValue');
-   * 
-   * // Child can access parent bindings
-   * console.log(childBindings.get('global')); // 'value'
-   * 
-   * // Parent cannot access child bindings
-   * console.log(parentBindings.get('local')); // undefined
-   * ```
-   */
-  createChildContext(): BindingContext<NodeData, EdgeData>;
-
-  /**
-   * Get all variable names bound in this context
-   * @returns Array of variable names
-   */
-  getVariableNames(): string[];
-}
-
-/**
- * Interface for evaluating expressions and conditions in the context of a graph.
- * The condition evaluator is responsible for evaluating WHERE clauses in graph queries
- * and filtering pattern matches based on conditions.
- * 
- * @template NodeData Type of data associated with nodes
- * @template EdgeData Type of data associated with edges
- */
-export interface ConditionEvaluator<NodeData = any, EdgeData = any> {
-  /**
-   * Evaluate an expression in the context of a graph and binding context.
-   * This method can evaluate any expression type: literals, variables,
-   * property access, comparisons, logical operations, and exists checks.
-   * 
-   * @param graph The graph to evaluate against
-   * @param expression The expression to evaluate
-   * @param bindings Optional binding context for variables
-   * @returns The result of the expression evaluation
-   * 
-   * @example
-   * ```typescript
-   * // Evaluate a comparison expression
-   * const expr = {
-   *   type: 'comparison',
-   *   left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'age' },
-   *   operator: ComparisonOperator.GREATER_THAN,
-   *   right: { type: 'literal', value: 30, dataType: 'number' }
-   * };
-   * 
-   * const bindings = createBindingContext();
-   * bindings.set('n', graph.getNode('person1'));
-   * 
-   * const result = evaluator.evaluateExpression(graph, expr, bindings);
-   * // Returns true if person1.age > 30
-   * ```
-   */
-  evaluateExpression(
-    graph: Graph<NodeData, EdgeData>,
-    expression: Expression,
-    bindings?: BindingContext<NodeData, EdgeData>
-  ): any;
-
-  /**
-   * Evaluate a complete condition (typically a WHERE clause) in the context of a graph.
-   * The condition is evaluated to a boolean result.
-   * 
-   * @param graph The graph to evaluate against
-   * @param condition The condition expression to evaluate
-   * @param bindings Optional binding context for variables
-   * @returns True if the condition is satisfied, false otherwise
-   * 
-   * @example
-   * ```typescript
-   * // Create a condition: n.type = 'person' AND n.age > 30
-   * const condition = {
-   *   type: 'logical',
-   *   operator: LogicalOperator.AND,
-   *   operands: [
-   *     {
-   *       type: 'comparison',
-   *       left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'type' },
-   *       operator: ComparisonOperator.EQUALS,
-   *       right: { type: 'literal', value: 'person', dataType: 'string' }
-   *     },
-   *     {
-   *       type: 'comparison',
-   *       left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'age' },
-   *       operator: ComparisonOperator.GREATER_THAN,
-   *       right: { type: 'literal', value: 30, dataType: 'number' }
-   *     }
-   *   ]
-   * };
-   * 
-   * const bindings = createBindingContext();
-   * bindings.set('n', graph.getNode('person1'));
-   * 
-   * const result = evaluator.evaluateCondition(graph, condition, bindings);
-   * // Returns true if person1.type = 'person' AND person1.age > 30
-   * ```
-   */
-  evaluateCondition(
-    graph: Graph<NodeData, EdgeData>,
-    condition: Expression,
-    bindings?: BindingContext<NodeData, EdgeData>
-  ): boolean;
-
-  /**
-   * Evaluate a property access expression to extract a property value 
-   * from a node, edge, or object.
-   * 
-   * @param expression The property expression to evaluate
-   * @param bindings The binding context for variables
-   * @returns The value of the property, or undefined if not found
-   * 
-   * @example
-   * ```typescript
-   * const expr = {
-   *   type: 'property',
-   *   object: { type: 'variable', name: 'n' },
-   *   property: 'name'
-   * };
-   * 
-   * const bindings = createBindingContext();
-   * bindings.set('n', graph.getNode('person1'));
-   * 
-   * const name = evaluator.evaluatePropertyExpression(expr, bindings);
-   * // Returns the value of person1.name
-   * ```
-   */
-  evaluatePropertyExpression(
-    expression: PropertyExpression,
-    bindings: BindingContext<NodeData, EdgeData>
-  ): any;
-
-  /**
-   * Evaluate a comparison expression between two values.
-   * Supports standard comparisons (=, <>, <, <=, >, >=) as well as
-   * string operations (CONTAINS, STARTS WITH, ENDS WITH) and
-   * null checks (IS NULL, IS NOT NULL).
-   * 
-   * @param left The left side value
-   * @param operator The comparison operator
-   * @param right The right side value
-   * @param options Optional comparison options
-   * @returns The result of the comparison (true or false)
-   * 
-   * @example
-   * ```typescript
-   * // String equality
-   * evaluator.evaluateComparison('Alice', ComparisonOperator.EQUALS, 'Alice');
-   * // Returns true
-   * 
-   * // Numeric comparison
-   * evaluator.evaluateComparison(30, ComparisonOperator.GREATER_THAN, 25);
-   * // Returns true
-   * 
-   * // String contains
-   * evaluator.evaluateComparison('Hello World', ComparisonOperator.CONTAINS, 'World');
-   * // Returns true
-   * 
-   * // Type coercion example
-   * evaluator.evaluateComparison('42', ComparisonOperator.EQUALS, 42, { enableTypeCoercion: true });
-   * // Returns true when type coercion is enabled
-   * ```
-   */
-  evaluateComparison(
-    left: any,
-    operator: ComparisonOperator,
-    right: any,
-    options?: { enableTypeCoercion?: boolean }
-  ): boolean;
-
-  /**
-   * Check if a pattern exists in the graph using the EXISTS operator.
-   * This is used to implement EXISTS and NOT EXISTS expressions.
-   * 
-   * @param graph The graph to check
-   * @param expression The existence expression to evaluate
-   * @param bindings The binding context for variables
-   * @returns True if the pattern exists (or doesn't exist for negative checks)
-   * 
-   * @example
-   * ```typescript
-   * // Check if a person has any tasks
-   * const existsExpr = {
-   *   type: 'exists',
-   *   positive: true,
-   *   pattern: {
-   *     start: { variable: 'p', labels: [], properties: {} },
-   *     segments: [{
-   *       relationship: { type: 'ASSIGNED', properties: {}, direction: 'outgoing' },
-   *       node: { labels: ['task'], properties: {} }
-   *     }]
-   *   }
-   * };
-   * 
-   * const bindings = createBindingContext();
-   * bindings.set('p', graph.getNode('person1'));
-   * 
-   * const hasTask = evaluator.evaluateExistsExpression(graph, existsExpr, bindings);
-   * // Returns true if person1 has an outgoing ASSIGNED relationship to any task
-   * ```
-   */
-  evaluateExistsExpression(
-    graph: Graph<NodeData, EdgeData>,
-    expression: ExistsExpression,
-    bindings: BindingContext<NodeData, EdgeData>
-  ): boolean;
-
-  /**
-   * Set the pattern matcher to use for pattern matching operations.
-   * This is required for EXISTS pattern checks to work.
-   * 
-   * @param patternMatcher The pattern matcher implementation to use
-   * 
-   * @example
-   * ```typescript
-   * const patternMatcher = new PatternMatcher();
-   * const evaluator = createConditionEvaluator();
-   * evaluator.setPatternMatcher(patternMatcher);
-   * ```
-   */
-  setPatternMatcher(patternMatcher: PatternMatcher<NodeData, EdgeData>): void;
-}
+} from './parser';
+import { PatternMatcher } from './pattern-matcher';
 
 /**
  * Options for configuring the condition evaluator
@@ -374,15 +75,22 @@ export interface EvaluationResult {
   /**
    * Type of the result value
    */
-  type: 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
+  type: 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
 }
 
 
 
 /**
- * Implementation of the BindingContext interface that manages variable bindings
+ * BindingContext that manages variable bindings
+ * 
+ * BindingContext maps variable names to graph elements.
+ * The binding context is used to store variable values during condition evaluation.
+ * It supports parent-child relationships for scoped evaluation contexts.
+ * 
+ * @template NodeData Type of data associated with nodes
+ * @template EdgeData Type of data associated with edges
  */
-export class BindingContext<NodeData = any, EdgeData = any> implements BindingContext<NodeData, EdgeData> {
+export class BindingContext<NodeData = any, EdgeData = any> {
   private bindings: Map<string, any>;
   private parent: BindingContext<NodeData, EdgeData> | null;
 
@@ -397,8 +105,17 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
 
   /**
    * Get a bound value by variable name
-   * @param name The variable name
-   * @returns The bound node, edge, or value
+   * 
+   * @param name The variable name to look up
+   * @returns The bound node, edge, or value; undefined if not found
+   * 
+   * @example
+   * ```typescript
+   * const node = bindings.get('n');
+   * if (node) {
+   *   console.log(node.id);
+   * }
+   * ```
    */
   get(name: string): Node<NodeData> | Edge<EdgeData> | any | undefined {
     if (this.bindings.has(name)) {
@@ -414,8 +131,21 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
 
   /**
    * Set a bound value by variable name
-   * @param name The variable name
+   * 
+   * @param name The variable name to bind
    * @param value The node, edge, or value to bind
+   * 
+   * @example
+   * ```typescript
+   * // Bind a node
+   * bindings.set('n', graph.getNode('node1'));
+   * 
+   * // Bind an edge
+   * bindings.set('r', graph.getEdge('node1', 'node2', 'KNOWS'));
+   * 
+   * // Bind a simple value
+   * bindings.set('priority', 1);
+   * ```
    */
   set(name: string, value: Node<NodeData> | Edge<EdgeData> | any): void {
     this.bindings.set(name, value);
@@ -423,16 +153,44 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
 
   /**
    * Check if a variable name is bound
-   * @param name The variable name
-   * @returns True if the variable is bound
+   * 
+   * @param name The variable name to check
+   * @returns True if the variable is bound, false otherwise
+   * 
+   * @example
+   * ```typescript
+   * if (bindings.has('n')) {
+   *   // Variable 'n' is bound
+   * }
+   * ```
    */
   has(name: string): boolean {
     return this.bindings.has(name) || (this.parent ? this.parent.has(name) : false);
   }
 
   /**
-   * Create a child binding context that inherits from this one
+   * Create a child binding context that inherits from this one.
+   * Changes to the child context do not affect the parent.
+   * The child can access parent bindings, but the parent cannot access child bindings.
+   * 
    * @returns A new binding context with this one as parent
+   * 
+   * @example
+   * ```typescript
+   * // Create parent context
+   * const parentBindings = createBindingContext();
+   * parentBindings.set('global', 'value');
+   * 
+   * // Create child context
+   * const childBindings = parentBindings.createChildContext();
+   * childBindings.set('local', 'childValue');
+   * 
+   * // Child can access parent bindings
+   * console.log(childBindings.get('global')); // 'value'
+   * 
+   * // Parent cannot access child bindings
+   * console.log(parentBindings.get('local')); // undefined
+   * ```
    */
   createChildContext(): BindingContext<NodeData, EdgeData> {
     return new BindingContext<NodeData, EdgeData>(this);
@@ -457,9 +215,15 @@ export class BindingContext<NodeData = any, EdgeData = any> implements BindingCo
 }
 
 /**
- * Implementation of the ConditionEvaluator interface
+ * ConditionEvaluator for evaluating expressions and conditions in the context of a graph.
+ * 
+ * The condition evaluator is responsible for evaluating WHERE clauses in graph queries
+ * and filtering pattern matches based on conditions.
+ * 
+ * @template NodeData Type of data associated with nodes
+ * @template EdgeData Type of data associated with edges
  */
-export class ConditionEvaluator<NodeData = any, EdgeData = any> implements ConditionEvaluator<NodeData, EdgeData> {
+export class ConditionEvaluator<NodeData = any, EdgeData = any> {
   private options: Required<ConditionEvaluatorOptions>;
   private patternMatcher: PatternMatcher<NodeData, EdgeData>;
 
@@ -479,62 +243,150 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
   }
 
   /**
-   * Set the pattern matcher to use for pattern matching operations
+   * Set the pattern matcher to use for pattern matching operations.
+   * This is required for EXISTS pattern checks to work.
+   * 
    * @param patternMatcher The pattern matcher implementation to use
+   * 
+   * @example
+   * ```typescript
+   * const patternMatcher = new PatternMatcher();
+   * const evaluator = createConditionEvaluator();
+   * evaluator.setPatternMatcher(patternMatcher);
+   * ```
    */
   setPatternMatcher(patternMatcher: PatternMatcher<NodeData, EdgeData>): void {
     this.patternMatcher = patternMatcher;
   }
 
+  private getTypeForValue(value: any): 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array' {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (typeof value === 'object') {
+      if ('id' in value && 'data' in value) return 'node'; // Assuming Node has id and data properties
+      if ('source' in value && 'target' in value) return 'edge'; // Assuming Edge has source and target properties
+      return 'object'; // Regular object
+    }
+    if (Array.isArray(value)) return 'array';
+    if (typeof value === 'object') return 'object';
+    if (typeof value === 'boolean') return 'boolean';
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'string') return 'string';
+
+    // This is a catch-all for any other types that might not be covered
+    throw new Error(`Found unsupported type during expression evaluation: ${typeof value}`);
+  }
+
+
   /**
-   * Evaluate an expression in the context of a graph and binding context
+   * Evaluate an expression in the context of a graph and binding context.
+   * This method can evaluate any expression type: literals, variables,
+   * property access, comparisons, logical operations, and exists checks.
+   * 
    * @param graph The graph to evaluate against
    * @param expression The expression to evaluate
    * @param bindings Optional binding context for variables
    * @returns The result of the expression evaluation
+   * 
+   * @example
+   * ```typescript
+   * // Evaluate a comparison expression
+   * const expr = {
+   *   type: 'comparison',
+   *   left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'age' },
+   *   operator: ComparisonOperator.GREATER_THAN,
+   *   right: { type: 'literal', value: 30, dataType: 'number' }
+   * };
+   * 
+   * const bindings = createBindingContext();
+   * bindings.set('n', graph.getNode('person1'));
+   * 
+   * const result = evaluator.evaluateExpression(graph, expr, bindings).value;
+   * // Returns true if person1.age > 30
+   * ```
    */
   evaluateExpression(
     graph: Graph<NodeData, EdgeData>,
     expression: Expression,
     bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
-  ): any {
+  ): EvaluationResult {
+
+
+    let value;
     switch (expression.type) {
       case 'literal':
-        return this.evaluateLiteralExpression(expression as LiteralExpression);
-
+        value = this.evaluateLiteralExpression(expression as LiteralExpression);
+        break;
       case 'variable':
-        return this.evaluateVariableExpression(expression as VariableExpression, bindings);
-
+        value = this.evaluateVariableExpression(expression as VariableExpression, bindings);
+        break;
       case 'property':
-        return this.evaluatePropertyExpression(expression as PropertyExpression, bindings);
-
+        value = this.evaluatePropertyExpression(expression as PropertyExpression, bindings);
+        break;
       case 'comparison':
-        return this.evaluateComparisonExpression(graph, expression as ComparisonExpression, bindings);
-
+        value = this.evaluateComparisonExpression(graph, expression as ComparisonExpression, bindings);
+        break;
       case 'logical':
-        return this.evaluateLogicalExpression(graph, expression as LogicalExpression, bindings);
-
+        value = this.evaluateLogicalExpression(graph, expression as LogicalExpression, bindings);
+        break;
       case 'exists':
-        return this.evaluateExistsExpression(graph, expression as ExistsExpression, bindings);
-
+        value = this.evaluateExistsExpression(graph, expression as ExistsExpression, bindings);
+        break;
       default:
         throw new Error(`Unsupported expression type: ${(expression as any).type}`);
+    }
+
+    return {
+      value: value,
+      success: true,
+      type: this.getTypeForValue(value)
     }
   }
 
   /**
-   * Evaluate a complete condition in the context of a graph
+   * Evaluate a complete condition (typically a WHERE clause) in the context of a graph.
+   * The condition is evaluated to a boolean result.
+   * 
    * @param graph The graph to evaluate against
    * @param condition The condition expression to evaluate
    * @param bindings Optional binding context for variables
    * @returns True if the condition is satisfied, false otherwise
+   * 
+   * @example
+   * ```typescript
+   * // Create a condition: n.type = 'person' AND n.age > 30
+   * const condition = {
+   *   type: 'logical',
+   *   operator: LogicalOperator.AND,
+   *   operands: [
+   *     {
+   *       type: 'comparison',
+   *       left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'type' },
+   *       operator: ComparisonOperator.EQUALS,
+   *       right: { type: 'literal', value: 'person', dataType: 'string' 
+   *     },
+   *     {
+   *       type: 'comparison',
+   *       left: { type: 'property', object: { type: 'variable', name: 'n' }, property: 'age' },
+   *       operator: ComparisonOperator.GREATER_THAN,
+   *       right: { type: 'literal', value: 30, dataType: 'number' }
+   *     }
+   *   ]
+   * };
+   * 
+   * const bindings = createBindingContext();
+   * bindings.set('n', graph.getNode('person1'));
+   * 
+   * const result = evaluator.evaluateCondition(graph, condition, bindings);
+   * // Returns true if person1.type = 'person' AND person1.age > 30
+   * ```
    */
   evaluateCondition(
     graph: Graph<NodeData, EdgeData>,
     condition: Expression,
     bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): boolean {
-    const result = this.evaluateExpression(graph, condition, bindings);
+    const result = this.evaluateExpression(graph, condition, bindings).value;
     return Boolean(result);
   }
 
@@ -561,16 +413,33 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
   }
 
   /**
-   * Evaluate a property access expression
+   * Evaluate a property access expression to extract a property value 
+   * from a node, edge, or object.
+   * 
    * @param expression The property expression to evaluate
    * @param bindings The binding context for variables
    * @returns The value of the property, or undefined if not found
+   * 
+   * @example
+   * ```typescript
+   * const expr = {
+   *   type: 'property',
+   *   object: { type: 'variable', name: 'n' },
+   *   property: 'name'
+   * };
+   * 
+   * const bindings = createBindingContext();
+   * bindings.set('n', graph.getNode('person1'));
+   * 
+   * const name = evaluator.evaluatePropertyExpression(expr, bindings);
+   * // Returns the value of person1.name
+   * ```
    */
   evaluatePropertyExpression(
     expression: PropertyExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): any {
-    const object = this.evaluateExpression(null as any, expression.object, bindings);
+    const object = this.evaluateExpression(null as any, expression.object, bindings).value;
 
     if (!object || typeof object !== 'object') {
       return undefined;
@@ -598,18 +467,42 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
     expression: ComparisonExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): boolean {
-    const leftValue = this.evaluateExpression(graph, expression.left, bindings);
-    const rightValue = this.evaluateExpression(graph, expression.right, bindings);
+    const leftValue = this.evaluateExpression(graph, expression.left, bindings).value;
+    const rightValue = this.evaluateExpression(graph, expression.right, bindings).value;
 
     return this.evaluateComparison(leftValue, expression.operator, rightValue);
   }
 
   /**
-   * Evaluate a comparison between two values
+   * Evaluate a comparison expression between two values.
+   * Supports standard comparisons (=, <>, <, <=, >, >=) as well as
+   * string operations (CONTAINS, STARTS WITH, ENDS WITH) and
+   * null checks (IS NULL, IS NOT NULL).
+   * 
    * @param left The left side value
    * @param operator The comparison operator
    * @param right The right side value
-   * @returns The result of the comparison
+   * @param options Optional comparison options
+   * @returns The result of the comparison (true or false)
+   * 
+   * @example
+   * ```typescript
+   * // String equality
+   * evaluator.evaluateComparison('Alice', ComparisonOperator.EQUALS, 'Alice');
+   * // Returns true
+   * 
+   * // Numeric comparison
+   * evaluator.evaluateComparison(30, ComparisonOperator.GREATER_THAN, 25);
+   * // Returns true
+   * 
+   * // String contains
+   * evaluator.evaluateComparison('Hello World', ComparisonOperator.CONTAINS, 'World');
+   * // Returns true
+   * 
+   * // Type coercion example
+   * evaluator.evaluateComparison('42', ComparisonOperator.EQUALS, 42, { enableTypeCoercion: true });
+   * // Returns true when type coercion is enabled
+   * ```
    */
   evaluateComparison(
     left: any,
@@ -723,7 +616,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
       case LogicalOperator.AND:
         // Short-circuit AND
         for (const operand of expression.operands) {
-          if (!this.evaluateExpression(graph, operand, bindings)) {
+          if (!this.evaluateExpression(graph, operand, bindings).value) {
             return false;
           }
         }
@@ -732,7 +625,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
       case LogicalOperator.OR:
         // Short-circuit OR
         for (const operand of expression.operands) {
-          if (this.evaluateExpression(graph, operand, bindings)) {
+          if (this.evaluateExpression(graph, operand, bindings).value) {
             return true;
           }
         }
@@ -740,13 +633,13 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
 
       case LogicalOperator.NOT:
         // NOT only has one operand
-        return !this.evaluateExpression(graph, expression.operands[0], bindings);
+        return !this.evaluateExpression(graph, expression.operands[0], bindings).value;
 
       case LogicalOperator.XOR:
         // XOR - count true values
         let trueCount = 0;
         for (const operand of expression.operands) {
-          if (this.evaluateExpression(graph, operand, bindings)) {
+          if (this.evaluateExpression(graph, operand, bindings).value) {
             trueCount++;
           }
         }
@@ -758,37 +651,51 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> implements Condi
   }
 
   /**
-   * Evaluate an EXISTS expression
-   * @param graph The graph to evaluate against
-   * @param expression The EXISTS expression to evaluate
+   * Check if a pattern exists in the graph using the EXISTS operator.
+   * This is used to implement EXISTS and NOT EXISTS expressions.
+   * 
+   * @param graph The graph to check
+   * @param expression The existence expression to evaluate
    * @param bindings The binding context for variables
    * @returns True if the pattern exists (or doesn't exist for negative checks)
+   * 
+   * @example
+   * ```typescript
+   * // Check if a person has any tasks
+   * const existsExpr = {
+   *   type: 'exists',
+   *   positive: true,
+   *   pattern: {
+   *     start: { variable: 'p', labels: [], properties: {} },
+   *     segments: [{
+   *       relationship: { type: 'ASSIGNED', properties: {}, direction: 'outgoing' },
+   *       node: { labels: ['task'], properties: {} }
+   *     }]
+   *   }
+   * };
+   * 
+   * const bindings = createBindingContext();
+   * bindings.set('p', graph.getNode('person1'));
+   * 
+   * const hasTask = evaluator.evaluateExistsExpression(graph, existsExpr, bindings);
+   * // Returns true if person1 has an outgoing ASSIGNED relationship to any task
+   * ```
    */
   evaluateExistsExpression(
     graph: Graph<NodeData, EdgeData>,
     expression: ExistsExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): boolean {
-    // Get the starting node variable from the pattern
-    const startVariable = expression.pattern.start.variable;
+    // Create a new pattern that's enriched with binding constraints
+    // This will constrain the pattern based on any variables (start, middle, or end)
+    // that are already bound in the current context
+    const enrichedPattern = this.patternMatcher.enrichPatternWithBindings(
+      expression.pattern,
+      bindings
+    );
 
-    // If the start variable is bound in the current context, we need to 
-    // constrain the pattern to match only paths starting from that specific node
-    if (startVariable && bindings.has(startVariable)) {
-      const startNode = bindings.get(startVariable) as Node<NodeData>;
-      if (startNode) {
-        // Find paths that start with the given node
-        const paths = this.patternMatcher.findMatchingPaths(
-          graph,
-          expression.pattern,
-          [startNode.id] // Constrain to specific starting node ID
-        );
-        return expression.positive ? paths.length > 0 : paths.length === 0;
-      }
-    }
-
-    // If no binding constraints, just find all matching paths
-    const paths = this.patternMatcher.findMatchingPaths(graph, expression.pattern);
+    // Use the enriched pattern to find matching paths
+    const paths = this.patternMatcher.findMatchingPaths(graph, enrichedPattern);
 
     // For EXISTS, check if any paths match
     // For NOT EXISTS, check if no paths match

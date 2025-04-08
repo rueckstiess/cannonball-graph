@@ -1,53 +1,5 @@
 import { Lexer, Token, TokenType } from './lexer';
 import { NodePattern, RelationshipPattern, PathPattern } from './pattern-matcher';
-import { Graph, Node, NodeId, Edge, Path, BFSVisitor } from '@/graph';
-
-/**
- * Represents a graph transformation rule in Cannonball.
- * Rules are defined in Markdown code blocks with graphrule type.
- */
-export interface Rule {
-  /**
-   * Unique identifier for the rule
-   */
-  name: string;
-
-  /**
-   * Human-readable explanation of the rule's purpose
-   */
-  description: string;
-
-  /**
-   * Numeric priority (higher numbers run first)
-   */
-  priority: number;
-
-  /**
-   * Whether the rule is currently disabled
-   */
-  disabled?: boolean;
-
-  /**
-   * The raw rule text containing the Cypher-like query
-   */
-  ruleText: string;
-
-  /**
-   * The original markdown string from which this rule was parsed
-   */
-  markdown: string;
-}
-
-/**
- * Options for rule extraction
- */
-export interface RuleExtractionOptions {
-  /**
-   * The type of code block to look for (default: "graphrule")
-   */
-  codeBlockType?: string;
-}
-
 
 
 /**
@@ -206,11 +158,11 @@ export interface CreateNode {
  */
 export interface CreateRelationship {
   /** The starting node (must be a variable that was matched earlier) */
-  fromNode: VariableExpression;
+  fromNode: CreateNode;
   /** The relationship pattern to create */
   relationship: RelationshipPattern;
   /** The ending node (must be a variable that was matched earlier) */
-  toNode: VariableExpression;
+  toNode: CreateNode;
 }
 
 /**
@@ -236,7 +188,7 @@ export interface DeleteClause {
  */
 export interface ReturnItem {
   /** The expression to return (can be a variable or property access) */
-  expression: VariableExpression | PropertyExpression;
+  expression: Expression;
   /** Optional alias for the returned value */
   alias?: string;
 }
@@ -267,157 +219,17 @@ export interface CypherStatement {
   return?: ReturnClause;
 }
 
-/**
- * Interface for the Parser that parses Cypher queries
- */
-export interface Parser {
-  /**
-   * Parses the token stream to produce a Cypher statement
-   * @returns The parsed Cypher statement
-   */
-  parse(): CypherStatement;
-
-  /**
-   * Returns the list of errors encountered during parsing
-   * @returns Array of error messages
-   */
-  getErrors(): string[];
-}
-
 
 /**
- * Parses a graph rule from a markdown string.
- *
- * @param markdown - The markdown string containing the rule
- * @param options - Optional extraction options
- * @returns A Rule object
- * @throws Error if the rule is invalid or missing required metadata
+ * Parser for Cypher-like query language
  */
-export function parseRuleFromMarkdown(
-  markdown: string,
-  options: RuleExtractionOptions = {},
-): Rule {
-  const codeBlockType = options.codeBlockType || "graphrule";
-  const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``);
-
-  const match = regex.exec(markdown);
-  if (!match) {
-    throw new Error(
-      `No ${codeBlockType} code block found in the provided markdown`,
-    );
-  }
-
-  const blockContent = match[1].trim();
-  const lines = blockContent.split("\n");
-
-  // Extract metadata (lines before the first empty line)
-  const metadata: Record<string, string | boolean | number> = {};
-  let i = 0;
-
-  while (i < lines.length && lines[i].trim() !== "") {
-    const line = lines[i];
-    const colonIndex = line.indexOf(":");
-
-    if (colonIndex > 0) {
-      const key = line.slice(0, colonIndex).trim();
-      const value = line.slice(colonIndex + 1).trim();
-
-      // Convert values to appropriate types
-      if (key === "priority") {
-        metadata[key] = parseInt(value, 10);
-        if (isNaN(metadata[key] as number)) {
-          throw new Error(
-            `Invalid priority value: ${value}. Must be a number.`,
-          );
-        }
-      } else if (key === "disabled") {
-        metadata[key] = value.toLowerCase() === "true";
-      } else {
-        metadata[key] = value;
-      }
-    }
-
-    i++;
-  }
-
-  // Skip empty lines to find the rule text
-  while (i < lines.length && lines[i].trim() === "") {
-    i++;
-  }
-
-  // Extract rule text (all remaining lines)
-  const ruleText = lines.slice(i).join("\n").trim();
-
-  // Validate required metadata
-  if (!metadata.name) {
-    throw new Error("Rule is missing required metadata: name");
-  }
-  if (!metadata.description) {
-    throw new Error("Rule is missing required metadata: description");
-  }
-  if (metadata.priority === undefined) {
-    throw new Error("Rule is missing required metadata: priority");
-  }
-
-  // Validate rule text
-  if (!ruleText) {
-    throw new Error("Rule is missing rule text");
-  }
-
-  // Construct and return the Rule object
-  return {
-    name: metadata.name as string,
-    description: metadata.description as string,
-    priority: metadata.priority as number,
-    disabled: metadata.disabled as boolean | undefined,
-    ruleText,
-    markdown,
-  };
-}
-
-/**
- * Extracts all graph rules from a markdown document.
- *
- * @param markdown - The markdown document
- * @param options - Optional extraction options
- * @returns An array of Rule objects
- * @throws Error if any rule is invalid
- */
-export function extractRulesFromMarkdown(
-  markdown: string,
-  options: RuleExtractionOptions = {},
-): Rule[] {
-  const codeBlockType = options.codeBlockType || "graphrule";
-  const regex = new RegExp(`\`\`\`${codeBlockType}([\\s\\S]*?)\`\`\``, "g");
-
-  const rules: Rule[] = [];
-  let match;
-
-  while ((match = regex.exec(markdown)) !== null) {
-    const fullMatch = match[0];
-    try {
-      const rule = parseRuleFromMarkdown(fullMatch, options);
-      rules.push(rule);
-    } catch (error) {
-      // Skip invalid rules or log them if needed
-      console.error(`Found invalid rule definition: ${fullMatch}: ${error}`);
-      throw error;
-    }
-  }
-
-  return rules;
-}
-
-/**
- * Parser for Cypher-like query language used in graph rules
- */
-export class CypherParser implements Parser {
+export class Parser {
   private lexer: Lexer;
   private currentToken: Token;
   private errors: string[] = [];
 
   /**
-   * Creates a new CypherParser
+   * Creates a new Parser
    * @param lexer The lexer to use for tokenization
    * @param input Optional input string to parse (if provided, tokenizes immediately)
    */
@@ -521,6 +333,37 @@ export class CypherParser implements Parser {
   }
 
   /**
+   * Generic parser for clauses that contain lists of items separated by commas and/or clause keywords
+   * This handles both forms: "CLAUSE item, item" and "CLAUSE item CLAUSE item"
+   * @param parseItem Function to parse a single item
+   * @param clauseType The token type for the clause keyword (e.g., TokenType.MATCH)
+   * @param wrapperFn Function to wrap the resulting list in an appropriate clause object
+   * @returns The parsed clause object
+   */
+  private parseClauseWithList<T, R>(
+    parseItem: () => T,
+    clauseType: TokenType,
+    wrapperFn: (items: T[]) => R
+  ): R {
+    const items = this.parseList(parseItem, [TokenType.COMMA, clauseType]);
+    return wrapperFn(items);
+  }
+
+  /**
+   * Parser for simple clauses that contain a single item and don't allow repetition
+   * Used for clauses like WHERE that have a single expression
+   * @param parseFn Function to parse the single item
+   * @param wrapperFn Function to wrap the parsed item in an appropriate clause object
+   * @returns The parsed clause object
+   */
+  private parseSimpleClause<T, R>(
+    parseFn: () => T,
+    wrapperFn: (item: T) => R
+  ): R {
+    return wrapperFn(parseFn());
+  }
+
+  /**
    * Generic parser for comma-separated lists or items separated by repeating keywords
    * @param parseItem Function to parse a single item
    * @param separatorTypes Token types that can separate items (e.g., COMMA or clause keywords)
@@ -545,11 +388,11 @@ export class CypherParser implements Parser {
    * @returns The parsed match clause
    */
   private parseMatchClause(): MatchClause {
-    const patterns = this.parseList(
+    return this.parseClauseWithList(
       () => this.parsePathPattern(),
-      [TokenType.COMMA, TokenType.MATCH]
+      TokenType.MATCH,
+      patterns => ({ patterns })
     );
-    return { patterns };
   }
 
   /**
@@ -641,7 +484,12 @@ export class CypherParser implements Parser {
     const { direction: initialDirection } = this.parseRelationshipDirection();
 
     // Initialize relationship with default values
-    const relationship = this.initializeRelationship(initialDirection);
+    const relationship: RelationshipPattern = {
+      properties: {},
+      direction: initialDirection,
+      minHops: 1,
+      maxHops: 1
+    };
 
     // Parse relationship details if present
     if (this.match(TokenType.OPEN_BRACKET)) {
@@ -674,19 +522,6 @@ export class CypherParser implements Parser {
     this.currentToken = this.lexer.next();
   }
 
-  /**
-   * Initializes a relationship object with default values
-   * @param direction Initial direction
-   * @returns A relationship pattern object
-   */
-  private initializeRelationship(direction: 'outgoing' | 'incoming' | 'both'): RelationshipPattern {
-    return {
-      properties: {},
-      direction,
-      minHops: 1,
-      maxHops: 1
-    };
-  }
 
   /**
    * Parses relationship direction indicators (->, <-, -)
@@ -1044,12 +879,7 @@ export class CypherParser implements Parser {
 
       // Check for property access (dot notation)
       if (this.match(TokenType.DOT)) {
-        const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
-        return {
-          type: 'property',
-          object: variable,
-          property
-        };
+        return this.parsePropertyAccess(variable);
       }
 
       return variable;
@@ -1134,6 +964,45 @@ export class CypherParser implements Parser {
   }
 
   /**
+   * Parses a single CREATE pattern (either a node or a relationship path)
+   * @returns The parsed CREATE pattern (node or relationship)
+   */
+  private parseCreatePattern(): CreateNode | CreateRelationship | null {
+    if (!this.check(TokenType.OPEN_PAREN)) {
+      return null;
+    }
+
+    const firstChar = this.currentToken.value;
+    if (firstChar !== '(') {
+      return null;
+    }
+
+    // Parse the node
+    const startNode = this.parseNodePattern();
+
+    // Check if this is a standalone node or the start of a path
+    if (
+      this.check(TokenType.MINUS) ||
+      this.check(TokenType.FORWARD_ARROW) ||
+      this.check(TokenType.BACKWARD_ARROW)
+    ) {
+      // This is a path - parse the relationship and end node
+      const relationship = this.parseRelationshipPattern();
+      const endNode = this.parseNodePattern();
+
+      // Create a relationship pattern
+      return {
+        fromNode: { node: startNode },
+        relationship,
+        toNode: { node: endNode }
+      };
+    } else {
+      // This is a standalone node
+      return { node: startNode };
+    }
+  }
+
+  /**
    * Parses a CREATE clause
    * @returns The parsed CREATE clause
    */
@@ -1141,66 +1010,16 @@ export class CypherParser implements Parser {
     const patterns: Array<CreateNode | CreateRelationship> = [];
 
     // Parse the first pattern
-    if (this.check(TokenType.OPEN_PAREN)) {
-      const firstChar = this.currentToken.value;
-
-      // Check if this is a node or a path (for relationship creation)
-      if (firstChar === '(') {
-        // Parse first node or path
-        const node = this.parseNodePattern();
-
-        // Check if this is a standalone node or the start of a path
-        if (
-          this.check(TokenType.MINUS) ||
-          this.check(TokenType.FORWARD_ARROW) ||
-          this.check(TokenType.BACKWARD_ARROW)
-        ) {
-          // This is a path - parse the relationship and end node
-          const relationship = this.parseRelationshipPattern();
-          const endNode = this.parseNodePattern();
-
-          // Create a relationship pattern
-          patterns.push({
-            fromNode: { type: 'variable', name: node.variable! },
-            relationship,
-            toNode: { type: 'variable', name: endNode.variable! }
-          });
-        } else {
-          // This is a standalone node
-          patterns.push({ node });
-        }
-      }
+    const firstPattern = this.parseCreatePattern();
+    if (firstPattern) {
+      patterns.push(firstPattern);
     }
 
     // Parse additional patterns separated by commas OR additional CREATE tokens
     while (this.match(TokenType.COMMA) || this.match(TokenType.CREATE)) {
-      if (this.check(TokenType.OPEN_PAREN)) {
-        const firstChar = this.currentToken.value;
-
-        if (firstChar === '(') {
-          // Parse node or path
-          const node = this.parseNodePattern();
-
-          // Check if this is a standalone node or the start of a path
-          if (
-            this.check(TokenType.MINUS) ||
-            this.check(TokenType.FORWARD_ARROW) ||
-            this.check(TokenType.BACKWARD_ARROW)
-          ) {
-            // This is a path
-            const relationship = this.parseRelationshipPattern();
-            const endNode = this.parseNodePattern();
-
-            patterns.push({
-              fromNode: { type: 'variable', name: node.variable! },
-              relationship,
-              toNode: { type: 'variable', name: endNode.variable! }
-            });
-          } else {
-            // This is a standalone node
-            patterns.push({ node });
-          }
-        }
+      const nextPattern = this.parseCreatePattern();
+      if (nextPattern) {
+        patterns.push(nextPattern);
       }
     }
 
@@ -1208,26 +1027,29 @@ export class CypherParser implements Parser {
   }
 
   /**
+   * Parses a single property setting (e.g., n.property = value)
+   * @returns The parsed property setting
+   */
+  private parsePropertySetting(): PropertySetting {
+    const target = this.parseVariableExpression();
+    this.consume(TokenType.DOT, "Expected '.' after variable");
+    const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
+    this.consume(TokenType.EQUALS, "Expected '=' after property name");
+    const value = this.parseExpression();
+
+    return { target, property, value };
+  }
+
+  /**
    * Parses a SET clause
    * @returns The parsed SET clause
    */
   private parseSetClause(): SetClause {
-    const parsePropertySetting = (): PropertySetting => {
-      const target = this.parseVariableExpression();
-      this.consume(TokenType.DOT, "Expected '.' after variable");
-      const property = this.consume(TokenType.IDENTIFIER, "Expected property name").value;
-      this.consume(TokenType.EQUALS, "Expected '=' after property name");
-      const value = this.parseExpression();
-
-      return { target, property, value };
-    };
-
-    const settings = this.parseList(
-      parsePropertySetting,
-      [TokenType.COMMA, TokenType.SET]
+    return this.parseClauseWithList(
+      () => this.parsePropertySetting(),
+      TokenType.SET,
+      settings => ({ settings })
     );
-
-    return { settings };
   }
 
   /**
@@ -1236,12 +1058,11 @@ export class CypherParser implements Parser {
    * @returns The parsed DELETE clause
    */
   private parseDeleteClause(detach: boolean): DeleteClause {
-    const variables = this.parseList(
+    return this.parseClauseWithList(
       () => this.parseVariableExpression(),
-      [TokenType.COMMA, TokenType.DELETE]
+      TokenType.DELETE,
+      variables => ({ variables, detach })
     );
-
-    return { variables, detach };
   }
 
   /**
@@ -1249,12 +1070,11 @@ export class CypherParser implements Parser {
    * @returns The parsed RETURN clause
    */
   private parseReturnClause(): ReturnClause {
-    const items = this.parseList(
+    return this.parseClauseWithList(
       () => this.parseReturnItem(),
-      [TokenType.COMMA, TokenType.RETURN]
+      TokenType.RETURN,
+      items => ({ items })
     );
-
-    return { items };
   }
 
   /**
@@ -1262,18 +1082,13 @@ export class CypherParser implements Parser {
    * @returns The parsed return item
    */
   private parseReturnItem(): ReturnItem {
-    // Parse the expression (variable or property access)
+    // Parse the variable expression
     const variable = this.parseVariableExpression();
 
     // Check if this is a property access
     let expression: VariableExpression | PropertyExpression = variable;
     if (this.match(TokenType.DOT)) {
-      const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
-      expression = {
-        type: 'property',
-        object: variable,
-        property
-      };
+      expression = this.parsePropertyAccess(variable);
     }
 
     // Check for AS alias (not implemented yet, for future extension)
@@ -1290,6 +1105,20 @@ export class CypherParser implements Parser {
   private parseVariableExpression(): VariableExpression {
     const name = this.consume(TokenType.IDENTIFIER, "Expected variable name").value;
     return { type: 'variable', name };
+  }
+
+  /**
+   * Parses a property access expression (e.g., n.property)
+   * @param variable The variable expression to access property from
+   * @returns The parsed property expression
+   */
+  private parsePropertyAccess(variable: VariableExpression): PropertyExpression {
+    const property = this.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value;
+    return {
+      type: 'property',
+      object: variable,
+      property
+    };
   }
 
   /**

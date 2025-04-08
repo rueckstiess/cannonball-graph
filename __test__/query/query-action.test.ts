@@ -1,20 +1,15 @@
 import { Graph, Node } from '@/graph';
 import { BindingContext } from '@/lang/condition-evaluator';
+
 import {
-  ASTCreateNodePatternNode,
-  ASTCreateRelPatternNode,
-  ASTPropertySettingNode,
-  ASTLiteralExpressionNode
-} from '@/lang/ast-transformer';
-import {
-  RuleAction,
+  QueryAction,
   CreateNodeAction,
   CreateRelationshipAction,
   SetPropertyAction,
   DeleteAction,
   ActionExecutor,
   ActionFactory
-} from '@/rules';
+} from '@/query';
 
 describe('CreateNodeAction', () => {
   let graph: Graph;
@@ -121,7 +116,7 @@ describe('SetPropertyAction', () => {
   });
 
   test('should update a property on a node', () => {
-    const action = new SetPropertyAction('n', 'age', 30);
+    const action = new SetPropertyAction('n', 'age', { "type": "literal", "value": 30, "dataType": "number" });
 
     const result = action.execute(graph, bindings);
 
@@ -135,7 +130,7 @@ describe('SetPropertyAction', () => {
   });
 
   test('should validate that target exists', () => {
-    const action = new SetPropertyAction('missing', 'age', 30);
+    const action = new SetPropertyAction('missing', 'age', { "type": "literal", "value": 30, "dataType": "number" });
 
     const validation = action.validate(graph, bindings);
     expect(validation.valid).toBe(false);
@@ -154,7 +149,7 @@ describe('SetPropertyAction', () => {
     bindings.set('r', relationship);
 
     // Update relationship property
-    const action = new SetPropertyAction('r', 'priority', 'High');
+    const action = new SetPropertyAction('r', 'priority', { "type": "literal", "value": "High", "dataType": "string" });
 
     const result = action.execute(graph, bindings);
 
@@ -163,7 +158,7 @@ describe('SetPropertyAction', () => {
 
     // Verify the property was set
     const updatedRel = bindings.get('r');
-    expect(updatedRel.data.priority).toBe('High');
+    expect(updatedRel.data.priority).toBe("High");
   });
 });
 
@@ -184,7 +179,7 @@ describe('ActionExecutor', () => {
     bindings = new BindingContext();
 
     // Create a sequence of actions
-    const actions: RuleAction[] = [
+    const actions: QueryAction[] = [
       new CreateNodeAction('p', ['Person'], { name: 'Charlie' }),
       new CreateNodeAction('t', ['Task'], { title: 'Task 1' }),
       new CreateRelationshipAction('p', 't', 'WORKS_ON', { since: 2023 })
@@ -227,7 +222,7 @@ describe('ActionExecutor', () => {
     bindings = new BindingContext();
 
     // Create a sequence with a failing action in the middle
-    const actions: RuleAction[] = [
+    const actions: QueryAction[] = [
       new CreateNodeAction('p', ['Person'], { name: 'Dave' }),
       new CreateNodeAction('p', ['Task'], { title: 'Task 1' }), // This will fail (duplicate var)
       new CreateNodeAction('t', ['Task'], { title: 'Task 2' })  // This should not execute
@@ -259,183 +254,3 @@ describe('ActionExecutor', () => {
   });
 });
 
-describe('ActionFactory', () => {
-  let factory: ActionFactory;
-
-  beforeEach(() => {
-    factory = new ActionFactory();
-  });
-
-  test('should create actions from AST nodes', () => {
-    // Mock AST nodes
-    const createNodeAst: ASTCreateNodePatternNode = {
-      type: 'createNode' as const,
-      variable: 'p',
-      labels: ['Person'],
-      properties: { name: 'Alice', age: 30 }
-    };
-
-    const createRelAst: ASTCreateRelPatternNode = {
-      type: 'createRelationship' as const,
-      fromVar: 'p',
-      toVar: 't',
-      relationship: {
-        variable: 'r',
-        relType: 'KNOWS',
-        properties: { since: 2020 },
-        direction: 'outgoing' // Add required direction property
-      }
-    };
-
-    const setPropertyAst: ASTPropertySettingNode = {
-      type: 'propertySetting' as const,
-      target: 'p',
-      property: 'active',
-      value: {
-        type: 'literalExpression',
-        value: true,
-        dataType: 'boolean'
-      } as ASTLiteralExpressionNode // Add proper type assertion
-    };
-
-    // Create actions from AST nodes
-    const nodeAction = factory.createNodeActionFromAst(createNodeAst);
-    const relAction = factory.createRelationshipActionFromAst(createRelAst);
-    const propAction = factory.setPropertyActionFromAst(setPropertyAst);
-
-    // Verify node action
-    expect(nodeAction.type).toBe('CREATE_NODE');
-    expect(nodeAction.variable).toBe('p');
-    expect(nodeAction.labels).toContain('Person');
-    expect(nodeAction.properties.name).toBe('Alice');
-
-    // Verify relationship action
-    expect(relAction.type).toBe('CREATE_RELATIONSHIP');
-    expect(relAction.fromVariable).toBe('p');
-    expect(relAction.toVariable).toBe('t');
-    expect(relAction.relType).toBe('KNOWS');
-    expect(relAction.variable).toBe('r');
-
-    // Verify property action
-    expect(propAction.type).toBe('SET_PROPERTY');
-    expect(propAction.targetVariable).toBe('p');
-    expect(propAction.propertyName).toBe('active');
-    expect(propAction.value).toBe(true);
-  });
-});
-
-describe('DeleteAction', () => {
-  let graph: Graph;
-  let bindings: BindingContext;
-  let factory: ActionFactory;
-
-  beforeEach(() => {
-    graph = new Graph();
-    bindings = new BindingContext();
-    factory = new ActionFactory(); // Initialize ActionFactory
-  });
-
-  test('should delete a node without DETACH', () => {
-    // Add a node to the graph
-    graph.addNode('node1', 'Person', { name: 'Alice' });
-    const node = graph.getNode('node1');
-    bindings.set('n', node);
-
-    // Create DeleteAction using ActionFactory
-    const deleteAst = { type: 'delete' as 'delete', variables: ['n'], detach: false };
-    const action = factory.createDeleteActionFromAst(deleteAst);
-
-    const result = action.execute(graph, bindings);
-
-    expect(result.success).toBe(true);
-    expect(result.affectedNodes?.length).toBe(1);
-    expect(graph.hasNode('node1')).toBe(false);
-  });
-
-  test('should fail to delete a node with relationships without DETACH', () => {
-    // Add a node and a relationship
-    graph.addNode('node1', 'Person', { name: 'Alice' });
-    graph.addNode('node2', 'Task', { title: 'Task 1' });
-    graph.addEdge('node1', 'node2', 'ASSIGNED_TO', {});
-
-    const node = graph.getNode('node1');
-    bindings.set('n', node);
-
-    // Create DeleteAction using ActionFactory
-    const deleteAst = { type: 'delete' as 'delete', variables: ['n'], detach: false };
-    const action = factory.createDeleteActionFromAst(deleteAst);
-
-    const result = action.execute(graph, bindings);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('still has relationships');
-    expect(graph.hasNode('node1')).toBe(true);
-  });
-
-  test('should delete a node and its relationships with DETACH', () => {
-    // Add a node and a relationship
-    graph.addNode('node1', 'Person', { name: 'Alice' });
-    graph.addNode('node2', 'Task', { title: 'Task 1' });
-    graph.addEdge('node1', 'node2', 'ASSIGNED_TO', {});
-
-    expect(graph.hasNode('node1')).toBe(true);
-    expect(graph.hasEdge('node1', 'node2', 'ASSIGNED_TO')).toBe(true);
-
-    const node = graph.getNode('node1');
-    bindings.set('n', node);
-
-    // Create DeleteAction using ActionFactory
-    const deleteAst = { type: 'delete' as 'delete', variables: ['n'], detach: true };
-    const action = factory.createDeleteActionFromAst(deleteAst);
-
-    const result = action.execute(graph, bindings);
-
-    expect(result.success).toBe(true);
-    expect(result.affectedNodes?.length).toBe(1);
-    expect(result.affectedEdges?.length).toBe(1);
-    expect(graph.hasNode('node1')).toBe(false);
-    expect(graph.hasEdge('node1', 'node2', 'ASSIGNED_TO')).toBe(false);
-  });
-
-  test('should delete an edge', () => {
-    // Add nodes and an edge
-    graph.addNode('node1', 'Person', { name: 'Alice' });
-    graph.addNode('node2', 'Task', { title: 'Task 1' });
-    graph.addEdge('node1', 'node2', 'ASSIGNED_TO', {});
-
-    const edge = graph.getEdge('node1', 'node2', 'ASSIGNED_TO');
-    bindings.set('r', edge);
-
-    // Create DeleteAction using ActionFactory
-    const deleteAst = { type: 'delete' as 'delete', variables: ['r'], detach: false };
-    const action = factory.createDeleteActionFromAst(deleteAst);
-
-    const result = action.execute(graph, bindings);
-
-    expect(result.success).toBe(true);
-    expect(result.affectedEdges?.length).toBe(1);
-    expect(graph.hasEdge('node1', 'node2', 'ASSIGNED_TO')).toBe(false);
-  });
-
-  test('should validate undeclared variables', () => {
-    // Create DeleteAction using ActionFactory
-    const deleteAst = { type: 'delete' as 'delete', variables: ['n'], detach: false };
-    const action = factory.createDeleteActionFromAst(deleteAst);
-
-    const validation = action.validate(graph, bindings);
-
-    expect(validation.valid).toBe(false);
-    expect(validation.error).toContain('not found in bindings');
-  });
-
-  test('should describe the action correctly', () => {
-    // Create DeleteAction using ActionFactory
-    const deleteAstDetach = { type: 'delete' as 'delete', variables: ['n'], detach: true };
-    const actionDetach = factory.createDeleteActionFromAst(deleteAstDetach);
-    expect(actionDetach.describe()).toBe('DETACH DELETE n');
-
-    const deleteAstNoDetach = { type: 'delete' as 'delete', variables: ['n'], detach: false };
-    const actionNoDetach = factory.createDeleteActionFromAst(deleteAstNoDetach);
-    expect(actionNoDetach.describe()).toBe('DELETE n');
-  });
-});

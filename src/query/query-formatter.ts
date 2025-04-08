@@ -1,4 +1,4 @@
-import { ReturnedValue, GraphQueryResult, QueryResultData } from './rule-engine';
+import { ReturnedValue, QueryResult, QueryResultData } from './query-engine';
 import { Graph, Node, Edge } from '@/graph';
 
 /**
@@ -9,22 +9,22 @@ export interface QueryFormatterOptions {
    * Whether to include null/undefined values (default: true)
    */
   includeNulls?: boolean;
-  
+
   /**
    * Maximum string length for values before truncation (default: 100)
    */
   maxValueLength?: number;
-  
+
   /**
    * Whether to include node/edge IDs in output (default: true)
    */
   includeIds?: boolean;
-  
+
   /**
    * Whether to pretty print JSON output (default: true)
    */
   prettyPrint?: boolean;
-  
+
   /**
    * Number of spaces to use for indentation in pretty print (default: 2)
    */
@@ -63,19 +63,19 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @returns A markdown table string
    */
   toMarkdownTable(
-    result: GraphQueryResult<NodeData, EdgeData>,
+    result: QueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
-    
+
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return 'No results';
     }
-    
+
     return this.formatQueryDataAsMarkdown(result.query, opts);
   }
-  
+
   /**
    * Formats query data as a markdown table
    * 
@@ -89,20 +89,20 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
   ): string {
     // Create header row
     let table = '| ' + queryData.columns.join(' | ') + ' |\n';
-    
+
     // Create header-body separator
     table += '| ' + queryData.columns.map(() => '---').join(' | ') + ' |\n';
-    
+
     // Add data rows
     for (const row of queryData.rows) {
-      table += '| ' + row.map((item: ReturnedValue<NodeData, EdgeData>) => 
+      table += '| ' + row.map((item: ReturnedValue<NodeData, EdgeData>) =>
         this.formatValue(item, options)
       ).join(' | ') + ' |\n';
     }
-    
+
     return table;
   }
-  
+
   /**
    * Converts query results to a JSON object
    * 
@@ -110,17 +110,17 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @param options Formatting options
    * @returns A JSON string
    */
-  toJson(
-    result: GraphQueryResult<NodeData, EdgeData>,
+  toJSON(
+    result: QueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
-    
+
     if (!result.success) {
       return JSON.stringify({ error: result.error }, null, opts.prettyPrint ? opts.indentSpaces : 0);
     }
-    
+
     // Create a full response with all data
     const response: Record<string, any> = {
       success: result.success,
@@ -128,34 +128,34 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
       statement: result.statement,
       stats: result.stats
     };
-    
+
     // Add query results if present
     if (result.query) {
       response.query = this.formatQueryDataAsJson(result.query, opts);
     }
-    
+
     // Add action results if present 
     if (result.actions) {
       response.actions = {
         affectedNodesCount: result.actions.affectedNodes.length,
         affectedEdgesCount: result.actions.affectedEdges.length
       };
-      
+
       if (opts.includeIds) {
         response.actions.affectedNodes = result.actions.affectedNodes.map(node => node.id);
-        response.actions.affectedEdges = result.actions.affectedEdges.map(edge => 
+        response.actions.affectedEdges = result.actions.affectedEdges.map(edge =>
           `${edge.source}-${edge.label}-${edge.target}`
         );
       }
     }
-    
+
     return JSON.stringify(
       response,
       null,
       opts.prettyPrint ? opts.indentSpaces : 0
     );
   }
-  
+
   /**
    * Formats query data as JSON
    * 
@@ -170,16 +170,16 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
     // Convert query results to a more JSON-friendly structure
     return queryData.rows.map((row: ReturnedValue<NodeData, EdgeData>[]) => {
       const rowObj: Record<string, any> = {};
-      
+
       for (let i = 0; i < row.length; i++) {
         const columnName = queryData.columns[i];
         rowObj[columnName] = this.formatValueForJson(row[i], options);
       }
-      
+
       return rowObj;
     });
   }
-  
+
   /**
    * Converts query results to a plain text table
    * 
@@ -188,19 +188,19 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
    * @returns A plain text table string
    */
   toTextTable(
-    result: GraphQueryResult<NodeData, EdgeData>,
+    result: QueryResult<NodeData, EdgeData>,
     options: QueryFormatterOptions = {}
   ): string {
     // Merge default options with provided options
     const opts = { ...DEFAULT_OPTIONS, ...options };
-    
+
     if (!result.success || !result.query || result.query.rows.length === 0) {
       return 'No results';
     }
-    
+
     return this.formatQueryDataAsTextTable(result.query, opts);
   }
-  
+
   /**
    * Formats query data as a text table
    * 
@@ -214,7 +214,7 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
   ): string {
     // Calculate the width of each column
     const columnWidths: number[] = queryData.columns.map((column: string) => column.length);
-    
+
     // Find the maximum width for each column from the data
     for (const row of queryData.rows) {
       for (let i = 0; i < row.length; i++) {
@@ -222,27 +222,27 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
         columnWidths[i] = Math.max(columnWidths[i], valueString.length);
       }
     }
-    
+
     // Create the header row
-    let table = queryData.columns.map((column: string, index: number) => 
+    let table = queryData.columns.map((column: string, index: number) =>
       column.padEnd(columnWidths[index])
     ).join(' | ') + '\n';
-    
+
     // Create the separator line
-    table += columnWidths.map((width: number) => 
+    table += columnWidths.map((width: number) =>
       '-'.repeat(width)
     ).join('-+-') + '\n';
-    
+
     // Add data rows
     for (const row of queryData.rows) {
-      table += row.map((item: ReturnedValue<NodeData, EdgeData>, index: number) => 
+      table += row.map((item: ReturnedValue<NodeData, EdgeData>, index: number) =>
         this.formatValue(item, options).padEnd(columnWidths[index])
       ).join(' | ') + '\n';
     }
-    
+
     return table;
   }
-  
+
   /**
    * Formats a returned value as a string
    * 
@@ -257,50 +257,50 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
     if (value.value === null || value.value === undefined) {
       return options.includeNulls ? 'null' : '';
     }
-    
+
     let valueStr: string;
-    
+
     if (value.type === 'node') {
       const node = value.value;
       // Format nodes as [Label]:id{props} or [Label]{props} based on includeIds option
       const labels = node.data.labels ? `[${node.data.labels.join(':')}]` : '';
       const nodeId = options.includeIds ? `:${node.id}` : '';
-      
+
       // Create a simplified props object without labels
       const props = { ...node.data };
       if (props.labels) {
         delete props.labels;
       }
-      
+
       valueStr = `${labels}${nodeId}{${this.formatProps(props)}}`;
-    } 
+    }
     else if (value.type === 'edge') {
       const edge = value.value;
       // Format edges as -[TYPE:id{props}]-> or -[TYPE{props}]-> based on includeIds option
       const edgeId = options.includeIds ? `:${edge.id}` : '';
       valueStr = `-[${edge.label}${edgeId}{${this.formatProps(edge.data)}}]->`;
-    } 
+    }
     else {
       // For primitive property values
       if (typeof value.value === 'string') {
         valueStr = `"${value.value}"`;
-      } 
+      }
       else if (typeof value.value === 'object') {
         valueStr = JSON.stringify(value.value);
-      } 
+      }
       else {
         valueStr = String(value.value);
       }
     }
-    
+
     // Truncate if needed
     if (options.maxValueLength && valueStr.length > options.maxValueLength) {
       return valueStr.substring(0, options.maxValueLength) + '...';
     }
-    
+
     return valueStr;
   }
-  
+
   /**
    * Formats a returned value for JSON output
    * 
@@ -315,20 +315,20 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
     if (value.value === null || value.value === undefined) {
       return null;
     }
-    
+
     if (value.type === 'node') {
       const node = value.value;
       const result: Record<string, any> = {
         type: 'node',
         data: node.data
       };
-      
+
       if (options.includeIds) {
         result.id = node.id;
       }
-      
+
       return result;
-    } 
+    }
     else if (value.type === 'edge') {
       const edge = value.value;
       const result: Record<string, any> = {
@@ -336,20 +336,20 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
         label: edge.label,
         data: edge.data
       };
-      
+
       if (options.includeIds) {
         result.id = edge.id;
         result.source = edge.source;
         result.target = edge.target;
       }
-      
+
       return result;
-    } 
-    
+    }
+
     // For primitive property values, return as is
     return value.value;
   }
-  
+
   /**
    * Formats object properties as a string
    * 
@@ -360,23 +360,23 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
     const entries = Object.entries(props)
       .map(([key, value]) => {
         let valueStr: string;
-        
+
         if (value === null || value === undefined) {
           valueStr = 'null';
-        } 
+        }
         else if (typeof value === 'string') {
           valueStr = `"${value}"`;
-        } 
+        }
         else if (typeof value === 'object') {
           valueStr = JSON.stringify(value);
-        } 
+        }
         else {
           valueStr = String(value);
         }
-        
+
         return `${key}: ${valueStr}`;
       });
-      
+
     return entries.join(', ');
   }
 }

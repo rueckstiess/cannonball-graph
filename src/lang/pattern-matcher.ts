@@ -1,4 +1,5 @@
-import { Graph, Node, NodeId, Edge, BFSVisitor, Path } from "@/graph";
+import { Graph, Node, NodeId, Edge, Path } from "@/graph";
+import { BindingContext } from "./condition-evaluator";
 
 /**
  * Represents a node pattern in a Cypher query
@@ -76,110 +77,11 @@ export interface PatternMatcherOptions {
   maxPathResults?: number;
 }
 
-/**
- * Interface for the pattern matcher
- */
-export interface PatternMatcher<NodeData = any, EdgeData = any> {
-  /**
-   * Finds nodes in the graph that match the given node pattern
-   * @param graph The graph to search
-   * @param pattern The node pattern to match
-   * @returns Array of matching nodes
-   */
-  findMatchingNodes(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: NodePattern
-  ): Node<NodeData>[];
-
-  /**
-   * Checks if a specific node matches the given node pattern
-   * @param node The node to check
-   * @param pattern The node pattern to match against
-   * @returns True if the node matches the pattern
-   */
-  matchesNodePattern(
-    node: Node<NodeData>,
-    pattern: NodePattern
-  ): boolean;
-
-  /**
-   * Creates a filtered view of nodes by label
-   * @param graph The graph to filter
-   * @param label The label to filter by
-   * @returns Array of nodes with the given label
-   */
-  getNodesByLabel(
-    graph: Graph<NodeData, EdgeData>,
-    label: string
-  ): Node<NodeData>[];
-
-  /**
-   * Finds relationships in the graph that match the given relationship pattern
-   * @param graph The graph to search
-   * @param pattern The relationship pattern to match
-   * @param sourceId Optional source node ID to filter relationships
-   * @returns Array of matching relationships
-   */
-  findMatchingRelationships(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: RelationshipPattern,
-    sourceId?: NodeId
-  ): Edge<EdgeData>[];
-
-  /**
-   * Checks if a specific relationship matches the given relationship pattern
-   * @param edge The edge to check
-   * @param pattern The relationship pattern to match against
-   * @param sourceNode Optional source node of the relationship
-   * @param targetNode Optional target node of the relationship
-   * @returns True if the relationship matches the pattern
-   */
-  matchesRelationshipPattern(
-    edge: Edge<EdgeData>,
-    pattern: RelationshipPattern,
-    sourceNode?: Node<NodeData>,
-    targetNode?: Node<NodeData>
-  ): boolean;
-
-  /**
-   * Creates a filtered view of relationships by type
-   * @param graph The graph to filter
-   * @param type The relationship type to filter by
-   * @returns Array of relationships with the given type
-   */
-  getRelationshipsByType(
-    graph: Graph<NodeData, EdgeData>,
-    type: string
-  ): Edge<EdgeData>[];
-
-  /**
-   * Finds paths in the graph that match the given path pattern
-   * @param graph The graph to search
-   * @param pattern The path pattern to match
-   * @param startNodeIds Optional array of node IDs to constrain the starting nodes
-   * @returns Array of matching paths, where each path contains arrays of nodes and edges
-   */
-  findMatchingPaths(
-    graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern,
-    startNodeIds?: NodeId[]
-  ): Array<{
-    nodes: Node<NodeData>[];
-    edges: Edge<EdgeData>[];
-  }>;
-
-  /**
-   * Clears any internal caches
-   */
-  clearCache(): void;
-}
-
-
 
 /**
  * Implementation of the pattern matcher
  */
-export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMatcher<NodeData, EdgeData> {
+export class PatternMatcher<NodeData = any, EdgeData = any> {
   private options: Required<PatternMatcherOptions>;
 
   // Cache for node labels
@@ -197,8 +99,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     };
   }
 
-  // --- findMatchingNodes, matchesNodePattern, getNodesByLabel ---
-  // Assume these are implemented correctly as per previous discussions/code
+  /**
+   * Finds nodes in the graph that match the given node pattern
+   * @param graph The graph to search
+   * @param pattern The node pattern to match
+   * @returns Array of matching nodes
+   */
   findMatchingNodes(
     graph: Graph<NodeData, EdgeData>,
     pattern: NodePattern
@@ -210,6 +116,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return graph.findNodes(node => this.matchesNodePattern(node, pattern));
   }
 
+  /**
+   * Checks if a specific node matches the given node pattern
+   * @param node The node to check
+   * @param pattern The node pattern to match against
+   * @returns True if the node matches the pattern
+   */
   matchesNodePattern(
     node: Node<NodeData>,
     pattern: NodePattern
@@ -228,6 +140,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return true;
   }
 
+  /**
+   * Creates a filtered view of nodes by label
+   * @param graph The graph to filter
+   * @param label The label to filter by
+   * @returns Array of nodes with the given label
+   */
   getNodesByLabel(
     graph: Graph<NodeData, EdgeData>,
     label: string
@@ -247,8 +165,13 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   }
 
 
-  // --- findMatchingRelationships, matchesRelationshipPattern, getRelationshipsByType ---
-  // Assume these are implemented correctly as per previous discussions/code
+  /**
+   * Finds relationships in the graph that match the given relationship pattern
+   * @param graph The graph to search
+   * @param pattern The relationship pattern to match
+   * @param sourceId Optional source node ID to filter relationships
+   * @returns Array of matching relationships
+   */
   findMatchingRelationships(
     graph: Graph<NodeData, EdgeData>,
     pattern: RelationshipPattern,
@@ -327,6 +250,14 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     });
   }
 
+  /**
+   * Checks if a specific relationship matches the given relationship pattern
+   * @param edge The edge to check
+   * @param pattern The relationship pattern to match against
+   * @param sourceNode Optional source node of the relationship
+   * @param targetNode Optional target node of the relationship
+   * @returns True if the relationship matches the pattern
+   */
   matchesRelationshipPattern(
     edge: Edge<EdgeData>,
     pattern: RelationshipPattern,
@@ -373,6 +304,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return true; // 'both' direction always matches
   }
 
+  /**
+   * Creates a filtered view of relationships by type
+   * @param graph The graph to filter
+   * @param type The relationship type to filter by
+   * @returns Array of relationships with the given type
+   */
   getRelationshipsByType(
     graph: Graph<NodeData, EdgeData>,
     type: string
@@ -397,7 +334,9 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
   }
 
 
-  // --- clearCache ---
+  /**
+   * Clears any internal caches
+   */
   clearCache(): void {
     this.labelCache.clear();
     this.typeCache.clear();
@@ -434,7 +373,12 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     }
     const nodeData = node.data as Record<string, any>;
     for (const [key, requiredValue] of Object.entries(requiredProps)) {
-      if (!(key in nodeData) || !this.valuesMatch(nodeData[key], requiredValue)) {
+      // Special case for 'id' property - compare directly with node.id
+      if (key === 'id') {
+        if (node.id !== requiredValue) {
+          return false;
+        }
+      } else if (!(key in nodeData) || !this.valuesMatch(nodeData[key], requiredValue)) {
         return false;
       }
     }
@@ -482,14 +426,75 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
     return false; // Default to strict equality if no coercion applies
   }
 
-  // ========================================================================
-  // findMatchingPaths Implementation (REVISED AGAIN + DEBUG)
-  // ========================================================================
+  /**
+   * Enriches a pattern with bound variables from the binding context
+   * This allows us to constrain pattern matching based on variables bound at any position
+   * in the pattern, not just the start node.
+   * 
+   * @param pattern The original path pattern
+   * @param bindings The binding context containing bound variables
+   * @returns A new pattern with constraints from bound variables
+   */
+  enrichPatternWithBindings<NodeData = any, EdgeData = any>(
+    pattern: PathPattern,
+    bindings: BindingContext<NodeData, EdgeData>
+  ): PathPattern {
+    // Create a deep clone of the pattern to avoid mutating the original
+    const enrichedPattern: PathPattern = {
+      start: { ...pattern.start, properties: { ...pattern.start.properties } },
+      segments: pattern.segments.map(segment => ({
+        relationship: { 
+          ...segment.relationship, 
+          properties: { ...segment.relationship.properties } 
+        },
+        node: { 
+          ...segment.node, 
+          properties: { ...segment.node.properties } 
+        }
+      }))
+    };
 
+    // Check if start node variable is bound
+    if (pattern.start.variable && bindings.has(pattern.start.variable)) {
+      const boundNode = bindings.get(pattern.start.variable) as Node<NodeData>;
+      if (boundNode && boundNode.id) {
+        // Add an 'id' property to uniquely identify this node
+        enrichedPattern.start.properties = { 
+          ...enrichedPattern.start.properties, 
+          id: boundNode.id 
+        };
+      }
+    }
+
+    // Check if any segment node variables are bound
+    pattern.segments.forEach((segment, index) => {
+      if (segment.node.variable && bindings.has(segment.node.variable)) {
+        const boundNode = bindings.get(segment.node.variable) as Node<NodeData>;
+        if (boundNode && boundNode.id) {
+          // Add an 'id' property to uniquely identify this node
+          enrichedPattern.segments[index].node.properties = { 
+            ...enrichedPattern.segments[index].node.properties, 
+            id: boundNode.id 
+          };
+        }
+      }
+      
+      // Optionally, we could also handle bound relationship variables here,
+      // but for the current issue we're focusing on nodes
+    });
+
+    return enrichedPattern;
+  }
+
+  /**
+   * Finds paths in the graph that match the given path pattern
+   * @param graph The graph to search
+   * @param pattern The path pattern to match
+   * @returns Array of matching paths, where each path contains arrays of nodes and edges
+   */
   findMatchingPaths(
     graph: Graph<NodeData, EdgeData>,
-    pattern: PathPattern,
-    startNodeIds?: NodeId[]
+    pattern: PathPattern
   ): Array<Path<NodeData, EdgeData>> {
 
     const results: Array<Path<NodeData, EdgeData>> = [];
@@ -502,17 +507,20 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
 
     // Find matching nodes for the start pattern
     let initialNodes = this.findMatchingNodes(graph, pattern.start);
-
-    // If startNodeIds is provided, filter the initial nodes to only include those
-    if (startNodeIds && startNodeIds.length > 0) {
-      const startNodeIdSet = new Set(startNodeIds);
-      initialNodes = initialNodes.filter(node => startNodeIdSet.has(node.id));
+    
+    // If the pattern has an ID property constraint, make sure it's enforced strictly
+    if (pattern.start.properties && 'id' in pattern.start.properties) {
+      const nodeId = pattern.start.properties.id;
+      initialNodes = initialNodes.filter(node => node.id === nodeId);
     }
 
     // Handle patterns with only a start node
     if (segments.length === 0) {
       return initialNodes.map(node => ({ nodes: [node], edges: [] }));
     }
+    
+    // NOTE: The previous version had a startNodeIds parameter which is now
+    // removed in favor of the more generic enrichPatternWithBindings approach
 
     // State definition for BFS queue
     interface QueueState {
@@ -609,6 +617,18 @@ export class PatternMatcher<NodeData = any, EdgeData = any> implements PatternMa
           // console.log(`[DEBUG]      -> Cycle Check for Continuation: wouldCycle=${wouldCycle}`);
 
           // --- Check if neighbor matches the target node pattern for *this segment* ---
+          // Special check for ID property constraints first - if there's an ID constraint,
+          // we need to verify it strictly before doing other pattern matching
+          if (targetNodePattern.properties && 'id' in targetNodePattern.properties) {
+            const expectedId = targetNodePattern.properties.id;
+            if (neighborNode.id !== expectedId) {
+              // If ID doesn't match, continue to the next edge immediately
+              // console.log(`[DEBUG]      -> ID constraint mismatch: expected=${expectedId}, actual=${neighborNode.id}`);
+              continue;
+            }
+          }
+          
+          // If we passed the ID check or there was no ID check, proceed with regular pattern matching
           const matchedTargetNode = this.matchesNodePattern(neighborNode, targetNodePattern);
           // console.log(`[DEBUG]      -> Target Node Check (for Seg ${segmentIdx}): matchedTargetNode=${matchedTargetNode}`);
 
