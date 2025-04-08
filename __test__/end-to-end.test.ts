@@ -779,8 +779,8 @@ describe('End-to-End Query Tests', () => {
 
       // Check all rows have since and weight properties
       result.query?.rows.forEach(row => {
-        expect(row[0].type).toBe('property');
-        expect(row[1].type).toBe('property');
+        expect(row[0].type).toBe('string');
+        expect(row[1].type).toBe('number');
         expect(typeof row[0].value).toBe('string'); // "since" dates
         expect(typeof row[1].value).toBe('number'); // "weight" numbers
       });
@@ -1516,4 +1516,23 @@ describe('Query Language Documentation Examples', () => {
     expect(graph.hasEdge('alice', 'task1', 'ASSIGNED_TO')).toBe(false);
   });
 
+
+  it('can evaluate property expressions in the RETURN clause', () => {
+    const query = `
+      MATCH (p:Person)
+      WHERE p.age > 30
+      RETURN p.name, p.age
+    `;
+    const result = engine.executeQuery(graph, query);
+    expect(result.success).toBe(true);
+
+    expect(result.query?.rows.length).toBe(2); // Alice and Charlie
+    result.query?.rows.forEach(row => {
+      const name = row[0].value;
+      const age = row[1].value;
+      expect(['Alice', 'Charlie']).toContain(name);
+      expect([31, 35]).toContain(age);
+    });
+
+  });
 });

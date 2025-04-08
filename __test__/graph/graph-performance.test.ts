@@ -108,7 +108,7 @@ describe.skip('Graph Performance', () => {
       }
 
       // Create edges to target nodes
-      for (const targetId of targetIds) {
+      for (const targetId of Array.from(targetIds)) {
         const edgeType = EDGE_TYPES[Math.floor(Math.random() * EDGE_TYPES.length)];
         const edgeData = {
           type: edgeType,

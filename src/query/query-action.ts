@@ -514,7 +514,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any> {
         // Copy the existing data
         const updatedData = {
           ...(node.data || {}),
-          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings)
+          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings).value
         } as NodeData;
 
         // Update the node in the graph
@@ -550,7 +550,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any> {
         // Copy the existing data
         const updatedData = {
           ...(edge.data || {}),
-          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings)
+          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings).value
         } as EdgeData;
 
         // Update the edge in the graph

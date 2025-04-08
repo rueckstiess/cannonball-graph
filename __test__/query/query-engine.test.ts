@@ -39,11 +39,9 @@ describe('Rule Engine Query Functionality', () => {
 
     // Check the returned values
     expect(result.query!.rows[0][0].type).toBe('node');
-    expect(result.query!.rows[0][0].name).toBe('p');
     expect(result.query!.rows[0][0].value.data.name).toBe('Alice');
 
     expect(result.query!.rows[1][0].type).toBe('node');
-    expect(result.query!.rows[1][0].name).toBe('p');
     expect(result.query!.rows[1][0].value.data.name).toBe('Bob');
   });
 
@@ -59,18 +57,14 @@ describe('Rule Engine Query Functionality', () => {
     expect(result.query!.rows.length).toBe(2);
 
     // Check the returned values
-    expect(result.query!.rows[0][0].type).toBe('property');
-    expect(result.query!.rows[0][0].name).toBe('p.name');
+    expect(result.query!.rows[0][0].type).toBe('string');
     expect(result.query!.rows[0][0].value).toBe('Alice');
-    expect(result.query!.rows[0][1].type).toBe('property');
-    expect(result.query!.rows[0][1].name).toBe('p.age');
+    expect(result.query!.rows[0][1].type).toBe('number');
     expect(result.query!.rows[0][1].value).toBe(30);
 
-    expect(result.query!.rows[1][0].type).toBe('property');
-    expect(result.query!.rows[1][0].name).toBe('p.name');
+    expect(result.query!.rows[1][0].type).toBe('string');
     expect(result.query!.rows[1][0].value).toBe('Bob');
-    expect(result.query!.rows[1][1].type).toBe('property');
-    expect(result.query!.rows[1][1].name).toBe('p.age');
+    expect(result.query!.rows[1][1].type).toBe('number');
     expect(result.query!.rows[1][1].value).toBe(28);
   });
 
@@ -86,8 +80,7 @@ describe('Rule Engine Query Functionality', () => {
     expect(result.query!.rows.length).toBe(1);
 
     // Check the returned values
-    expect(result.query!.rows[0][0].type).toBe('property');
-    expect(result.query!.rows[0][0].name).toBe('p.name');
+    expect(result.query!.rows[0][0].type).toBe('string');
     expect(result.query!.rows[0][0].value).toBe('Alice');
   });
 

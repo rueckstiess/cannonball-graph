@@ -188,7 +188,7 @@ export interface DeleteClause {
  */
 export interface ReturnItem {
   /** The expression to return (can be a variable or property access) */
-  expression: VariableExpression | PropertyExpression;
+  expression: Expression;
   /** Optional alias for the returned value */
   alias?: string;
 }

@@ -11,7 +11,7 @@ Cannonball Graph provides two primary ways to interact with graph data:
 
 ## 🚧 Project Status
 
-This project is experimental and not production-ready. Use at your own risk.
+This project is experimental and not production-ready. There are likely still bugs and unexpected behavior. Use at your own risk.
 
 ## Installation
 

@@ -267,12 +267,6 @@ if (utils.isEmpty(result)) {
 Retrieve the value from the first column of the first row. Useful for queries expected to return a single scalar value.
 
 ```typescript
-// Assume a query like 'MATCH (u:User) RETURN count(u)' was possible and returned one row/column
-// const result = engine.executeQuery(graph, 'RETURN 42 AS answer'); // Example if literals worked like this
-// const answer = utils.getSingleValue(result); // 42
-// const answerByName = utils.getSingleValue(result, 'answer'); // 42 (if aliases worked)
-
-// More realistic example with current features:
 const result = engine.executeQuery(graph, 'MATCH (p:Person {name:"Alice"}) RETURN p.age');
 const aliceAge = utils.getSingleValue(result); // 31 (assuming Alice exists and has age 31)
 ```

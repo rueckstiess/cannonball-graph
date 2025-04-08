@@ -75,7 +75,7 @@ export interface EvaluationResult {
   /**
    * Type of the result value
    */
-  type: 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
+  type: 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
 }
 
 
@@ -259,6 +259,25 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     this.patternMatcher = patternMatcher;
   }
 
+  private getTypeForValue(value: any): 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array' {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (typeof value === 'object') {
+      if ('id' in value && 'data' in value) return 'node'; // Assuming Node has id and data properties
+      if ('source' in value && 'target' in value) return 'edge'; // Assuming Edge has source and target properties
+      return 'object'; // Regular object
+    }
+    if (Array.isArray(value)) return 'array';
+    if (typeof value === 'object') return 'object';
+    if (typeof value === 'boolean') return 'boolean';
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'string') return 'string';
+
+    // This is a catch-all for any other types that might not be covered
+    throw new Error(`Found unsupported type during expression evaluation: ${typeof value}`);
+  }
+
+
   /**
    * Evaluate an expression in the context of a graph and binding context.
    * This method can evaluate any expression type: literals, variables,
@@ -282,7 +301,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
    * const bindings = createBindingContext();
    * bindings.set('n', graph.getNode('person1'));
    * 
-   * const result = evaluator.evaluateExpression(graph, expr, bindings);
+   * const result = evaluator.evaluateExpression(graph, expr, bindings).value;
    * // Returns true if person1.age > 30
    * ```
    */
@@ -290,28 +309,37 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     graph: Graph<NodeData, EdgeData>,
     expression: Expression,
     bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
-  ): any {
+  ): EvaluationResult {
+
+
+    let value;
     switch (expression.type) {
       case 'literal':
-        return this.evaluateLiteralExpression(expression as LiteralExpression);
-
+        value = this.evaluateLiteralExpression(expression as LiteralExpression);
+        break;
       case 'variable':
-        return this.evaluateVariableExpression(expression as VariableExpression, bindings);
-
+        value = this.evaluateVariableExpression(expression as VariableExpression, bindings);
+        break;
       case 'property':
-        return this.evaluatePropertyExpression(expression as PropertyExpression, bindings);
-
+        value = this.evaluatePropertyExpression(expression as PropertyExpression, bindings);
+        break;
       case 'comparison':
-        return this.evaluateComparisonExpression(graph, expression as ComparisonExpression, bindings);
-
+        value = this.evaluateComparisonExpression(graph, expression as ComparisonExpression, bindings);
+        break;
       case 'logical':
-        return this.evaluateLogicalExpression(graph, expression as LogicalExpression, bindings);
-
+        value = this.evaluateLogicalExpression(graph, expression as LogicalExpression, bindings);
+        break;
       case 'exists':
-        return this.evaluateExistsExpression(graph, expression as ExistsExpression, bindings);
-
+        value = this.evaluateExistsExpression(graph, expression as ExistsExpression, bindings);
+        break;
       default:
         throw new Error(`Unsupported expression type: ${(expression as any).type}`);
+    }
+
+    return {
+      value: value,
+      success: true,
+      type: this.getTypeForValue(value)
     }
   }
 
@@ -358,7 +386,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     condition: Expression,
     bindings: BindingContext<NodeData, EdgeData> = new BindingContext()
   ): boolean {
-    const result = this.evaluateExpression(graph, condition, bindings);
+    const result = this.evaluateExpression(graph, condition, bindings).value;
     return Boolean(result);
   }
 
@@ -411,7 +439,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     expression: PropertyExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): any {
-    const object = this.evaluateExpression(null as any, expression.object, bindings);
+    const object = this.evaluateExpression(null as any, expression.object, bindings).value;
 
     if (!object || typeof object !== 'object') {
       return undefined;
@@ -439,8 +467,8 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
     expression: ComparisonExpression,
     bindings: BindingContext<NodeData, EdgeData>
   ): boolean {
-    const leftValue = this.evaluateExpression(graph, expression.left, bindings);
-    const rightValue = this.evaluateExpression(graph, expression.right, bindings);
+    const leftValue = this.evaluateExpression(graph, expression.left, bindings).value;
+    const rightValue = this.evaluateExpression(graph, expression.right, bindings).value;
 
     return this.evaluateComparison(leftValue, expression.operator, rightValue);
   }
@@ -588,7 +616,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
       case LogicalOperator.AND:
         // Short-circuit AND
         for (const operand of expression.operands) {
-          if (!this.evaluateExpression(graph, operand, bindings)) {
+          if (!this.evaluateExpression(graph, operand, bindings).value) {
             return false;
           }
         }
@@ -597,7 +625,7 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
       case LogicalOperator.OR:
         // Short-circuit OR
         for (const operand of expression.operands) {
-          if (this.evaluateExpression(graph, operand, bindings)) {
+          if (this.evaluateExpression(graph, operand, bindings).value) {
             return true;
           }
         }
@@ -605,13 +633,13 @@ export class ConditionEvaluator<NodeData = any, EdgeData = any> {
 
       case LogicalOperator.NOT:
         // NOT only has one operand
-        return !this.evaluateExpression(graph, expression.operands[0], bindings);
+        return !this.evaluateExpression(graph, expression.operands[0], bindings).value;
 
       case LogicalOperator.XOR:
         // XOR - count true values
         let trueCount = 0;
         for (const operand of expression.operands) {
-          if (this.evaluateExpression(graph, operand, bindings)) {
+          if (this.evaluateExpression(graph, operand, bindings).value) {
             trueCount++;
           }
         }

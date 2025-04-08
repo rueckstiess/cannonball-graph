@@ -143,7 +143,7 @@ describe('ConditionEvaluator', () => {
         dataType: 'string'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe('test');
     });
 
@@ -154,7 +154,7 @@ describe('ConditionEvaluator', () => {
         dataType: 'number'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(42);
     });
 
@@ -165,7 +165,7 @@ describe('ConditionEvaluator', () => {
         dataType: 'boolean'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -176,7 +176,7 @@ describe('ConditionEvaluator', () => {
         dataType: 'null'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBeNull();
     });
   });
@@ -192,7 +192,7 @@ describe('ConditionEvaluator', () => {
         name: 'p'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(aliceNode);
     });
 
@@ -202,7 +202,7 @@ describe('ConditionEvaluator', () => {
         name: 'nonExistent'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBeUndefined();
     });
   });
@@ -222,7 +222,7 @@ describe('ConditionEvaluator', () => {
         property: 'name'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe('Alice');
     });
 
@@ -239,7 +239,7 @@ describe('ConditionEvaluator', () => {
         property: 'weight'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(5);
     });
 
@@ -256,7 +256,7 @@ describe('ConditionEvaluator', () => {
         property: 'nonExistent'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBeUndefined();
     });
 
@@ -270,7 +270,7 @@ describe('ConditionEvaluator', () => {
         property: 'name'
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBeUndefined();
     });
   });
@@ -297,7 +297,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
 
       // Test for inequality
@@ -316,7 +316,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result2 = evaluator.evaluateExpression(graph, expr2, bindings);
+      const result2 = evaluator.evaluateExpression(graph, expr2, bindings).value;
       expect(result2).toBe(false);
     });
 
@@ -339,7 +339,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -362,7 +362,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -385,7 +385,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -408,7 +408,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -431,7 +431,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -455,7 +455,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
 
       // Test with array contains
@@ -474,7 +474,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result2 = evaluator.evaluateExpression(graph, expr2, bindings);
+      const result2 = evaluator.evaluateExpression(graph, expr2, bindings).value;
       expect(result2).toBe(true);
     });
 
@@ -497,7 +497,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -520,7 +520,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -544,7 +544,7 @@ describe('ConditionEvaluator', () => {
     //     }
     //   };
 
-    //   const result = evaluator.evaluateExpression(graph, expr, bindings);
+    //   const result = evaluator.evaluateExpression(graph, expr, bindings).value;
     //   expect(result).toBe(true);
     // });
 
@@ -568,7 +568,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(false);
 
       // Alice doesn't have level property
@@ -590,7 +590,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result2 = evaluator.evaluateExpression(graph, expr2, bindings);
+      const result2 = evaluator.evaluateExpression(graph, expr2, bindings).value;
       expect(result2).toBe(true);
     });
 
@@ -613,7 +613,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -685,7 +685,7 @@ describe('ConditionEvaluator', () => {
         ]
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
   });
@@ -722,7 +722,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
 
       // EXISTS (p)-[:NONEXISTENT]->()
@@ -751,7 +751,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result2 = evaluator.evaluateExpression(graph, expr2, bindings);
+      const result2 = evaluator.evaluateExpression(graph, expr2, bindings).value;
       expect(result2).toBe(false);
     });
 
@@ -785,7 +785,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
 
@@ -819,7 +819,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true); // Because Bob is inactive
     });
 
@@ -864,7 +864,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true); // Alice -> task3 -> proj2 (Project B)
     });
   });
@@ -930,7 +930,7 @@ describe('ConditionEvaluator', () => {
         ]
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
   });
@@ -956,7 +956,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(false);
     });
 
@@ -977,7 +977,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(false);
     });
 
@@ -1002,7 +1002,7 @@ describe('ConditionEvaluator', () => {
       };
 
       // Without type coercion, comparing string to number should return false
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(false);
     });
 
@@ -1022,7 +1022,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true); // null = null should be true
 
       const expr2: ComparisonExpression = {
@@ -1040,7 +1040,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result2 = evaluator.evaluateExpression(graph, expr2, bindings);
+      const result2 = evaluator.evaluateExpression(graph, expr2, bindings).value;
       expect(result2).toBe(false); // null = 'something' should be false
     });
 
@@ -1064,7 +1064,7 @@ describe('ConditionEvaluator', () => {
         }
       };
 
-      const result = evaluator.evaluateExpression(graph, expr, bindings);
+      const result = evaluator.evaluateExpression(graph, expr, bindings).value;
       expect(result).toBe(true);
     });
   });

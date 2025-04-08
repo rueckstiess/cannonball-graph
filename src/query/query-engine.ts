@@ -4,7 +4,7 @@ import {
 } from '@/lang/parser';
 import { Lexer } from '@/lang/lexer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
-import { BindingContext } from '@/lang/condition-evaluator';
+import { BindingContext, ConditionEvaluator } from '@/lang/condition-evaluator';
 import {
   ActionFactory, ActionExecutor, QueryAction, ActionExecutionOptions, ActionExecutionResult
 } from './query-action';
@@ -16,11 +16,6 @@ import { inspect } from 'unist-util-inspect';
  */
 export interface ReturnedValue<NodeData = any, EdgeData = any> {
   /**
-   * The variable or property name
-   */
-  name: string;
-
-  /**
    * The value from the graph (can be a node, edge, or property value)
    */
   value: Node<NodeData> | Edge<EdgeData> | any;
@@ -28,7 +23,7 @@ export interface ReturnedValue<NodeData = any, EdgeData = any> {
   /**
    * The type of the value ('node', 'edge', or 'property')
    */
-  type: 'node' | 'edge' | 'property';
+  type: 'node' | 'edge' | 'boolean' | 'number' | 'string' | 'null' | 'undefined' | 'object' | 'array';
 }
 
 /**
@@ -341,7 +336,7 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
       // 4. Extract query results if RETURN is present
       if (hasReadOps) {
         if (cypherStatement.return) {
-          const queryData = this.extractQueryData(matches, cypherStatement.return);
+          const queryData = this.extractQueryData(graph, matches, cypherStatement.return);
           result.query = queryData;
         }
       }
@@ -411,11 +406,13 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
    * @returns The query data
    */
   private extractQueryData(
+    graph: Graph<NodeData, EdgeData>,
     matches: BindingContext<NodeData, EdgeData>[],
     returnClause: ReturnClause
   ): QueryResultData<NodeData, EdgeData> {
     const columns: string[] = [];
     const rows: ReturnedValue<NodeData, EdgeData>[][] = [];
+    const conditionEvaluator = new ConditionEvaluator<NodeData, EdgeData>();
 
     // Extract column names from the return items
     for (const item of returnClause.items) {
@@ -434,59 +431,19 @@ export class QueryEngine<NodeData = any, EdgeData = any> {
       const row: ReturnedValue<NodeData, EdgeData>[] = [];
 
       for (const item of returnClause.items) {
-        if (item.expression.type === 'variable') {
-          const varExpr = item.expression as VariableExpression;
-          const value = match.get(varExpr.name);
 
-          if (value !== undefined) {
-            const type = this.isNode(value) ? 'node' : 'edge';
-            row.push({
-              name: varExpr.name,
-              value,
-              type
-            });
-          } else {
-            // Variable not found, push null
-            row.push({
-              name: varExpr.name,
-              value: null,
-              type: 'property'
-            });
-          }
+        const evalResult = conditionEvaluator.evaluateExpression(graph, item.expression, match);
+        // if evaluation fails, set value to null
+        if (evalResult.error) {
+          evalResult.value = null;
+          evalResult.type = 'null';
         }
-        else if (item.expression.type === 'property') {
-          const propExpr = item.expression as PropertyExpression;
-          const object = match.get(propExpr.object.name);
 
-          if (object !== undefined) {
-            // Extract property value from the object
-            let propertyValue: any = null;
-
-            // For graph nodes and edges, property is in data
-            if (this.isNode(object) || this.isEdge(object)) {
-              propertyValue = object.data[propExpr.property as keyof typeof object.data];
-            }
-            // For other objects, property is direct
-            else if (typeof object === 'object' && object !== null) {
-              propertyValue = (object as any)[propExpr.property];
-            }
-
-            row.push({
-              name: `${propExpr.object.name}.${propExpr.property}`,
-              value: propertyValue,
-              type: 'property'
-            });
-          } else {
-            // Object not found, push null
-            row.push({
-              name: `${propExpr.object.name}.${propExpr.property}`,
-              value: null,
-              type: 'property'
-            });
-          }
-        }
+        row.push({
+          value: evalResult.value,
+          type: evalResult.type
+        });
       }
-
       rows.push(row);
     }
 
