@@ -262,7 +262,7 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
 
     if (value.type === 'node') {
       const node = value.value;
-      // Format nodes as [Label]:id{props} or [Label]{props} based on includeIds option
+      // Format nodes as [Label]:id {props} or [Label]{props} based on includeIds option
       const labels = node.data.labels ? `[${node.data.labels.join(':')}]` : '';
       const nodeId = options.includeIds ? `:${node.id}` : '';
 
@@ -272,13 +272,12 @@ export class QueryFormatter<NodeData = any, EdgeData = any> {
         delete props.labels;
       }
 
-      valueStr = `${labels}${nodeId}{${this.formatProps(props)}}`;
+      valueStr = `${labels}${nodeId} {${this.formatProps(props)}}`;
     }
     else if (value.type === 'edge') {
       const edge = value.value;
       // Format edges as -[TYPE:id{props}]-> or -[TYPE{props}]-> based on includeIds option
-      const edgeId = options.includeIds ? `:${edge.id}` : '';
-      valueStr = `-[${edge.label}${edgeId}{${this.formatProps(edge.data)}}]->`;
+      valueStr = `-[${edge.label} {${this.formatProps(edge.data)}}]->`;
     }
     else {
       // For primitive property values

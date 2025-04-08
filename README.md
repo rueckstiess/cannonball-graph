@@ -46,6 +46,7 @@ graph.addNode('alice', 'Person', { name: 'Alice', age: 30 });
 graph.addNode('bob', 'Person', { name: 'Bob', age: 25 });
 graph.addEdge('alice', 'bob', 'FRIENDS_WITH', { since: '2020-01-01' });
 const alice = graph.getNode('alice');
+
 console.log(alice?.data.name); // Output: Alice
 ```
 *See [Graph API Guide](./docs/graph-api.md) for more.*
@@ -64,7 +65,10 @@ graph.addEdge('alice', 'bob', 'FRIENDS_WITH', { since: '2020-01-01' });
 const engine = createQueryEngine();
 const formatter = createQueryFormatter();
 
-const result = engine.executeQuery(graph, 'MATCH (p:Person)-[:FRIENDS_WITH]->(f:Person) RETURN p.name, f.name');
+const result = engine.executeQuery(graph, 
+  'MATCH (p:Person)-[:FRIENDS_WITH]->(f:Person) RETURN p.name, f.name'
+);
+
 console.log(formatter.toTextTable(result));
 /* Output:
 p.name  | f.name
@@ -73,6 +77,7 @@ p.name  | f.name
 */
 ```
 *See [Query Language Guide](./docs/query-language.md) and [Query Engine Guide](./docs/query-engine.md) for more.*
+
 
 ## 📄 License
 

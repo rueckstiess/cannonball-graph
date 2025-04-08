@@ -1536,3 +1536,46 @@ describe('Query Language Documentation Examples', () => {
 
   });
 });
+
+describe('Advanced Example README', () => {
+  let graph: Graph;
+  let engine: QueryEngine;
+  let formatter: QueryFormatter;
+  let utils: QueryUtils;
+
+  it('should create a graph with nodes and relationships', () => {
+    graph = new Graph();
+    engine = createQueryEngine();
+    formatter = createQueryFormatter();
+    utils = createQueryUtils();
+
+    // Create users
+    graph.addNode('u1', 'User', { id: "u1", name: "Alice" });
+    graph.addNode('u2', 'User', { id: "u2", name: "Bob" });
+    graph.addNode('u3', 'User', { id: "u3", name: "Charlie" });
+    graph.addNode('p1', 'Product', { id: "p1", name: "Smartphone", category: "tech" });
+    graph.addNode('p2', 'Product', { id: "p2", name: "Headphones", category: "tech" });
+    graph.addNode('p3', 'Product', { id: "p3", name: "Cookbook", category: "books" });
+
+    // Create initial purchase relationships using direct API
+    graph.addEdge('u1', 'p1', 'PURCHASED', { date: "2023-05-10" });
+    graph.addEdge('u2', 'p2', 'PURCHASED', { date: "2023-06-15" });
+
+    // Query:
+    // 1. Finds users who haven't purchased the Smartphone yet
+    // 2. Creates a RECOMMENDED relationship between those users and the Smartphone
+    // 3. Sets a relevance score
+
+    const result = engine.executeQuery(graph, `
+        MATCH (target:Product {id: "p1"}), (u:User)
+        WHERE NOT EXISTS((u)-[:PURCHASED]->(target))
+        CREATE (u)-[r:RECOMMENDED]->(target)
+        SET r.score = 0.8, r.createdAt = "2025-04-08"
+        RETURN u.name, r, target.name
+      `);
+
+    console.log(formatter.toTextTable(result));
+    expect(result.success).toBe(true);
+
+  });
+});
