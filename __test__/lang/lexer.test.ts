@@ -499,4 +499,58 @@ CREATE (parent)-[:dependsOn {auto: true}]->(child)`;
       expect(tokens[1].value).toBe('unterminated');
     });
   });
+
+  describe('Logical Expression Tokenization', () => {
+    it('should correctly tokenize mixed AND/OR expressions', () => {
+      const input = "WHERE (p.name = 'Alice') AND (p.city = 'NY' OR p.age = 25)";
+      const tokens = lexer.tokenize(input);
+
+      // Log the tokens to help with debugging
+      console.log('Mixed AND/OR tokens:', tokens.map(t => `${t.type}(${t.value})`).join(', '));
+
+      // Verify key token positions and types
+      expect(tokens[0].type).toBe(TokenType.WHERE);
+
+      // First parenthesis group: (p.name = 'Alice')
+      expect(tokens[1].type).toBe(TokenType.OPEN_PAREN);
+      const closingFirstParenIndex = tokens.findIndex((t, i) => i > 1 && t.type === TokenType.CLOSE_PAREN);
+      expect(closingFirstParenIndex).toBeGreaterThan(1);
+
+      // AND operator
+      const andIndex = tokens.findIndex(t => t.type === TokenType.AND);
+      expect(andIndex).toBeGreaterThan(closingFirstParenIndex);
+
+      // Second parenthesis group: (p.city = 'NY' OR p.age = 25)
+      const secondOpenParenIndex = andIndex + 1;
+      expect(tokens[secondOpenParenIndex].type).toBe(TokenType.OPEN_PAREN);
+
+      // OR operator inside second parenthesis
+      const orIndex = tokens.findIndex(t => t.type === TokenType.OR);
+      expect(orIndex).toBeGreaterThan(secondOpenParenIndex);
+
+      // Closing parenthesis of second group
+      const closingSecondParenIndex = tokens.findIndex((t, i) => i > orIndex && t.type === TokenType.CLOSE_PAREN);
+      expect(closingSecondParenIndex).toBeGreaterThan(orIndex);
+
+      // Check token count is reasonable (not missing tokens)
+      expect(tokens.length).toBeGreaterThan(15); // Rough minimum for all the tokens we expect
+    });
+
+    it('should correctly handle parenthesized logical expressions', () => {
+      const input = "WHERE ((a.prop = true) OR (b.prop = false)) AND (c.prop = 'test')";
+      const tokens = lexer.tokenize(input);
+
+      console.log('Nested parentheses tokens:', tokens.map(t => `${t.type}(${t.value})`).join(', '));
+
+      // Check we have the right number of parentheses
+      const openParenCount = tokens.filter(t => t.type === TokenType.OPEN_PAREN).length;
+      const closeParenCount = tokens.filter(t => t.type === TokenType.CLOSE_PAREN).length;
+      expect(openParenCount).toBe(closeParenCount);
+      expect(openParenCount).toBe(4);
+
+      // Verify OR and AND are correctly tokenized
+      expect(tokens.some(t => t.type === TokenType.OR)).toBe(true);
+      expect(tokens.some(t => t.type === TokenType.AND)).toBe(true);
+    });
+  });
 });

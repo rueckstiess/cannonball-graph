@@ -7,8 +7,8 @@ const isProd = process.env.BUILD === 'production';
 
 const banner =
   `/*
- * My TypeScript Library
- * (c) ${new Date().getFullYear()}
+ * Cannonball Graph
+ * (c) ${new Date().getFullYear()} Thomas Rueckstiess
  */
 `;
 

@@ -405,16 +405,13 @@ describe('End-to-End Query Tests', () => {
       expect(result.matchCount).toBe(3); // Alice, Bob, Charlie have assigned tasks
     });
 
-    // SKIPPING THIS TEST FOR NOW AS IT GETS STUCK IN AN INFINITE LOOP
-    test.skip('WHERE with complex nested conditions', () => {
+    test('WHERE with complex nested conditions', () => {
       const query = `
         MATCH (p:person)
         WHERE (p.age > 30 AND p.active = true) OR (p.name = "Charlie" AND p.age < 30)
         RETURN p
       `;
       const result = engine.executeQuery(graph, query);
-
-      // BUG: Get's stuck in an infinite loop!!! 
 
       expect(result.success).toBe(true);
       expect(result.matchCount).toBe(3); // Bob, Dave, and Charlie

@@ -725,32 +725,48 @@ export class Parser {
       return this.parseExistsExpression(true);
     }
 
-    // Parse the first comparison expression
-    let expr = this.parseComparisonExpression();
+    // First, parse a parenthesized expression or comparison
+    let expr: Expression;
+
+    if (this.match(TokenType.OPEN_PAREN)) {
+      // For parenthesized expressions, we need special handling to avoid recursion issues
+      if (this.check(TokenType.IDENTIFIER) && this.peekNext().type === TokenType.MINUS) {
+        // Looks like it could be a path pattern for EXISTS, but should have been handled above
+        this.lexer.reset();
+        this.currentToken = this.lexer.next();
+        throw this.error("Path patterns should be used with EXISTS or in MATCH clauses");
+      }
+
+      // Handle parenthesized expression
+      expr = this.parseLogicalExpression();
+      this.consume(TokenType.CLOSE_PAREN, "Expected ')' after expression");
+    } else {
+      // Not parenthesized, parse as comparison
+      expr = this.parseComparisonExpression();
+    }
 
     // Look for AND, OR, XOR operators
-    while (
-      this.match(TokenType.AND) ||
-      this.match(TokenType.OR) ||
-      this.match(TokenType.XOR)
-    ) {
+    if (this.match(TokenType.AND) || this.match(TokenType.OR) || this.match(TokenType.XOR)) {
       const operator = this.tokenTypeToLogicalOperator(this.previous().type);
-      const right = this.parseComparisonExpression();
 
-      // If we already have a logical expression with the same operator, add to it
-      if (
-        expr.type === 'logical' &&
-        (expr as LogicalExpression).operator === operator
-      ) {
-        (expr as LogicalExpression).operands.push(right);
-      } else {
-        // Otherwise, create a new logical expression
-        expr = {
+      // For right side of operator, recursively parse the rest of the expression
+      const right = this.parseLogicalExpression();
+
+      // If the right side is a logical expression with the same operator, we can merge operands
+      if (right.type === 'logical' && (right as LogicalExpression).operator === operator) {
+        return {
           type: 'logical',
           operator,
-          operands: [expr, right]
+          operands: [expr, ...(right as LogicalExpression).operands]
         };
       }
+
+      // Otherwise, create a new logical expression with the two operands
+      return {
+        type: 'logical',
+        operator,
+        operands: [expr, right]
+      };
     }
 
     return expr;
@@ -1175,23 +1191,18 @@ export class Parser {
    * Returns the next token without consuming it
    */
   private peekNext(): Token {
-    // Save the current token
-    const currentToken = this.currentToken;
-    // Save the previous token 
-    const savedPreviousToken = this.previousToken;
+    // Save the current state
+    const savedIndex = this.lexer['currentTokenIndex']; // Safely access for reading
 
-    // Get the next token (this advances the lexer)
-    this.advance();
-    // Save the next token
-    const nextToken = this.currentToken;
+    // Advance to get the next token
+    const nextToken = this.lexer.next();
 
-    // We need to restore the lexer state by rewinding one token
-    // First we need to make the lexer go back one position
-    (this.lexer as any).currentTokenIndex--;
-
-    // Restore our parser's state
-    this.currentToken = currentToken;
-    this.previousToken = savedPreviousToken;
+    // Reset the lexer to the original position properly
+    this.lexer.reset();
+    // Re-advance to the original position
+    for (let i = 0; i < savedIndex; i++) {
+      this.lexer.next();
+    }
 
     return nextToken;
   }

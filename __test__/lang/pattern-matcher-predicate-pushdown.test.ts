@@ -34,7 +34,7 @@ describe('End-to-End Query Execution', () => {
   beforeEach(() => {
     graph = new Graph();
     // Add sample data relevant to the tests
-    graph.addNode('p1', 'person', { name: 'Alice', age: 30 });
+    graph.addNode('p1', 'person', { name: 'Alice', age: 30, city: 'NY' });
     graph.addNode('p2', 'person', { name: 'Bob', age: 25 });
     graph.addNode('p3', 'person', { name: 'Dave', age: 40 }); // Added Dave
     graph.addNode('t1', 'task', { name: 'Fix bug', status: 'open' });
@@ -66,11 +66,59 @@ describe('End-to-End Query Execution', () => {
     expect(results[0].get('p')?.id).toBe('p1');
   });
 
-  test('MATCH node pattern with WHERE clause', () => {
+  test('MATCH node pattern with simple WHERE clause', () => {
     const query = "MATCH (p:person) WHERE p.age > 28 RETURN p";
     const results = executeQuery(graph, query);
     expect(results).toHaveLength(2); // Alice (30) and Dave (40)
     expect(results.map(b => b.get('p')?.id)).toEqual(expect.arrayContaining(['p1', 'p3']));
+  });
+
+
+  test('MATCH node with single AND expression', () => {
+    const query = "MATCH (p:person) WHERE p.name = 'Alice' AND p.age > 25 RETURN p";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(1);
+    expect(results[0].get('p')?.id).toBe('p1');
+  });
+
+  test('MATCH node with multiple AND expression', () => {
+    const query = "MATCH (p:person) WHERE p.name = 'Alice' AND p.age > 25 AND p.city = 'NY' RETURN p";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(1);
+    expect(results[0].get('p')?.id).toBe('p1');
+  });
+
+  test('MATCH two nodes with WHERE clause', () => {
+    const query = "MATCH (p:person), (t:task) WHERE p.name = 'Alice' AND t.status = 'open' RETURN p,t";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(2);
+    expect(results[0].get('p')?.id).toBe('p1');
+    expect(results[0].get('t')?.id).toBe('t1');
+    expect(results[1].get('p')?.id).toBe('p1');
+    expect(results[1].get('t')?.id).toBe('t3');
+  });
+
+  test('MATCH node with single OR expression', () => {
+    const query = "MATCH (p:person) WHERE p.name = 'Alice' OR p.age > 30 RETURN p";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(2);
+    expect(results[0].get('p')?.id).toBe('p1');
+    expect(results[1].get('p')?.id).toBe('p3');
+  });
+
+  test('MATCH node with multiple OR expressions', () => {
+    const query = "MATCH (p:person) WHERE p.name = 'Alice' OR p.city = 'NY' OR p.age = 25 RETURN p";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(2);
+    expect(results[0].get('p')?.id).toBe('p1');
+    expect(results[1].get('p')?.id).toBe('p2');
+  });
+
+  test('MATCH node with mixed AND / OR expressions', () => {
+    const query = "MATCH (p:person) WHERE (p.name = 'Alice') AND (p.city = 'NY' OR p.age = 25) RETURN p";
+    const results = executeQuery(graph, query);
+    expect(results).toHaveLength(1);
+    expect(results[0].get('p')?.id).toBe('p1');
   });
 
   test('MATCH path pattern', () => {

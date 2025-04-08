@@ -4,9 +4,8 @@ import {
   Expression, LiteralExpression, VariableExpression, PropertyExpression,
   ComparisonExpression, LogicalExpression, ExistsExpression,
   ComparisonOperator, LogicalOperator, PathPattern, PatternMatcher,
-  ConditionEvaluator, BindingContext, EvaluationResult, ConditionEvaluatorOptions
+  ConditionEvaluator, BindingContext, Parser, Lexer
 } from '@/lang';
-
 
 describe('ConditionEvaluator', () => {
   // Define test data types
@@ -644,8 +643,8 @@ describe('ConditionEvaluator', () => {
   });
 
   describe('Logical Expression Evaluation', () => {
-    // ... existing Logical Expression Evaluation tests ...
-    it('should evaluate AND operator', () => {
+
+    it('should evaluate single AND expression', () => {
       const aliceNode = graph.getNode('alice')!;
       bindings.set('p', aliceNode);
 
