@@ -1,14 +1,5 @@
 import { Graph, Node } from '@/graph';
 import { BindingContext } from '@/lang/condition-evaluator';
-import {
-  ASTQueryRoot,
-  ASTCreateNodePatternNode,
-  ASTCreateRelPatternNode,
-  ASTPropertySettingNode,
-  ASTLiteralExpressionNode,
-  ASTCreateNode,
-  ASTSetNode
-} from '@/lang/ast-transformer';
 import { PatternMatcherWithConditions } from '@/lang/pattern-matcher-with-conditions';
 import { NodePattern, PathPattern } from '@/lang/pattern-matcher';
 import {
@@ -22,67 +13,6 @@ import {
   DeleteAction
 } from '@/query';
 
-// Create proper AST nodes for testing
-const mockCreateNodeAst: ASTCreateNodePatternNode = {
-  type: 'createNode',
-  variable: 'p',
-  labels: ['Person'],
-  properties: { name: 'Alice', age: 30 }
-};
-
-const mockCreateRelAst: ASTCreateRelPatternNode = {
-  type: 'createRelationship',
-  fromVar: 'p',
-  toVar: 't',
-  relationship: {
-    variable: 'r',
-    relType: 'WORKS_ON',
-    direction: 'outgoing',
-    properties: { since: 2022 }
-  }
-};
-
-const mockSetPropertyAst: ASTPropertySettingNode = {
-  type: 'propertySetting',
-  target: 'p',
-  property: 'active',
-  value: {
-    type: 'literalExpression',
-    value: true,
-    dataType: 'boolean'
-  } as ASTLiteralExpressionNode
-};
-
-// Create a valid rule AST
-const mockTaskNodeAst: ASTCreateNodePatternNode = {
-  type: 'createNode',
-  variable: 't',
-  labels: ['Task'],
-  properties: { title: 'Complete project', due: '2023-12-31' }
-};
-
-const mockRuleAst: ASTQueryRoot = {
-  type: 'query',
-  name: 'AddPersonAndTask',
-  description: 'Create a person and a task, and connect them',
-  priority: 10,
-  children: [
-    {
-      type: 'create',
-      children: [
-        mockCreateNodeAst,
-        mockTaskNodeAst,
-        mockCreateRelAst
-      ]
-    } as ASTCreateNode,
-    {
-      type: 'set',
-      children: [
-        mockSetPropertyAst
-      ]
-    } as ASTSetNode
-  ]
-};
 
 describe('Rule Action Integration Tests', () => {
   let graph: Graph;
@@ -95,67 +25,6 @@ describe('Rule Action Integration Tests', () => {
     bindings = new BindingContext();
     factory = new ActionFactory();
     executor = new ActionExecutor();
-  });
-
-  test('End-to-end rule execution with multiple actions', () => {
-    // 1. Create actions from rule AST
-    const actions = factory.createActionsFromQueryAst(mockRuleAst as ASTQueryRoot);
-
-    // Verify actions were created correctly
-    expect(actions.length).toBe(4);
-    expect(actions[0].type).toBe('CREATE_NODE');
-    expect(actions[1].type).toBe('CREATE_NODE');
-    expect(actions[2].type).toBe('CREATE_RELATIONSHIP');
-    expect(actions[3].type).toBe('SET_PROPERTY');
-
-    // Log actions for debugging
-    actions.forEach(action => {
-      console.log(`Action: ${action.type} - ${action.describe()}`);
-    });
-
-    // 2. Execute actions with validation (but don't validate before, to avoid early failure)
-    const result = executor.executeActions(graph, actions, bindings, {
-      validateBeforeExecute: false, // Important: we'll validate each action during its execution
-    });
-
-    // Log results for debugging
-    console.log(`Execution succeeded: ${result.success}`);
-    if (result.error) {
-      console.log(`Error: ${result.error}`);
-    }
-
-    result.actionResults.forEach((r, i) => {
-      console.log(`Action ${i} ${r.success ? 'succeeded' : 'failed'}: ${r.error || ''}`);
-    });
-
-    // 3. Verify execution results
-    expect(result.success).toBe(true);
-    expect(result.actionResults.length).toBe(4);
-    expect(result.actionResults.every(r => r.success)).toBe(true);
-
-    // Should have 2 nodes and 1 edge
-    expect(graph.getAllNodes().length).toBe(2);
-    expect(graph.getAllEdges().length).toBe(1);
-
-    // 4. Verify bindings were updated
-    const personNode = bindings.get('p');
-    const taskNode = bindings.get('t');
-    const relation = bindings.get('r');
-
-    expect(personNode).toBeDefined();
-    expect(taskNode).toBeDefined();
-    expect(relation).toBeDefined();
-
-    expect(personNode.data.name).toBe('Alice');
-    expect(personNode.data.age).toBe(30);
-    expect(personNode.data.active).toBe(true); // Set by the last action
-
-    expect(taskNode.data.title).toBe('Complete project');
-
-    expect(relation.source).toBe(personNode.id);
-    expect(relation.target).toBe(taskNode.id);
-    expect(relation.label).toBe('WORKS_ON');
-    expect(relation.data.since).toBe(2022);
   });
 
   // Let's simplify this test for now since it seems to be having trouble with pattern matching
@@ -389,13 +258,6 @@ describe('Rule Action Integration Tests', () => {
 
     // Execute the rule
     const result = engine.executeQuery(testGraph, query);
-
-    // Log result for debugging
-    console.log('\nRule execution result for pattern matching binding test:');
-    console.log(`Rule text: ${result.statement}`);
-    console.log(`Success: ${result.success}`);
-    console.log(`Matches found: ${result.matchCount}`);
-    console.log(`Error: ${result.error || 'none'}`);
 
     // Examine rule engine internal state 
     console.log('\nRule engine execution details:');

@@ -627,10 +627,10 @@ describe('Rule Parser', () => {
         if (!('relationship' in pattern)) return; // This will never execute due to previous assertion
 
         // Make assertions on the relationship properties
-        expect(pattern.fromNode.name).toBe('a');
+        expect(pattern.fromNode.node.variable).toBe('a');
         expect(pattern.relationship.type).toBe('KNOWS');
         expect(pattern.relationship.direction).toBe('outgoing');
-        expect(pattern.toNode.name).toBe('b');
+        expect(pattern.toNode.node.variable).toBe('b');
       });
 
       it('should parse multiple CREATE patterns', () => {
@@ -914,10 +914,10 @@ describe('Rule Parser', () => {
         const pattern3 = result.create!.patterns[2];
         expect('relationship' in pattern3).toBe(true);
         if ('relationship' in pattern3) {
-          expect(pattern3.fromNode.name).toBe('a');
+          expect(pattern3.fromNode.node.variable).toBe('a');
           expect(pattern3.relationship.type).toBe('KNOWS');
           expect(pattern3.relationship.direction).toBe('outgoing');
-          expect(pattern3.toNode.name).toBe('b');
+          expect(pattern3.toNode.node.variable).toBe('b');
         }
       });
 

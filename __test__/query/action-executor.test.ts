@@ -68,7 +68,7 @@ describe('ActionExecutor', () => {
     bindings.set('n', alice);
 
     const createAction = new CreateNodeAction('task', ['Task'], { title: 'Task 1' });
-    const setAction = new SetPropertyAction('n', 'age', 30);
+    const setAction = new SetPropertyAction('n', 'age', { "type": "literal", "value": 30, dataType: "number" });
     const deleteAction = new DeleteAction(['n'], true);
 
     const result = executor.executeActions(graph, [createAction, setAction, deleteAction], bindings, {

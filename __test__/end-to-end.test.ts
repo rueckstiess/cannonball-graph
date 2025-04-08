@@ -1387,6 +1387,20 @@ describe('Query Language Documentation Examples', () => {
     expect((result.query?.rows[0][0].value as Edge).label).toBe('KNOWS');
   });
 
+  it('Create nodes in addition to relationship with variables and relationship', () => {
+    // David (User) and Acme Corp (Company) exist. Let's create Frank and Beta Inc.
+    const result = engine.executeQuery(graph, 'CREATE (p:Person {name: "Frank"}), (c:Company {name: "Beta Inc"}), (p)-[rel:WORKS_FOR]->(c) RETURN p, rel, c');
+    expect(result.success).toBe(true);
+    expect(result.actions?.affectedNodes.length).toBe(2); // Frank, Beta Inc
+    expect(result.actions?.affectedEdges.length).toBe(1); // WORKS_FOR
+    const frankNode = graph.findNodes(n => n.data.name === 'Frank')[0];
+    const betaNode = graph.findNodes(n => n.data.name === 'Beta Inc')[0];
+    expect(frankNode).toBeDefined();
+    expect(betaNode).toBeDefined();
+    expect(graph.hasEdge(frankNode.id, betaNode.id, 'WORKS_FOR')).toBe(true);
+    expect(result.query?.rows.length).toBe(1);
+  });
+
   it('Create nodes with variables and relationship', () => {
     // David (User) and Acme Corp (Company) exist. Let's create Frank and Beta Inc.
     const result = engine.executeQuery(graph, 'CREATE (p:Person {name: "Frank"})-[rel:WORKS_FOR]->(c:Company {name: "Beta Inc"}) RETURN p, rel, c');
@@ -1418,7 +1432,7 @@ describe('Query Language Documentation Examples', () => {
   it('Creating nodes without labels should fail', () => {
     const result = engine.executeQuery(graph, 'CREATE (n)-[:WORKS_FOR]->(p) RETURN n, p');
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/label is required/)
+    expect(result.error).toMatch(/Source node n not found in bindings/)
   });
 
   // SET Clause Examples

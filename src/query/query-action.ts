@@ -1,14 +1,8 @@
 import { Graph, Node, Edge } from '@/graph';
 import { BindingContext, ConditionEvaluator } from '@/lang/condition-evaluator';
-import {
-  ASTQueryRoot,
-  ASTCreateNodePatternNode,
-  ASTCreateRelPatternNode,
-  ASTPropertySettingNode,
-  ASTDeleteNode
-} from '@/lang/ast-transformer';
 
-import { CypherStatement } from '@/lang/parser';
+
+import { CypherStatement, Expression } from '@/lang/parser';
 import { NodePattern } from '@/lang/pattern-matcher';
 
 /**
@@ -91,6 +85,15 @@ export interface ActionExecutionOptions {
 }
 
 /**
+ * Default options for action execution
+ */
+const DEFAULT_EXECUTION_OPTIONS: ActionExecutionOptions = {
+  rollbackOnFailure: true,
+  validateBeforeExecute: true
+};
+
+
+/**
  * Result of executing multiple actions
  */
 export interface ActionExecutionResult<NodeData = any, EdgeData = any> {
@@ -121,288 +124,12 @@ export interface ActionExecutionResult<NodeData = any, EdgeData = any> {
 }
 
 
-/**
- * Factory for creating query actions from AST nodes
- */
-export class ActionFactory<NodeData = any, EdgeData = any> {
-
-  private conditionEvaluator: ConditionEvaluator<NodeData, EdgeData>;
-
-  /**
-   * Creates a new ActionFactory
-   * 
-   * @param conditionEvaluator Optional condition evaluator for evaluating expressions
-   */
-  constructor(conditionEvaluator?: ConditionEvaluator<NodeData, EdgeData>) {
-    this.conditionEvaluator = conditionEvaluator || new ConditionEvaluator<NodeData, EdgeData>();
-  }
-
-  /**
-   * Creates actions from a CREATE node AST node
-   * 
-   * @param createNodeAst The AST node representing a node creation
-   * @returns The corresponding action
-   */
-  createNodeActionFromAst(
-    createNodeAst: ASTCreateNodePatternNode
-  ): CreateNodeAction<NodeData, EdgeData> {
-    return new CreateNodeAction<NodeData, EdgeData>(
-      createNodeAst.variable || '_anonymous_node_' + Math.random().toString(36).substring(2, 10),
-      createNodeAst.labels,
-      createNodeAst.properties
-    );
-  }
-
-  /**
-   * Creates actions from a CREATE relationship AST node
-   * 
-   * @param createRelAst The AST node representing a relationship creation
-   * @returns The corresponding action
-   */
-  createRelationshipActionFromAst(
-    createRelAst: ASTCreateRelPatternNode
-  ): CreateRelationshipAction<NodeData, EdgeData> {
-    return new CreateRelationshipAction<NodeData, EdgeData>(
-      createRelAst.fromVar,
-      createRelAst.toVar,
-      createRelAst.relationship.relType || '_RELATED_TO_',
-      createRelAst.relationship.properties || {},
-      createRelAst.relationship.variable
-    );
-  }
-
-  /**
-   * Creates actions from a SET property AST node
-   * 
-   * @param setPropertyAst The AST node representing a property setting
-   * @returns The corresponding action
-   */
-  setPropertyActionFromAst(
-    setPropertyAst: ASTPropertySettingNode
-  ): SetPropertyAction<NodeData, EdgeData> {
-    // Extract the property value
-    let value: any;
-
-    // For literal expressions in the AST, extract the value directly
-    if (setPropertyAst.value.type === 'literalExpression') {
-      value = setPropertyAst.value.value;
-    } else {
-      // For more complex expressions, we might need a more sophisticated approach
-      // This is a simplified version that assumes the value is already processed
-      value = setPropertyAst.value;
-
-      // In a more complete implementation, we would use the conditionEvaluator
-      // to evaluate expressions dynamically at runtime
-    }
-
-    return new SetPropertyAction<NodeData, EdgeData>(
-      setPropertyAst.target,
-      setPropertyAst.property,
-      value
-    );
-  }
-
-  /**
-   * Creates actions from a DELETE AST node
-   * 
-   * @param deleteAst The AST node representing a delete operation
-   * @returns The corresponding action
-   */
-  createDeleteActionFromAst(
-    deleteAst: ASTDeleteNode
-  ): DeleteAction<NodeData, EdgeData> {
-    return new DeleteAction<NodeData, EdgeData>(
-      deleteAst.variables,
-      deleteAst.detach
-    );
-  }
-
-  /**
-   * Creates actions from a query AST
-   * 
-   * @param queryAst The AST of the query
-   * @returns A list of actions to execute
-   */
-  createActionsFromQueryAst(
-    queryAst: ASTQueryRoot
-  ): QueryAction<NodeData, EdgeData>[] {
-    const actions: QueryAction<NodeData, EdgeData>[] = [];
-
-    // Process each child node in the query AST
-    for (const node of queryAst.children) {
-      if (node.type === 'create') {
-        // Process CREATE clause
-        for (const createPattern of node.children) {
-          if (createPattern.type === 'createNode') {
-            actions.push(this.createNodeActionFromAst(createPattern));
-          } else if (createPattern.type === 'createRelationship') {
-            actions.push(this.createRelationshipActionFromAst(createPattern));
-          }
-        }
-      } else if (node.type === 'set') {
-        // Process SET clause
-        for (const setPattern of node.children) {
-          actions.push(this.setPropertyActionFromAst(setPattern));
-        }
-      } else if (node.type === 'delete') { // <-- Add handling for delete
-        // Process DELETE clause
-        actions.push(this.createDeleteActionFromAst(node));
-      }
-      // MATCH and WHERE clauses are handled earlier in the pattern matching phase
-    }
-
-    return actions;
-  }
-
-  private getOrSetNodeVar(node: NodePattern): string {
-    if (node.variable) {
-      return node.variable;
-    } else {
-      return '_anonymous_' + Math.random().toString(36).substring(2, 10);
-    }
-  }
-
-  /**
-   * Creates actions from a Cypher statement
-   * 
-   * @param statement The Cypher statement 
-   * @returns A list of actions to execute
-   */
-  createActionsFromCypherStatement(statement: CypherStatement): QueryAction<NodeData, EdgeData>[] {
-    const actions: QueryAction<NodeData, EdgeData>[] = [];
-
-    if (statement.create) {
-      for (const pattern of statement.create.patterns) {
-        if ('node' in pattern) {
-          // Create a node action
-          const nodeVar = this.getOrSetNodeVar(pattern.node);
-          actions.push(new CreateNodeAction(
-            nodeVar,
-            pattern.node.labels,
-            pattern.node.properties
-          ));
-        } else {
-          // Create node and relationship actions
-          const fromVar = this.getOrSetNodeVar(pattern.fromNode.node);
-          const toVar = this.getOrSetNodeVar(pattern.toNode.node);
-
-          actions.push(new CreateNodeAction(
-            fromVar,
-            pattern.fromNode.node.labels,
-            pattern.fromNode.node.properties
-          ));
-          actions.push(new CreateNodeAction(
-            toVar,
-            pattern.toNode.node.labels,
-            pattern.toNode.node.properties
-          ));
-          actions.push(new CreateRelationshipAction(
-            fromVar,
-            toVar,
-            pattern.relationship.type || '',
-            pattern.relationship.properties,
-          ));
-        }
-      }
-    }
-
-    if (statement.set) {
-      for (const setting of statement.set.settings) {
-        actions.push(new SetPropertyAction(
-          setting.target.name,
-          setting.property,
-          setting.value
-        ));
-      }
-    }
-
-    if (statement.delete) {
-      console.log('delete', statement.delete);
-      for (const variable of statement.delete.variables) {
-        actions.push(new DeleteAction(
-          [variable.name],
-          statement.delete.detach || false
-        ));
-      }
-    }
-
-    return actions;
-  }
-}
-
-/**
- * Represents the result of an action execution
- */
-
-export interface ActionResult<NodeData = any, EdgeData = any> {
-  /**
-   * Whether the action execution was successful
-   */
-  success: boolean;
-
-  /**
-   * Error message if execution failed
-   */
-  error?: string;
-
-  /**
-   * Nodes created or modified by the action
-   */
-  affectedNodes?: Node<NodeData>[];
-
-  /**
-   * Edges created or modified by the action
-   */
-  affectedEdges?: Edge<EdgeData>[];
-}
-/**
- * Represents an action that can be executed on a graph
- */
-
-export interface QueryAction<NodeData = any, EdgeData = any> {
-  /**
-   * The type of the action (CREATE_NODE, CREATE_RELATIONSHIP, SET_PROPERTY, etc.)
-   */
-  type: string;
-
-  /**
-   * Validates that the action can be executed on the given graph
-   *
-   * @param graph The graph to validate against
-   * @param bindings Variable bindings from pattern matching
-   * @returns True if the action can be executed, false otherwise
-   */
-  validate(
-    graph: Graph<NodeData, EdgeData>,
-    bindings: BindingContext<NodeData, EdgeData>
-  ): { valid: boolean; error?: string; };
-
-  /**
-   * Executes the action on the given graph
-   *
-   * @param graph The graph to execute on
-   * @param bindings Variable bindings from pattern matching
-   * @returns The result of the action execution
-   */
-  execute(
-    graph: Graph<NodeData, EdgeData>,
-    bindings: BindingContext<NodeData, EdgeData>
-  ): ActionResult<NodeData, EdgeData>;
-
-  /**
-   * Provides a description of the action for logging and debugging
-   */
-  describe(): string;
-}
-/**
- * Represents an action that creates a new node
- */
 
 
 /**
  * Implementation of the CreateNodeAction interface
  */
-export class CreateNodeAction<NodeData = any, EdgeData = any> {
+export class CreateNodeAction<NodeData = any, EdgeData = any> implements QueryAction<NodeData, EdgeData> {
   readonly type = 'CREATE_NODE';
 
   /**
@@ -702,19 +429,22 @@ export class CreateRelationshipAction<NodeData = any, EdgeData = any> {
 export class SetPropertyAction<NodeData = any, EdgeData = any> {
 
   readonly type = 'SET_PROPERTY';
+  private conditionEvaluator: ConditionEvaluator<NodeData, EdgeData>;
 
   /**
    * Creates a new SetPropertyAction
    * 
    * @param targetVariable The variable name of the target (node or relationship)
    * @param propertyName The name of the property to set
-   * @param value The value to set
+   * @param expression The value to set
    */
   constructor(
     public targetVariable: string,
     public propertyName: string,
-    public value: any
-  ) { }
+    public expression: Expression,
+  ) {
+    this.conditionEvaluator = new ConditionEvaluator<NodeData, EdgeData>();
+  }
 
   /**
    * Validates that the action can be executed
@@ -784,7 +514,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any> {
         // Copy the existing data
         const updatedData = {
           ...(node.data || {}),
-          [this.propertyName]: this.value
+          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings)
         } as NodeData;
 
         // Update the node in the graph
@@ -820,7 +550,7 @@ export class SetPropertyAction<NodeData = any, EdgeData = any> {
         // Copy the existing data
         const updatedData = {
           ...(edge.data || {}),
-          [this.propertyName]: this.value
+          [this.propertyName]: this.conditionEvaluator.evaluateExpression(graph, this.expression, bindings)
         } as EdgeData;
 
         // Update the edge in the graph
@@ -864,14 +594,14 @@ export class SetPropertyAction<NodeData = any, EdgeData = any> {
   describe(): string {
     // Format the value based on its type
     let formattedValue;
-    if (typeof this.value === 'string') {
-      formattedValue = `"${this.value}"`;
-    } else if (this.value === null) {
+    if (typeof this.expression === 'string') {
+      formattedValue = `"${this.expression}"`;
+    } else if (this.expression === null) {
       formattedValue = 'null';
-    } else if (typeof this.value === 'object') {
-      formattedValue = JSON.stringify(this.value);
+    } else if (typeof this.expression === 'object') {
+      formattedValue = JSON.stringify(this.expression);
     } else {
-      formattedValue = String(this.value);
+      formattedValue = String(this.expression);
     }
 
     return `SET ${this.targetVariable}.${this.propertyName} = ${formattedValue}`;
@@ -1011,21 +741,110 @@ export class DeleteAction<NodeData = any, EdgeData = any> {
 
 
 
-
-
 /**
- * Default options for action execution
+ * Factory for creating query actions from a cypher statement
  */
-const DEFAULT_EXECUTION_OPTIONS: ActionExecutionOptions = {
-  rollbackOnFailure: true,
-  validateBeforeExecute: true
-};
+export class ActionFactory<NodeData = any, EdgeData = any> {
+
+  private getOrSetNodeVar(node: NodePattern): string {
+    if (node.variable) {
+      return node.variable;
+    } else {
+      return '_anonymous_' + Math.random().toString(36).substring(2, 10);
+    }
+  }
+
+  /**
+   * Creates actions from a Cypher statement
+   * 
+   * @param statement The Cypher statement 
+   * @returns A list of actions to execute
+   */
+  createActionsFromCypherStatement(statement: CypherStatement): QueryAction<NodeData, EdgeData>[] {
+    const actions: QueryAction<NodeData, EdgeData>[] = [];
+
+    if (statement.create) {
+      for (const pattern of statement.create.patterns) {
+        if ('node' in pattern) {
+          // Create a node action
+          const nodeVar = this.getOrSetNodeVar(pattern.node);
+          actions.push(new CreateNodeAction(
+            nodeVar,
+            pattern.node.labels,
+            pattern.node.properties
+          ));
+        } else {
+          // Create node and relationship actions
+          const fromVar = this.getOrSetNodeVar(pattern.fromNode.node);
+          const toVar = this.getOrSetNodeVar(pattern.toNode.node);
+
+          if (pattern.fromNode.node.labels.length > 0) {
+            // this node pattern does not refer to a bound variable, create it
+            actions.push(new CreateNodeAction(
+              fromVar,
+              pattern.fromNode.node.labels,
+              pattern.fromNode.node.properties
+            ));
+          }
+          if (pattern.toNode.node.labels.length > 0) {
+            // this node pattern does not refer to a bound variable, create it
+            actions.push(new CreateNodeAction(
+              toVar,
+              pattern.toNode.node.labels,
+              pattern.toNode.node.properties
+            ));
+          }
+          if (pattern.relationship.type) {
+            // this relationship pattern does not refer to a bound variable, create it
+            actions.push(new CreateRelationshipAction(
+              fromVar,
+              toVar,
+              pattern.relationship.type || '',
+              pattern.relationship.properties,
+              pattern.relationship.variable
+            ));
+          }
+        }
+      }
+    }
+
+    if (statement.set) {
+      for (const setting of statement.set.settings) {
+        actions.push(new SetPropertyAction(
+          setting.target.name,
+          setting.property,
+          setting.value
+        ));
+      }
+    }
+
+    if (statement.delete) {
+      console.log('delete', statement.delete);
+      for (const variable of statement.delete.variables) {
+        actions.push(new DeleteAction(
+          [variable.name],
+          statement.delete.detach || false
+        ));
+      }
+    }
+
+    return actions;
+  }
+}
+
 
 /**
  * Orchestrates the execution of multiple actions with transaction-like semantics
  */
 
 export class ActionExecutor<NodeData = any, EdgeData = any> {
+
+  private conditionEvaluator: ConditionEvaluator<NodeData, EdgeData>;
+
+  constructor() {
+    this.conditionEvaluator = new ConditionEvaluator<NodeData, EdgeData>();
+  }
+
   /**
    * Executes a list of actions with rollback on failure
    */
@@ -1044,7 +863,7 @@ export class ActionExecutor<NodeData = any, EdgeData = any> {
           const validation = action.validate(graph, bindings);
           if (!validation.valid) {
             actionResults.push({ success: false, error: validation.error });
-            throw new Error(`Validation failed for action: ${action.describe()}`);
+            throw new Error(`Validation failed for action ${action.describe()}: ${validation.error}`);
           }
         }
 
