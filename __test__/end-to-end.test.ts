@@ -28,7 +28,7 @@ describe('End-to-End Query Tests', () => {
     // Tasks
     graph.addNode('task1', 'task', { name: 'Fix bug', active: true, priority: 'high' });
     graph.addNode('task2', 'task', { name: 'Write docs', active: false, priority: 'medium' });
-    graph.addNode('task3', 'task', { name: 'Deploy app', active: true, priority: 'high' });
+    graph.addNode('task3', 'task', { name: 'Deploy app', active: true, priority: 'high', missing: true });
 
     // Categories
     graph.addNode('cat1', 'category', { name: 'Work', tags: ['important', 'professional'] });
@@ -386,7 +386,7 @@ describe('End-to-End Query Tests', () => {
 
       expect(result.success).toBe(true);
       // All nodes should match since none have a 'missing' property
-      expect(result.matchCount).toBe(12); // 5 people + 2 orgs + 3 tasks + 2 categories
+      expect(result.matchCount).toBe(11); // 5 people + 2 orgs + 2 tasks (1 missing) + 2 categories
     });
 
     test('WHERE with IS NOT NULL operator', () => {
